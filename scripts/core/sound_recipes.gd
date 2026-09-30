@@ -7,19 +7,19 @@ extends RefCounted
 
 const NAMES: Array[String] = [
 	"thunk", "clack", "crunch", "clang", "tinkle", "fwump", "swish", "boom", "bigboom", "whoosh", "twang", "creak",
-	"fire_loop", "splash", "moo", "bawk", "baa", "neigh", "quack", "squeak", "bell", "scream", "yeet", "boing",
+	"fire_loop", "splash", "moo", "bawk", "baa", "neigh", "quack", "honk", "squeak", "bell", "scream", "yeet", "boing",
 	"buzz", "thunder", "zap", "rain_loop", "gust", "stinger_event", "ui_click", "ui_hover", "turn_start", "victory",
 	"defeat", "splat", "pop"]
 
 const VARIANTS: Dictionary = {
-	"thunk": 3, "clack": 3, "crunch": 3, "splash": 3, "boing": 3, "scream": 3, "moo": 2, "tinkle": 3, "fwump": 2, "swish": 2,
-	"clang": 3, "boom": 3, "bigboom": 2, "splat": 3, "yeet": 2, "twang": 2, "creak": 2, "pop": 2, "zap": 2, "bawk": 2,
+	"thunk": 3, "clack": 3, "crunch": 3, "splash": 3, "boing": 3, "scream": 3, "moo": 3, "tinkle": 3, "fwump": 2, "swish": 2,
+	"clang": 3, "boom": 3, "bigboom": 2, "splat": 3, "yeet": 2, "twang": 2, "creak": 2, "pop": 2, "zap": 2, "bawk": 3, "baa": 3, "quack": 3, "neigh": 2, "honk": 2,
 }
 const LOOPED: Array[String] = ["fire_loop", "rain_loop", "gust", "buzz"]
 ## Final peak level per sound (UI stays discreet, loops sit under everything else)
 const LEVEL: Dictionary = {
 	"ui_hover": 0.30, "ui_click": 0.55, "fire_loop": 0.55, "rain_loop": 0.5, "gust": 0.5, "buzz": 0.5, "tinkle": 0.7,
-	"clack": 0.8, "squeak": 0.7, "pop": 0.7, "bawk": 0.75, "quack": 0.75, "baa": 0.8, "moo": 0.85, "neigh": 0.8,
+	"clack": 0.8, "squeak": 0.7, "pop": 0.7, "bawk": 0.75, "quack": 0.75, "baa": 0.8, "moo": 0.85, "neigh": 0.8, "honk": 0.8,
 }
 
 static func variants_of(name: String) -> int:
@@ -195,31 +195,67 @@ static func make(name: String, variant: int) -> PackedFloat32Array:
 			Synth.osc(b, Synth.SINE, 230.0, 68.0, 0.0, 0.18, 0.8, 16.0, 0.0, 0.0, 0.002)
 			Synth.reverb(b, 0.45, 0.5, 0.16)
 		"moo":
-			b = Synth.make(1.7)
-			Synth.voice(b, 122.0 - v * 10.0, 94.0, 0.0, 1.45, 0.9, [[520.0, 1.0], [1000.0, 0.7], [2400.0, 0.12]], [[400.0, 1.0], [820.0, 0.8], [2200.0, 0.1]], r, 4.5, 0.025, 0.05, 0.14, 0.4, 0.0, 0.0, 6.0)
-			Synth.voice(b, 61.0 - v * 5.0, 47.0, 0.0, 1.45, 0.25, [[130.0, 1.0]], [[110.0, 1.0]], r, 4.5, 0.02, 0.0, 0.14, 0.4, 0.0, 0.0, 3.0)
-			Synth.reverb(b, 0.3, 0.5, 0.1)
+			# a cow: a long, low, nasal "mooo": soft rising start, "oo" -> open "aw" -> closing "mm" through the nose, rough
+			# at the end (vocal fry), slight pitch rise early and a long fall; every variant has its own pitch and length
+			var mdur: float = 1.9 + 0.25 * v
+			var mp: float = 1.0 + 0.07 * (v - 1.0)
+			b = Synth.make(mdur + 0.6)
+			var mf0: Array = [[0.0, 92.0 * mp], [0.1, 112.0 * mp], [0.28, 132.0 * mp], [0.6, 126.0 * mp], [0.85, 108.0 * mp], [1.0, 80.0 * mp]]
+			var mamp: Array = [[0.0, 0.0], [0.07, 0.55], [0.16, 0.95], [0.7, 1.0], [0.88, 0.7], [1.0, 0.0]]
+			var mforms: Array = [
+				[[[0.0, 320.0], [0.3, 640.0], [0.7, 600.0], [1.0, 270.0]], 110.0, 1.0],
+				[[[0.0, 780.0], [0.3, 1120.0], [0.7, 1000.0], [1.0, 720.0]], 150.0, 0.75],
+				[[[0.0, 2300.0], [1.0, 2200.0]], 300.0, 0.14],
+				[[[0.0, 230.0], [1.0, 250.0]], 70.0, 0.55]]
+			Synth.vocal(b, 0.0, mdur, 0.9, mf0, mforms, mamp, r, {"jitter": 0.012, "shimmer": 0.1, "breath": 0.03, "vib_hz": 4.2, "vib_depth": 0.012, "fry": 0.9, "fry_from": 0.82, "tilt": 2200.0, "drive": 1.4})
+			Synth.biquad(b, "lp", 4200.0, 0.7)
+			Synth.reverb(b, 0.35, 0.5, 0.12)
 		"bawk":
-			b = Synth.make(0.9)
-			for k in 3:
-				var t3: float = float(k) * 0.16
-				Synth.voice(b, 520.0 + v * 40.0, 780.0, t3, 0.09, 0.9, [[700.0, 1.0], [1800.0, 0.6]], [[900.0, 1.0], [2400.0, 0.5]], r, 0.0, 0.0, 0.18, 0.004, 0.03, 0.0, 0.0, 5.0)
-				Synth.voice(b, 800.0, 430.0, t3 + 0.075, 0.09, 0.9, [[900.0, 1.0], [2300.0, 0.5]], [[650.0, 1.0], [1700.0, 0.5]], r, 0.0, 0.0, 0.18, 0.004, 0.04, 0.0, 0.0, 5.0)
+			# chicken: a few short rough "bok"s that fall in pitch, ending in a long "baaawk" that bends up and down
+			b = Synth.make(1.5)
+			var cnum: int = 2 + int(v) % 3
+			var cp: float = 1.0 + 0.1 * (v - 1.0)
+			for k in cnum:
+				var tk: float = float(k) * 0.17 + r.range_f(0.0, 0.03)
+				Synth.vocal(b, tk, 0.1, 0.8, [[0.0, 640.0 * cp], [0.4, 560.0 * cp], [1.0, 400.0 * cp]], [[[[0.0, 850.0], [1.0, 700.0]], 160.0, 1.0], [[[0.0, 1900.0], [1.0, 1500.0]], 260.0, 0.6], [[[0.0, 3000.0], [1.0, 2600.0]], 400.0, 0.2]], [[0.0, 0.0], [0.08, 1.0], [0.4, 0.8], [1.0, 0.0]], r, {"jitter": 0.03, "shimmer": 0.15, "breath": 0.12, "tilt": 3500.0, "drive": 1.5})
+			var tl: float = float(cnum) * 0.17 + 0.05
+			Synth.vocal(b, tl, 0.5, 0.95, [[0.0, 470.0 * cp], [0.3, 720.0 * cp], [0.6, 640.0 * cp], [1.0, 360.0 * cp]], [[[[0.0, 800.0], [0.4, 1000.0], [1.0, 700.0]], 170.0, 1.0], [[[0.0, 1700.0], [0.4, 2000.0], [1.0, 1600.0]], 280.0, 0.65], [[[0.0, 3000.0], [1.0, 2700.0]], 400.0, 0.2]], [[0.0, 0.0], [0.1, 1.0], [0.7, 0.85], [1.0, 0.0]], r, {"jitter": 0.04, "shimmer": 0.2, "breath": 0.14, "tilt": 3500.0, "vib_hz": 11.0, "vib_depth": 0.03, "drive": 1.6})
 			Synth.reverb(b, 0.25, 0.5, 0.08)
 		"baa":
-			b = Synth.make(1.25)
-			Synth.voice(b, 235.0 - v * 10.0, 205.0, 0.0, 1.0, 0.9, [[650.0, 1.0], [1250.0, 0.8], [2400.0, 0.25]], [[790.0, 1.0], [1450.0, 0.7], [2650.0, 0.2]], r, 6.5, 0.04, 0.07, 0.05, 0.2, 27.0, 0.55, 7.0)
+			# sheep: a nasal, trembling bleat ("määäh") with a tiny plosive at the start and a fast 28 Hz wobble
+			var bp: float = 1.0 + 0.09 * (v - 1.0)
+			var bdur: float = 1.15 + 0.15 * v
+			b = Synth.make(bdur + 0.5)
+			Synth.noise(b, Synth.WHITE, 0.0, 0.035, 0.5, 40.0, 1800.0, 900.0, 300.0, r, 0.002)
+			Synth.vocal(b, 0.02, bdur, 0.95, [[0.0, 300.0 * bp], [0.08, 390.0 * bp], [0.5, 350.0 * bp], [0.85, 320.0 * bp], [1.0, 270.0 * bp]], [[[[0.0, 600.0], [0.2, 880.0], [0.8, 760.0], [1.0, 520.0]], 130.0, 1.0], [[[0.0, 1300.0], [0.2, 1500.0], [0.8, 1800.0], [1.0, 1400.0]], 190.0, 0.8], [[[0.0, 2700.0], [1.0, 2600.0]], 320.0, 0.25], [[[0.0, 280.0], [1.0, 300.0]], 90.0, 0.3]], [[0.0, 0.0], [0.04, 0.9], [0.2, 1.0], [0.85, 0.8], [1.0, 0.0]], r, {"jitter": 0.02, "shimmer": 0.15, "breath": 0.06, "trem_hz": 27.0 + v * 2.0, "trem_depth": 0.5, "vib_hz": 5.0, "vib_depth": 0.02, "tilt": 3200.0, "drive": 1.3})
 			Synth.reverb(b, 0.3, 0.5, 0.1)
 		"neigh":
-			b = Synth.make(1.6)
-			Synth.voice(b, 520.0, 1150.0, 0.0, 0.5, 0.9, [[850.0, 1.0], [1900.0, 0.7], [3000.0, 0.3]], [[1000.0, 1.0], [2200.0, 0.7], [3200.0, 0.3]], r, 9.0, 0.04, 0.15, 0.04, 0.05, 0.0, 0.0, 6.0)
-			Synth.voice(b, 1150.0, 380.0, 0.45, 0.95, 0.9, [[1000.0, 1.0], [2200.0, 0.7], [3200.0, 0.3]], [[700.0, 1.0], [1500.0, 0.7], [2700.0, 0.3]], r, 10.0, 0.05, 0.18, 0.02, 0.3, 0.0, 0.0, 6.0)
-			Synth.reverb(b, 0.4, 0.5, 0.14)
+			# horse whinny: a rising squeal, a long falling warble with unsteady pitch, then breathy snorts
+			var np: float = 1.0 + 0.08 * v
+			b = Synth.make(2.6)
+			Synth.vocal(b, 0.0, 1.55, 0.95, [[0.0, 380.0 * np], [0.12, 880.0 * np], [0.26, 1500.0 * np], [0.34, 1380.0 * np], [0.5, 1150.0 * np], [0.66, 820.0 * np], [0.8, 600.0 * np], [1.0, 420.0 * np]], [[[[0.0, 700.0], [0.3, 1000.0], [1.0, 650.0]], 200.0, 1.0], [[[0.0, 1700.0], [0.3, 2300.0], [1.0, 1500.0]], 300.0, 0.75], [[[0.0, 3000.0], [1.0, 3000.0]], 500.0, 0.35]], [[0.0, 0.0], [0.07, 0.9], [0.3, 1.0], [0.75, 0.85], [1.0, 0.0]], r, {"jitter": 0.1, "shimmer": 0.3, "breath": 0.1, "vib_hz": 8.0, "vib_depth": 0.05, "trem_hz": 17.0, "trem_depth": 0.25, "tilt": 0.0, "drive": 1.8})
+			for k in 3:
+				var ts: float = 1.65 + float(k) * 0.24
+				Synth.noise(b, Synth.PINK, ts, 0.16, 0.5 - float(k) * 0.1, 18.0, 1700.0, 500.0, 120.0, r, 0.01)
+				Synth.vocal(b, ts, 0.14, 0.4 - float(k) * 0.08, [[0.0, 240.0], [1.0, 170.0]], [[[[0.0, 500.0], [1.0, 420.0]], 200.0, 1.0], [[[0.0, 1300.0], [1.0, 1000.0]], 300.0, 0.5]], [[0.0, 0.0], [0.2, 1.0], [1.0, 0.0]], r, {"jitter": 0.05, "breath": 0.3, "tilt": 1500.0})
+			Synth.reverb(b, 0.45, 0.5, 0.15)
 		"quack":
-			b = Synth.make(0.7)
-			Synth.voice(b, 430.0, 290.0, 0.0, 0.15, 0.9, [[1100.0, 1.0], [2100.0, 0.8], [3300.0, 0.3]], [[900.0, 1.0], [1900.0, 0.8], [3000.0, 0.3]], r, 0.0, 0.0, 0.28, 0.004, 0.06, 0.0, 0.0, 5.0)
-			Synth.voice(b, 400.0, 260.0, 0.22, 0.18, 0.9, [[1100.0, 1.0], [2100.0, 0.8], [3300.0, 0.3]], [[900.0, 1.0], [1900.0, 0.8], [3000.0, 0.3]], r, 0.0, 0.0, 0.28, 0.004, 0.08, 0.0, 0.0, 5.0)
+			# duck: two or three buzzy, nasal "quaa"s that get quieter, each with a snappy start and a short pitch fall
+			b = Synth.make(1.2)
+			var qn: int = 2 + int(v) % 2
+			var qp: float = 1.0 + 0.08 * (v - 1.0)
+			for k in qn:
+				var tq: float = float(k) * 0.25 + r.range_f(0.0, 0.02)
+				var qg: float = 1.0 - 0.25 * float(k)
+				Synth.vocal(b, tq, 0.19, 0.95 * qg, [[0.0, 410.0 * qp], [0.3, 380.0 * qp], [1.0, 290.0 * qp]], [[[[0.0, 900.0], [0.3, 1150.0], [1.0, 850.0]], 220.0, 1.0], [[[0.0, 1900.0], [0.3, 2200.0], [1.0, 1800.0]], 300.0, 0.9], [[[0.0, 3100.0], [1.0, 2900.0]], 450.0, 0.35]], [[0.0, 0.0], [0.03, 1.0], [0.55, 0.85], [1.0, 0.0]], r, {"jitter": 0.035, "shimmer": 0.25, "breath": 0.08, "tilt": 0.0, "drive": 2.2, "vib_hz": 55.0, "vib_depth": 0.02})
 			Synth.reverb(b, 0.25, 0.5, 0.08)
+		"honk":
+			# goose: a loud, brassy, nasal "hooonk" that bends up, twice
+			b = Synth.make(1.5)
+			var gp: float = 1.0 + 0.07 * (v - 0.5)
+			Synth.vocal(b, 0.0, 0.62, 1.0, [[0.0, 300.0 * gp], [0.25, 360.0 * gp], [0.7, 410.0 * gp], [1.0, 330.0 * gp]], [[[[0.0, 600.0], [0.3, 800.0], [1.0, 650.0]], 160.0, 1.0], [[[0.0, 1200.0], [0.3, 1500.0], [1.0, 1300.0]], 220.0, 0.9], [[[0.0, 2500.0], [1.0, 2300.0]], 400.0, 0.4]], [[0.0, 0.0], [0.06, 1.0], [0.8, 0.9], [1.0, 0.0]], r, {"jitter": 0.02, "shimmer": 0.12, "breath": 0.05, "tilt": 0.0, "drive": 2.4, "vib_hz": 38.0, "vib_depth": 0.015})
+			Synth.vocal(b, 0.72, 0.5, 0.85, [[0.0, 280.0 * gp], [0.3, 340.0 * gp], [1.0, 290.0 * gp]], [[[[0.0, 600.0], [0.3, 780.0], [1.0, 620.0]], 160.0, 1.0], [[[0.0, 1200.0], [0.3, 1450.0], [1.0, 1250.0]], 220.0, 0.9], [[[0.0, 2500.0], [1.0, 2300.0]], 400.0, 0.4]], [[0.0, 0.0], [0.07, 1.0], [0.75, 0.8], [1.0, 0.0]], r, {"jitter": 0.02, "shimmer": 0.12, "breath": 0.05, "tilt": 0.0, "drive": 2.4, "vib_hz": 38.0, "vib_depth": 0.015})
+			Synth.reverb(b, 0.3, 0.5, 0.1)
 		"squeak":
 			b = Synth.make(0.3)
 			Synth.fm(b, 1900.0, 2.0, 1.4, 0.15, 0.0, 0.2, 0.8, 10.0, 0.004, 3500.0)

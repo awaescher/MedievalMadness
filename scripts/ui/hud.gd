@@ -117,76 +117,181 @@ class AmmoSlot extends Control:
 			draw_arc(lc + Vector2(0, -1), 6.0, PI, TAU, 10, Color("#3b2a1a"), 3.0, true)
 			draw_rect(Rect2(lc + Vector2(-8, 0), Vector2(16, 12)), Color("#3b2a1a"))
 			draw_circle(lc + Vector2(0, 6), 2.0, Color("#f4e4bc"))
+	# ---- icon helpers (all drawn with primitives; `_on` dims everything of a locked weapon)
+	var _on: bool = true
+	func _k(col: Color) -> Color:
+		return col if _on else col.darkened(0.42).lerp(Color("#8a8070"), 0.35)
+	func _ball(p: Vector2, r: float, base: Color) -> void:
+		draw_circle(p, r + 2.0, Color("#1a1220"))
+		draw_circle(p, r, _k(base))
+		draw_arc(p, r - 2.0, 0.15, 1.75, 14, _k(base.darkened(0.35)), 3.5, true)
+		draw_circle(p + Vector2(-r * 0.32, -r * 0.34), r * 0.3, _k(base.lightened(0.38)))
+		draw_circle(p + Vector2(-r * 0.4, -r * 0.42), r * 0.1, _k(Color(1, 1, 1, 0.9)))
+	func _ellipse(p: Vector2, rx: float, ry: float, col: Color, rot: float = 0.0) -> void:
+		var pts := PackedVector2Array()
+		for q in 18:
+			var a: float = TAU * float(q) / 18.0
+			pts.append(p + Vector2(cos(a) * rx, sin(a) * ry).rotated(rot))
+		draw_colored_polygon(pts, col)
+	func _poly(pts: PackedVector2Array, fill: Color, outline: Color = Color("#1a1220"), w: float = 2.0) -> void:
+		draw_colored_polygon(pts, _k(fill))
+		var closed := pts.duplicate()
+		closed.append(pts[0])
+		draw_polyline(closed, outline, w, true)
+	func _barrel_pts(p: Vector2, w: float, h: float, bulge: float) -> PackedVector2Array:
+		var left := PackedVector2Array()
+		var right := PackedVector2Array()
+		for q in 9:
+			var t: float = float(q) / 8.0
+			var half: float = w * 0.5 * (1.0 + bulge * sin(PI * t))
+			left.append(p + Vector2(-half, -h * 0.5 + h * t))
+			right.append(p + Vector2(half, -h * 0.5 + h * t))
+		right.reverse()
+		left.append_array(right)
+		return left
+	func _barrel(p: Vector2, w: float, h: float, wood: Color, band: Color) -> void:
+		_poly(_barrel_pts(p, w, h, 0.14), wood)
+		# staves
+		for sx in [-0.5, -0.17, 0.17, 0.5]:
+			draw_line(p + Vector2(w * float(sx) * 0.9, -h * 0.46), p + Vector2(w * float(sx) * 1.0, h * 0.46), _k(wood.darkened(0.3)), 1.2)
+		# iron bands
+		for by in [-0.27, 0.27]:
+			var yy: float = h * float(by)
+			var half: float = w * 0.5 * (1.0 + 0.14 * sin(PI * (0.5 + float(by))))
+			draw_rect(Rect2(p + Vector2(-half - 1.0, yy - 2.5), Vector2(half * 2.0 + 2.0, 5.0)), Color("#1a1220"))
+			draw_rect(Rect2(p + Vector2(-half, yy - 1.5), Vector2(half * 2.0, 3.0)), _k(band))
+		# soft highlight on the left stave
+		draw_line(p + Vector2(-w * 0.32, -h * 0.4), p + Vector2(-w * 0.36, h * 0.4), _k(wood.lightened(0.3)), 2.0)
+	func _spark(p: Vector2, r: float, col: Color) -> void:
+		var pts := PackedVector2Array()
+		for q in 8:
+			var a: float = TAU * float(q) / 8.0
+			var rr: float = r if q % 2 == 0 else r * 0.42
+			pts.append(p + Vector2(cos(a), sin(a)) * rr)
+		draw_colored_polygon(pts, _k(col))
 	func _draw_icon(c: Vector2, on: bool) -> void:
-		var col: Color = ammo.color if on else ammo.color.darkened(0.5)
+		_on = on
 		var dark := Color("#1a1220")
 		match ammo.id:
 			"stone":
-				draw_circle(c, 19.0, dark)
-				draw_circle(c, 16.0, col)
-				draw_circle(c + Vector2(-5, -5), 4.0, col.lightened(0.3))
-			"boulder":
-				draw_circle(c, 23.0, dark)
-				draw_circle(c, 20.0, col)
-				draw_circle(c + Vector2(-7, -7), 6.0, col.lightened(0.25))
-				draw_circle(c + Vector2(7, 6), 4.5, col.darkened(0.25))
-				draw_circle(c + Vector2(-5, 9), 3.0, col.darkened(0.2))
-			"powderkeg":
-				draw_rect(Rect2(c + Vector2(-15, -19), Vector2(30, 38)), dark)
-				draw_rect(Rect2(c + Vector2(-12, -16), Vector2(24, 32)), col)
-				draw_rect(Rect2(c + Vector2(-12, -8), Vector2(24, 4)), Color("#7f8c9a"))
-				draw_rect(Rect2(c + Vector2(-12, 6), Vector2(24, 4)), Color("#7f8c9a"))
-			"firebarrel":
-				draw_rect(Rect2(c + Vector2(-14, -16), Vector2(28, 34)), dark)
-				draw_rect(Rect2(c + Vector2(-11, -13), Vector2(22, 28)), Color("#8a5a2a") if on else Color("#4a3a2a"))
-				draw_rect(Rect2(c + Vector2(-11, -6), Vector2(22, 4)), Color("#3a3a44"))
-				draw_rect(Rect2(c + Vector2(-11, 6), Vector2(22, 4)), Color("#3a3a44"))
-				var fl2 := PackedVector2Array([c + Vector2(-8, -14), c + Vector2(-2, -30), c + Vector2(2, -20), c + Vector2(6, -28), c + Vector2(9, -14)])
-				draw_colored_polygon(fl2, col)
-			"scatter":
-				draw_circle(c, 18.0, dark)
-				draw_circle(c, 15.0, col)
-				for p in [Vector2(-6, -4), Vector2(5, -6), Vector2(0, 5), Vector2(-7, 7), Vector2(8, 4)]:
-					draw_circle(c + (p as Vector2), 3.5, Color("#5a4a30"))
-			"cow":
-				draw_rect(Rect2(c + Vector2(-17, -12), Vector2(34, 24)), dark)
-				draw_rect(Rect2(c + Vector2(-15, -10), Vector2(30, 20)), col)
-				draw_rect(Rect2(c + Vector2(-9, -8), Vector2(9, 8)), Color("#2b2b33"))
-				draw_rect(Rect2(c + Vector2(4, 0), Vector2(8, 7)), Color("#2b2b33"))
+				_ball(c, 18.0, Color("#9a9aa4"))
+				draw_line(c + Vector2(2, -9), c + Vector2(6, -2), _k(Color("#6e6e78")), 1.6)
+				draw_line(c + Vector2(6, -2), c + Vector2(3, 4), _k(Color("#6e6e78")), 1.6)
+				draw_circle(c + Vector2(-5, 8), 2.2, _k(Color("#7c7c86")))
 			"quad":
-				for q in [Vector2(-9, -9), Vector2(9, -9), Vector2(-9, 9), Vector2(9, 9)]:
-					draw_circle(c + (q as Vector2), 10.5, dark)
-					draw_circle(c + (q as Vector2), 8.5, col)
-					draw_circle(c + (q as Vector2) + Vector2(-2.5, -2.5), 2.5, col.lightened(0.3))
+				for q in [Vector2(-10, -9), Vector2(10, -11), Vector2(-12, 11), Vector2(9, 9)]:
+					_ball(c + (q as Vector2), 9.5, Color("#9a9aa4"))
+				# speed streaks
+				for sy in [-14, -2, 8]:
+					draw_line(c + Vector2(-27, float(sy)), c + Vector2(-21, float(sy)), _k(Color("#6a5a48")), 1.5)
 			"chain":
-				draw_line(c + Vector2(-13, 0), c + Vector2(13, 0), Color("#8a8a96"), 3.0)
-				for lk in [-6, 0, 6]:
-					draw_circle(c + Vector2(float(lk), 0), 2.6, Color("#aaaab6"))
-				for sx in [-17, 17]:
-					draw_circle(c + Vector2(float(sx), 0), 12.0, dark)
-					draw_circle(c + Vector2(float(sx), 0), 10.0, col if on else col.lightened(0.1))
-					draw_circle(c + Vector2(float(sx) - 3, -3), 2.5, Color("#6a6a75"))
+				# whirling: faint circular streaks behind the balls
+				draw_arc(c, 21.0, -0.6, 1.0, 12, _k(Color("#a8a8b4")), 1.5, true)
+				draw_arc(c, 21.0, PI - 0.6, PI + 1.0, 12, _k(Color("#a8a8b4")), 1.5, true)
+				for lk in 5:
+					var lx: float = (float(lk) - 2.0) * 6.2
+					if lk % 2 == 0:
+						_ellipse(c + Vector2(lx, 0), 4.2, 2.6, dark)
+						_ellipse(c + Vector2(lx, 0), 3.2, 1.7, _k(Color("#b4b4c0")))
+					else:
+						_ellipse(c + Vector2(lx, 0), 2.6, 4.0, dark)
+						_ellipse(c + Vector2(lx, 0), 1.7, 3.0, _k(Color("#8e8e9a")))
+				_ball(c + Vector2(-20, 3), 10.5, Color("#33333c"))
+				_ball(c + Vector2(20, -3), 10.5, Color("#33333c"))
+			"boulder":
+				var rr: Array[float] = [21.0, 18.5, 22.0, 19.0, 21.5, 17.5, 20.5, 22.5, 18.0, 20.0]
+				var bp := PackedVector2Array()
+				for q in rr.size():
+					var a: float = TAU * float(q) / float(rr.size()) - 0.4
+					bp.append(c + Vector2(cos(a), sin(a)) * rr[q])
+				_poly(bp, Color("#87878f"), dark, 2.5)
+				var shade := PackedVector2Array()
+				for q in range(3, 8):
+					shade.append(bp[q])
+				shade.append(c + Vector2(2, 3))
+				draw_colored_polygon(shade, _k(Color("#5d5d66")))
+				var hl := PackedVector2Array([c + Vector2(-14, -8), c + Vector2(-6, -17), c + Vector2(3, -14), c + Vector2(-4, -6)])
+				draw_colored_polygon(hl, _k(Color("#b4b4bc")))
+				draw_line(c + Vector2(4, -4), c + Vector2(10, 4), _k(Color("#4a4a52")), 1.8)
+				draw_line(c + Vector2(-8, 4), c + Vector2(-2, 11), _k(Color("#4a4a52")), 1.8)
+				draw_circle(c + Vector2(8, 11), 2.5, _k(Color("#70707a")))
 			"log":
-				var lg := PackedVector2Array([c + Vector2(-23, 0), c + Vector2(-15, -9), c + Vector2(15, -9), c + Vector2(23, 0), c + Vector2(15, 9), c + Vector2(-15, 9)])
-				draw_colored_polygon(lg, dark)
-				var lg2 := PackedVector2Array([c + Vector2(-20, 0), c + Vector2(-14, -7), c + Vector2(14, -7), c + Vector2(20, 0), c + Vector2(14, 7), c + Vector2(-14, 7)])
-				draw_colored_polygon(lg2, col)
-				draw_line(c + Vector2(-8, -3), c + Vector2(6, -3), col.darkened(0.3), 2.0)
-				draw_line(c + Vector2(-4, 3), c + Vector2(10, 3), col.darkened(0.3), 2.0)
-				draw_circle(c + Vector2(-18, 0), 3.0, Color("#d9b27a"))
+				draw_set_transform(c, -0.32, Vector2.ONE)
+				var lg := PackedVector2Array([Vector2(-26, 0), Vector2(-19, -8), Vector2(18, -8), Vector2(26, 0), Vector2(18, 8), Vector2(-19, 8)])
+				_poly(lg, Color("#8a5a2f"), dark, 2.5)
+				draw_colored_polygon(PackedVector2Array([Vector2(-19, -8), Vector2(18, -8), Vector2(18, -4), Vector2(-19, -4)]), _k(Color("#a9763f")))
+				for bx in [-12, -2, 9]:
+					draw_line(Vector2(float(bx), -2), Vector2(float(bx) + 4, 6), _k(Color("#5a3a1c")), 1.6)
+				_poly(PackedVector2Array([Vector2(-26, 0), Vector2(-22, -4), Vector2(-19, -8), Vector2(-19, 8), Vector2(-22, 4)]), Color("#e0bd84"), dark, 1.5)
+				_poly(PackedVector2Array([Vector2(26, 0), Vector2(22, -4), Vector2(18, -8), Vector2(18, 8), Vector2(22, 4)]), Color("#e0bd84"), dark, 1.5)
+				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+				# rotation arrows
+				draw_arc(c + Vector2(0, -2), 25.0, -2.3, -0.9, 10, _k(Color("#6a5a48")), 1.6, true)
+				draw_arc(c + Vector2(0, 2), 25.0, 0.85, 2.25, 10, _k(Color("#6a5a48")), 1.6, true)
+			"firebarrel":
+				_barrel(c + Vector2(0, 7), 25.0, 30.0, Color("#8a5a2a"), Color("#4a4a56"))
+				# flames
+				_poly(PackedVector2Array([c + Vector2(-11, -6), c + Vector2(-13, -17), c + Vector2(-6, -11), c + Vector2(-4, -25), c + Vector2(2, -13), c + Vector2(8, -22), c + Vector2(10, -12), c + Vector2(13, -7)]), Color("#e8401c"), dark, 2.0)
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-7, -7), c + Vector2(-5, -15), c + Vector2(0, -10), c + Vector2(3, -17), c + Vector2(6, -8)]), _k(Color("#ff9a2a")))
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-3, -7), c + Vector2(0, -12), c + Vector2(3, -7)]), _k(Color("#ffe27a")))
+			"powderkeg":
+				_barrel(c + Vector2(0, 4), 26.0, 32.0, Color("#3c3c46"), Color("#8a95a3"))
+				# skull on the barrel
+				draw_circle(c + Vector2(0, 2), 6.0, _k(Color("#f4f0e4")))
+				draw_rect(Rect2(c + Vector2(-3.5, 6), Vector2(7, 5)), _k(Color("#f4f0e4")))
+				draw_circle(c + Vector2(-2.4, 1.5), 1.7, dark)
+				draw_circle(c + Vector2(2.4, 1.5), 1.7, dark)
+				# fuse with a spark
+				draw_arc(c + Vector2(5, -14), 6.0, PI * 0.5, PI * 1.5, 8, _k(Color("#d8b25a")), 2.0, true)
+				_spark(c + Vector2(5, -22), 5.5, Color("#ffcf3a"))
+			"scatter":
+				# a cloth sack tied at the neck, pellets bursting out of it
+				var sack := PackedVector2Array([c + Vector2(-17, 18), c + Vector2(-21, 6), c + Vector2(-15, -4), c + Vector2(-9, -8), c + Vector2(-3, -4), c + Vector2(3, 6), c + Vector2(0, 18)])
+				_poly(sack, Color("#cdaa68"), dark, 2.2)
+				draw_line(c + Vector2(-17, 12), c + Vector2(-9, 4), _k(Color("#a8864a")), 1.5)
+				draw_rect(Rect2(c + Vector2(-13, -8), Vector2(8, 4)), dark)
+				draw_rect(Rect2(c + Vector2(-12, -7), Vector2(6, 2)), _k(Color("#8a5a2a")))
+				for pe in [Vector2(6, -14), Vector2(14, -6), Vector2(19, -17), Vector2(12, -21), Vector2(22, 0), Vector2(8, -2)]:
+					_ball(c + (pe as Vector2), 3.6, Color("#8d8d98"))
+				draw_line(c + Vector2(4, -10), c + Vector2(0, -6), _k(Color("#6a5a48")), 1.4)
+			"cow":
+				# side view: white body with black patches, head with horns, four legs, tail
+				for lx in [-12, -6, 8, 14]:
+					draw_rect(Rect2(c + Vector2(float(lx) - 2.6, 8), Vector2(5.2, 12)), dark)
+					draw_rect(Rect2(c + Vector2(float(lx) - 1.6, 8), Vector2(3.2, 11)), _k(Color("#f4f1e8")))
+					draw_rect(Rect2(c + Vector2(float(lx) - 1.8, 17), Vector2(3.6, 3.5)), _k(Color("#2b2b33")))
+				draw_line(c + Vector2(-21, -4), c + Vector2(-26, 8), dark, 3.0)
+				draw_line(c + Vector2(-21, -4), c + Vector2(-26, 8), _k(Color("#f4f1e8")), 1.4)
+				_ellipse(c + Vector2(-26, 9), 2.4, 3.2, _k(Color("#2b2b33")))
+				_poly(PackedVector2Array([c + Vector2(-21, -11), c + Vector2(14, -11), c + Vector2(19, -4), c + Vector2(17, 9), c + Vector2(-19, 9), c + Vector2(-23, 0)]), Color("#f4f1e8"), dark, 2.4)
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-13, -10), c + Vector2(-2, -10), c + Vector2(-4, -1), c + Vector2(-12, 0)]), _k(Color("#2b2b33")))
+				draw_colored_polygon(PackedVector2Array([c + Vector2(6, -2), c + Vector2(14, -2), c + Vector2(13, 6), c + Vector2(7, 7)]), _k(Color("#2b2b33")))
+				_poly(PackedVector2Array([c + Vector2(15, -12), c + Vector2(25, -14), c + Vector2(29, -6), c + Vector2(27, 0), c + Vector2(17, 0)]), Color("#f4f1e8"), dark, 2.0)
+				draw_colored_polygon(PackedVector2Array([c + Vector2(23, -5), c + Vector2(29, -6), c + Vector2(27, 0), c + Vector2(22, 0)]), _k(Color("#f2b6b6")))
+				draw_line(c + Vector2(17, -12), c + Vector2(15, -18), _k(Color("#e8dcb0")), 2.4)
+				draw_line(c + Vector2(23, -14), c + Vector2(25, -19), _k(Color("#e8dcb0")), 2.4)
+				draw_circle(c + Vector2(20, -8), 1.5, dark)
 			"powdertrail":
-				for kx in [-13, 0, 13]:
-					draw_rect(Rect2(c + Vector2(float(kx) - 6, -12), Vector2(12, 18)), dark)
-					draw_rect(Rect2(c + Vector2(float(kx) - 4.5, -10.5), Vector2(9, 15)), Color("#5a4f44") if on else Color("#3a3a3a"))
-					draw_rect(Rect2(c + Vector2(float(kx) - 4.5, -5), Vector2(9, 2.5)), Color("#9aa2ad"))
-				for dx in [-16, -7, 4, 14]:
-					draw_circle(c + Vector2(float(dx), 12 + (dx % 3)), 3.0, Color("#1a1a1e"))
+				# a row of three small kegs and the black trail they leave
+				for kx in [-17, 0, 17]:
+					_barrel(c + Vector2(float(kx), -3), 13.0, 19.0, Color("#5a4f44"), Color("#9aa2ad"))
+				draw_polyline(PackedVector2Array([c + Vector2(-26, 15), c + Vector2(-16, 12), c + Vector2(-6, 16), c + Vector2(4, 12), c + Vector2(14, 16), c + Vector2(24, 12)]), dark, 4.5, true)
+				for dx in [-22, -12, -1, 9, 19]:
+					draw_circle(c + Vector2(float(dx), 14 + (dx % 3)), 2.3, _k(Color("#3a3a42")))
+				_spark(c + Vector2(26, 9), 5.0, Color("#ffcf3a"))
 			"meteor":
-				draw_rect(Rect2(c + Vector2(-2, -30), Vector2(4, 40)), Color(0.5, 1.0, 0.7, 0.55 if on else 0.25))
-				draw_circle(c + Vector2(0, 9), 14.0, Color(0.2, 1.0, 0.5, 0.25 if on else 0.1))
-				draw_circle(c + Vector2(0, 9), 10.0, dark)
-				draw_circle(c + Vector2(0, 9), 8.0, col)
-				draw_circle(c + Vector2(-2.5, 6.5), 3.0, col.lightened(0.5))
+				# green marker orb with a thin beam into the sky, a pulsing ring and a burning meteor on its way
+				draw_rect(Rect2(c + Vector2(-3.5, -27), Vector2(7, 36)), _k(Color(0.45, 1.0, 0.7, 0.22)))
+				draw_rect(Rect2(c + Vector2(-1.2, -27), Vector2(2.4, 36)), _k(Color(0.85, 1.0, 0.92, 0.9)))
+				_ellipse(c + Vector2(0, 14), 18.0, 5.5, _k(Color(0.2, 1.0, 0.5, 0.35)))
+				_ellipse(c + Vector2(0, 14), 12.0, 3.4, _k(Color(0.3, 1.0, 0.6, 0.45)))
+				draw_circle(c + Vector2(0, 8), 12.0, _k(Color(0.2, 1.0, 0.5, 0.28)))
+				_ball(c + Vector2(0, 8), 7.5, Color("#35ff86"))
+				# the falling meteor
+				draw_polyline(PackedVector2Array([c + Vector2(20, -22), c + Vector2(15, -15), c + Vector2(11, -9)]), _k(Color(1.0, 0.7, 0.25, 0.6)), 7.0, true)
+				draw_circle(c + Vector2(21, -23), 5.0, dark)
+				draw_circle(c + Vector2(21, -23), 3.6, _k(Color("#ff7a1a")))
+				draw_circle(c + Vector2(20, -24), 1.5, _k(Color("#ffe27a")))
 		var f: Font = UITheme.font_bold()
 		var w: float = f.get_string_size(ammo.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 		draw_string(f, c + Vector2(-w * 0.5, 30), ammo.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3b2a1a"))
