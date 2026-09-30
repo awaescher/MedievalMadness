@@ -18,6 +18,7 @@ var _base_fog: float = 0.0028
 var flash: float = 0.0
 var high_view: bool = false          # overview camera: thin fog, no clouds in the way
 var _fog_k: float = 1.0
+var _rich: bool = false
 
 func _ready() -> void:
 	sky_mat = ShaderMaterial.new()
@@ -92,6 +93,47 @@ func apply_quality(shadows: bool, atlas: int, soft: bool) -> void:
 		sun.light_angular_distance = 1.0 if soft else 0.0
 		RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_SOFT_HIGH if soft else RenderingServer.SHADOW_QUALITY_SOFT_LOW)
 
+## Lighting presets. basic = the old flat look; enhanced = filmic tonemap, SSAO, bloom, soft sun shadows;
+## rt = additionally ray-marched global illumination (SDFGI) and volumetric light shafts. The last two need the Forward+ renderer.
+func apply_lighting(mode: String) -> void:
+	var fp: bool = RenderingServer.get_current_rendering_method() == "forward_plus"
+	if not fp and mode == "rt":
+		mode = "enhanced"
+	var rich: bool = mode != "basic"
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC if rich else Environment.TONE_MAPPER_LINEAR
+	env.tonemap_white = 6.0
+	env.adjustment_enabled = rich
+	env.adjustment_saturation = 1.18
+	env.adjustment_contrast = 1.06
+	env.glow_enabled = rich
+	env.glow_intensity = 0.55
+	env.glow_bloom = 0.05
+	env.glow_hdr_threshold = 1.05
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	env.ssao_enabled = rich and fp
+	env.ssao_radius = 2.2
+	env.ssao_intensity = 2.4
+	env.ssao_power = 1.6
+	env.ssao_detail = 0.6
+	env.ssao_light_affect = 0.35
+	env.ssil_enabled = rich and fp
+	env.ssil_intensity = 0.8
+	env.sdfgi_enabled = mode == "rt" and fp
+	env.sdfgi_cascades = 5
+	env.sdfgi_min_cell_size = 0.6
+	env.sdfgi_use_occlusion = true
+	env.sdfgi_bounce_feedback = 0.5
+	env.sdfgi_energy = 1.0
+	env.volumetric_fog_enabled = mode == "rt" and fp
+	env.volumetric_fog_density = 0.0012
+	env.volumetric_fog_albedo = Color("#fff0cf")
+	env.volumetric_fog_anisotropy = 0.6
+	env.volumetric_fog_length = 120.0
+	env.volumetric_fog_gi_inject = 0.6
+	sun.light_angular_distance = 0.6 if rich else sun.light_angular_distance
+	_rich = rich
+	_base_fog = 0.0028 * (0.5 if rich else 1.0)
+
 func lightning_flash() -> void:
 	flash = 1.0
 
@@ -105,7 +147,7 @@ func update(dt: float, wind: Vector2) -> void:
 		cl.visible = not high_view
 	env.fog_light_color = Color("#ffe9b8").lerp(Color("#8a8f99"), _storm)
 	env.ambient_light_color = Color("#9fd8ff").lerp(Color("#7f8fa3"), _storm * 0.8)
-	sun.light_energy = lerpf(1.25, 0.7, _storm) + flash * 2.5
+	sun.light_energy = lerpf(1.25, 0.7, _storm) * (1.12 if _rich else 1.0) + flash * 2.5
 	flash = maxf(0.0, flash - dt * 3.5)
 	var drift := Vector3(wind.x, 0.0, wind.y) * 0.25
 	for i in _clouds.size():

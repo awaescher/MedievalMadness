@@ -173,7 +173,7 @@ Main menu (Godot `Control` nodes built in `ui/menu.gd`). Fields:
 - Player count 2–8 (slider). For each player row: name (text input, prefilled), color swatch (cycle), type dropdown: `Human`, `CPU Peasant`, `CPU Squire`, `CPU Knight`, `CPU King`.
 - Map seed (text input; `Random` button generates one), map size preset is derived from player count (section 7).
 - **Match rules**: terrain (flat … mountainous), catapults per player (slider 1–5, default 5), palisade fences per player (slider 1–10, default 4; each fence = 3 posts), and a **Starting arsenal** dialog where every weapon except the Stone (Flaming Barrel, Mighty Boulder, Powder Keg, Buckshot, Cow, Beehive, Big Red Barrel) can be pre-granted 0–9 extra times (default 0; Stone and Flaming Barrel are always available). All three persist in `Settings` and are copied into `Game` at match start.
-- Options: Turn timer (Off / 20 / 30 / 45 / 60 s, default 30), Quality (Low/Medium/High/Ultra, default Medium), Weather events (on/off, default on), Random events (on/off, default on), Sound volume slider, Screen shake on/off.
+- Options: Turn timer (Off / 20 / 30 / 45 / 60 s, default 30), Quality (Low/Medium/High/Ultra, default Medium), Lighting (Basic / Enhanced / Ray-marched GI, default Enhanced), Weather events (on/off, default on), Random events (on/off, default on), Sound volume slider, Screen shake on/off.
 - Button `START BATTLE`.
 - Default player names pool (section 12.1) used for prefill; CPU names use the pool in 12.2.
 
@@ -827,6 +827,9 @@ Random valid candidates (30 tries per catapult): score = distance from other own
 ---
 
 ## 15. Performance Requirements
+
+### 15.0 Renderer and lighting presets
+The project uses the **Forward+** renderer (Metal on macOS). `SkyRig.apply_lighting(mode)` (setting `Settings.lighting`, applied live, forced to `basic` on the Low tier, `rt` falls back to `enhanced` when the renderer is not Forward+): **basic** = linear tonemap, flat ambient (the old look); **enhanced** = filmic tonemap + saturation/contrast adjustment, SSAO + SSIL, bloom (HDR threshold 1.05, softlight), soft sun shadows, half the distance fog; **rt** = enhanced + SDFGI (5 cascades, occlusion, bounce feedback) and low-density volumetric fog (light shafts). Godot has no hardware ray tracing; SDFGI is the closest ray-marched GI. Measured on an M4 Max the game is CPU-bound (≈3–4 ms per frame, 250+ fps uncapped at 3456×2234 on every tier); `PhysWorld.buoyant` limits the water tick to floating bodies. Dev benchmark: `MM_PERF_SECS=60 MM_PERF_L=rt MM_PERF_Q=ultra MM_PERF_W=3456 MM_PERF_H=2234 godot --path . -- --autotest=perf` (draw calls, fps, frame spikes, per-system CPU time).
 
 ### 15.1 Quality tiers (`render/quality.gd`)
 | tier | 3D render scale (`Viewport.scaling_3d_scale`) | MSAA 3D | shadows | shadow atlas | particles cap | dynamic bodies cap | settlers per village | fire emitters | point lights (OmniLight3D) | outlines |

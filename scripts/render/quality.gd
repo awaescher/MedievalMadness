@@ -82,6 +82,7 @@ static func apply(id: String, viewport: Viewport, sky: SkyRig) -> void:
 	if sky != null:
 		sky.apply_quality(t.shadows, t.atlas, t.soft)
 		sky.sun.directional_shadow_max_distance = t.shadow_dist
+		sky.apply_lighting("basic" if t.id == "low" else Settings.lighting)
 	Toon.set_outlines(t.outlines)
 	particle_cap = t.particles
 	body_cap = mini(t.bodies, Cfg.MAX_DYNAMIC_BODIES if t.id != "ultra" else t.bodies)

@@ -87,6 +87,15 @@ func _build() -> void:
 			Events.quality_changed.emit(Settings.quality))
 		v.add_child(UITheme.label(I18n.t("menu.quality"), 17, UITheme.INK, true))
 		v.add_child(ql)
+		var lt := OptionButton.new()
+		for lm in Settings.LIGHTING_MODES:
+			lt.add_item(I18n.t("menu.l_" + lm))
+		lt.select(Settings.LIGHTING_MODES.find(Settings.lighting))
+		lt.item_selected.connect(func(idx: int) -> void:
+			Settings.lighting = Settings.LIGHTING_MODES[idx]
+			Events.quality_changed.emit(Settings.quality))
+		v.add_child(UITheme.label(I18n.t("menu.lighting"), 17, UITheme.INK, true))
+		v.add_child(lt)
 		var shake := CheckButton.new()
 		shake.text = I18n.t("menu.shake")
 		shake.button_pressed = Settings.shake
