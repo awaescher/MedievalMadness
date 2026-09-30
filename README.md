@@ -61,10 +61,10 @@ The HUD shows power / elevation / azimuth and the distance to the predicted land
   and random events (dragon, cheese meteor, cow rain, earthquake, geese, tax collector, fireworks, wizard bubble, flood)
   can spice things up.
 * Ammo: Boring Rock (unlimited), Flaming Chamber Pot, Mighty Powder Keg, Splashy Water Balloon, Grandma's Buckshot,
-  Moo-nition (a cow), Angry Beehive and the Holy Cheese (one per player).
+  Moo-nition (a cow), Stone Hail, Chain Shot, Pointy Log and the Meteor Marker.
 * A catapult dies at 0 hp, when it tips over for 3 s, or when it sinks in deep water. Eliminations are checked at the end of
   each turn.
-* Spectacular hits (direct catapult hits, the red barrel) play in cancelable bullet time; the camera always stays on the impacted village.
+* Spectacular hits (direct catapult hits) play in cancelable bullet time; the camera always stays on the impacted village.
 
 ## Debug keys (only with `-- --debug`, or in debug builds)
 
@@ -94,7 +94,7 @@ scripts/physics/        PhysicsServer3D wrapper, parts, structures (dormant/awak
 scripts/world/          seeded map generation, chunked terrain with craters, village generator, game world
 scripts/buildings/      16 building blueprints + trees + ruin, built from a small "kit" of wall/roof helpers
 scripts/props/          barrels, crates, carts (hinge joints), lanterns, banners, tents, rubber duck ...
-scripts/entities/       catapult, projectile (8 ammo types), settlers (ragdolls, bucket brigade), animals, bees
+scripts/entities/       catapult, projectile (11 ammo types), meteor strike, settlers (ragdolls, bucket brigade), animals
 scripts/systems/        damage, fire, explosion, water, weather, random events, turn manager, scoring
 scripts/fx/             pooled particles, comic text, speech bubbles, trails, flags
 scripts/ai/             CPU bots (Peasant / Squire / Knight / King)
@@ -127,8 +127,8 @@ Made with Godot Engine. Everything (code, look, sounds, jokes) is original; no e
 ## Weapons, posts and rules (v1.1)
 
 * **Stone** is unlimited; you start with only 2 rolling **Flaming Barrels**. Every other weapon is earned: buckshot for wrecking an enemy
-  catapult, mighty boulder / powder keg for losing catapults, cow for killing a cow, beehive for damaging five trees, powder keg for blowing up a
-  powder barrel or wrecking three buildings with one shot, **Big Red Barrel** for destroying a church / powder store or eliminating a player.
+  catapult, mighty boulder / powder keg for losing catapults, cow when one of your own cows dies, pointy log for damaging three trees, stone hail for two buildings with one shot, chain shot for five settlers with one shot, powder keg for blowing up a
+  powder barrel or wrecking three buildings with one shot, **Meteor Marker** for destroying a church / powder store or eliminating a player.
   The menu has a **Starting arsenal** dialog to pre-grant weapons.
 * The menu also sets the terrain (flat … mountainous), the number of catapults (1-5) and of **palisade fences** (1-10, default 4; every fence is 3 posts side by side) per player. After the catapults every
   player sets wooden posts (tree-trunk thick, half a tower high) as cover - side by side or stacked - but not near an enemy village.

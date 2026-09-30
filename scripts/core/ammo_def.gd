@@ -12,6 +12,7 @@ var wind_factor: float = 0.3
 var drag: float = 0.01           # linear damping used by physics AND trajectory prediction
 var color: Color = Color("#8d8d94")
 var label: String = "ST"
+var base: String = ""             # behaves like this ammo (the stone volley is made of stones)
 var earnable: bool = false       # must be unlocked during the match (or pre-granted in the menu)
 
 static var _all: Array[AmmoDef] = []
@@ -41,11 +42,18 @@ static func _ensure() -> void:
 	_mk("powderkeg", 4, 0, 35.0, 0.50, 0.40, 0.020, "#3a3a44", "PK")
 	_mk("scatter", 5, 0, 30.0, 0.40, 0.35, 0.020, "#c9a15a", "SG")
 	_mk("cow", 6, 0, 250.0, 0.90, 0.15, 0.030, "#f2f2f2", "MU")
-	_mk("beehive", 7, 0, 20.0, 0.40, 0.50, 0.060, "#f1c40f", "BH")
-	_mk("redkeg", 8, 0, 160.0, 0.75, 0.20, 0.012, "#d6281f", "RK")
-	_mk("powdertrail", 9, 0, 28.0, 0.3, 0.25, 0.012, "#2a2a30", "PT")
+	_mk("quad", 7, 0, 40.0, 0.45, 0.30, 0.010, "#9a9aa2", "S4")
+	_mk("chain", 8, 0, 80.0, 0.40, 0.25, 0.008, "#26262c", "CH")
+	_mk("log", 9, 0, 300.0, 0.35, 0.20, 0.010, "#8a5a2a", "LG")
+	_mk("powdertrail", 10, 0, 28.0, 0.3, 0.25, 0.012, "#2a2a30", "PT")
+	_mk("meteor", 11, 0, 30.0, 0.30, 0.30, 0.010, "#35ff86", "MT")
+	(_by_id["quad"] as AmmoDef).base = "stone"
 	for a in _all:
 		a.earnable = a.id != "stone"
+
+## Label of the key that selects this slot (1-9, 0, -)
+func key_label() -> String:
+	return "0" if slot == 10 else ("-" if slot == 11 else str(slot))
 
 static func all() -> Array[AmmoDef]:
 	_ensure()

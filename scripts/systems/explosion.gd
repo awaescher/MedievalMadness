@@ -96,8 +96,10 @@ static func explode(pos: Vector3, radius: float, max_damage: float, opts: Dictio
 		Fx.comic_kind("explosion", pos + Vector3.UP * (radius * 0.8))
 	Sfx.play("bigboom" if (big or sound == "bigboom") else sound, pos, clampf(radius / 6.0, 0.6, 1.4), 5)
 	Events.camera_shake.emit(minf(1.5, max_damage / 900.0))
-	if max_damage >= 5000.0:
-		Events.slowmo.emit(0.12, 2.8)         # the red barrel: epic bullet time
+	if bool(opts.get("no_slowmo", false)):
+		pass
+	elif max_damage >= 5000.0:
+		Events.slowmo.emit(0.12, 2.8)         # a superweapon: epic bullet time
 	elif max_damage >= 700.0 or killed >= 3:
 		Events.slowmo.emit(Cfg.SLOWMO_SCALE, 0.8)
 	# 6. fire

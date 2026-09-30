@@ -31,6 +31,7 @@ var _paused: bool = false
 var _slowmo_until: float = 0.0
 var _slowmo_scale: float = 1.0
 var _fps_acc: float = 0.0
+var _fps_label: Label
 var _fps_time: float = 0.0
 var _fps_low_time: float = 0.0
 var _generating: bool = false
@@ -54,7 +55,7 @@ var _autotest_lang: String = ""
 var _autotest_events_list: String = "dragon,cheese_meteor,cow_rain,earthquake,goose_army,tax_collector,fireworks_accident,bubble,flood"
 var _autotest_events: bool = false
 var _occluded: Array[Structure] = []   # buildings hidden because they stand between the aiming camera and the catapult
-var _autotest_ammo: String = "firebarrel,boulder,powderkeg,scatter,cow,beehive,redkeg"
+var _autotest_ammo: String = "firebarrel,boulder,powderkeg,scatter,cow,quad,chain,log,meteor"
 
 func _ready() -> void:
 	_args = OS.get_cmdline_user_args()
@@ -136,6 +137,18 @@ func _build_ui() -> void:
 	ui_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_root.theme = UITheme.build()
 	ui_layer.add_child(ui_root)
+	# tiny FPS counter, bottom left
+	_fps_label = Label.new()
+	_fps_label.add_theme_font_size_override("font_size", 10)
+	_fps_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
+	_fps_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	_fps_label.add_theme_constant_override("outline_size", 3)
+	_fps_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	_fps_label.offset_left = 5.0
+	_fps_label.offset_top = -15.0
+	_fps_label.offset_bottom = -2.0
+	_fps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui_layer.add_child(_fps_label)
 	# soft vignette (radial gradient shader on a ColorRect)
 	vignette = ColorRect.new()
 	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -297,6 +310,8 @@ func _on_catapult_destroyed(owner_id: int, source: Dictionary, reason: String) -
 		Events.kill_feed.emit(I18n.pick("kill.catapult", Game.rng_battle, {"attacker": _name_of(int(source["player_id"])), "victim": victim}))
 
 func _on_slowmo(scale_value: float, duration: float) -> void:
+	if Game.state == Game.State.BATTLE and (Turn.shot_ammo == "meteor" or Meteor.active()):
+		return          # the meteor strike has its own cinematic camera, no bullet time
 	var now_t: float = Time.get_ticks_msec() * 0.001
 	if now_t < _slowmo_until and scale_value > _slowmo_scale:
 		return          # a deeper bullet time is already running
@@ -535,6 +550,10 @@ func _physics_process(dt: float) -> void:
 
 func _process(delta: float) -> void:
 	_frames += 1
+	_fps_time += delta
+	if _fps_time >= 0.5 and _fps_label != null:
+		_fps_time = 0.0
+		_fps_label.text = "%d fps" % int(Engine.get_frames_per_second())
 	delta = minf(delta, 1.0 / 20.0)
 	# slow motion (real-time timers)
 	var now: float = Time.get_ticks_msec() * 0.001

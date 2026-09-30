@@ -232,8 +232,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_M:
 				_face_marker()
 				accept_event()
-			KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9:
+			KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_SLASH, 223:
 				var idx: int = int(k.keycode) - int(KEY_1)
+				if k.keycode == KEY_0:
+					idx = 9
+				elif k.keycode == KEY_MINUS or k.keycode == KEY_SLASH or int(k.keycode) == 223:
+					idx = 10
 				var list: Array[AmmoDef] = AmmoDef.all()
 				if idx < list.size():
 					Turn.set_ammo(list[idx].id)

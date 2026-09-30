@@ -27,9 +27,9 @@ func test_wind_pushes_the_shot() -> void:
 	# light ammo is affected more than a cow
 	var cow: Vector3 = Ballistics.predict(Vector3(0, 3, 0), vel, "cow", Vector2(8.0, 0.0))["landing"] as Vector3
 	var cow_calm: Vector3 = Ballistics.predict(Vector3(0, 3, 0), vel, "cow", Vector2.ZERO)["landing"] as Vector3
-	var beehive: Vector3 = Ballistics.predict(Vector3(0, 3, 0), vel, "beehive", Vector2(8.0, 0.0))["landing"] as Vector3
-	var bee_calm: Vector3 = Ballistics.predict(Vector3(0, 3, 0), vel, "beehive", Vector2.ZERO)["landing"] as Vector3
-	TestBase.check(absf(beehive.x - bee_calm.x) > absf(cow.x - cow_calm.x), "the beehive drifts more than the cow")
+	var marker: Vector3 = Ballistics.predict(Vector3(0, 3, 0), vel, "meteor", Vector2(8.0, 0.0))["landing"] as Vector3
+	var marker_calm: Vector3 = Ballistics.predict(Vector3(0, 3, 0), vel, "meteor", Vector2.ZERO)["landing"] as Vector3
+	TestBase.check(absf(marker.x - marker_calm.x) > absf(cow.x - cow_calm.x), "the meteor marker drifts more than the cow")
 
 func test_solver_finds_power() -> void:
 	for dist in [20.0, 45.0, 70.0, 95.0]:

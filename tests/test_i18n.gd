@@ -70,5 +70,5 @@ func test_spec_content_present() -> void:
 	TestBase.eq((en["speech.panic"] as Array).size(), 8, "eight panic lines")
 	TestBase.eq((en["loading.lines"] as Array).size(), 10, "ten loading lines")
 	TestBase.eq((en["title.crown"] as Array).size(), 4, "four crown titles")
-	TestBase.eq(str(en["ammo.redkeg"]), "The Big Red Barrel", "red keg name")
-	TestBase.eq(str((DE.DATA as Dictionary)["ammo"]["redkeg"]), "Das Große Rote Fass", "red keg name (de)")
+	TestBase.eq(str(en["ammo.meteor"]), "Meteor Marker", "meteor name")
+	TestBase.eq(str((DE.DATA as Dictionary)["ammo"]["meteor"]), "Meteoriten-Markierung", "meteor name (de)")

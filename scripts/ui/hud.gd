@@ -107,7 +107,7 @@ class AmmoSlot extends Control:
 			cnt = "∞"
 		var w: float = f.get_string_size(cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
 		draw_string(f, Vector2(size.x * 0.5 - w * 0.5, 76.0 + off), cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("#3b2a1a"))
-		var key: String = str(ammo.slot)
+		var key: String = ammo.key_label()
 		draw_circle(Vector2(12, 12 + off), 9.0, Color("#3b2a1a"))
 		var kw: float = f.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 		draw_string(f, Vector2(12 - kw * 0.5, 17 + off), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#f4e4bc"))
@@ -153,11 +153,27 @@ class AmmoSlot extends Control:
 				draw_rect(Rect2(c + Vector2(-15, -10), Vector2(30, 20)), col)
 				draw_rect(Rect2(c + Vector2(-9, -8), Vector2(9, 8)), Color("#2b2b33"))
 				draw_rect(Rect2(c + Vector2(4, 0), Vector2(8, 7)), Color("#2b2b33"))
-			"beehive":
-				for i in 4:
-					var w2: float = 30.0 - abs(float(i) - 1.5) * 6.0
-					draw_rect(Rect2(c + Vector2(-w2 * 0.5 - 1, -20 + float(i) * 10 - 1), Vector2(w2 + 2, 12)), dark)
-					draw_rect(Rect2(c + Vector2(-w2 * 0.5, -20 + float(i) * 10), Vector2(w2, 10)), col if i % 2 == 0 else col.darkened(0.15))
+			"quad":
+				for q in [Vector2(-9, -9), Vector2(9, -9), Vector2(-9, 9), Vector2(9, 9)]:
+					draw_circle(c + (q as Vector2), 10.5, dark)
+					draw_circle(c + (q as Vector2), 8.5, col)
+					draw_circle(c + (q as Vector2) + Vector2(-2.5, -2.5), 2.5, col.lightened(0.3))
+			"chain":
+				draw_line(c + Vector2(-13, 0), c + Vector2(13, 0), Color("#8a8a96"), 3.0)
+				for lk in [-6, 0, 6]:
+					draw_circle(c + Vector2(float(lk), 0), 2.6, Color("#aaaab6"))
+				for sx in [-17, 17]:
+					draw_circle(c + Vector2(float(sx), 0), 12.0, dark)
+					draw_circle(c + Vector2(float(sx), 0), 10.0, col if on else col.lightened(0.1))
+					draw_circle(c + Vector2(float(sx) - 3, -3), 2.5, Color("#6a6a75"))
+			"log":
+				var lg := PackedVector2Array([c + Vector2(-23, 0), c + Vector2(-15, -9), c + Vector2(15, -9), c + Vector2(23, 0), c + Vector2(15, 9), c + Vector2(-15, 9)])
+				draw_colored_polygon(lg, dark)
+				var lg2 := PackedVector2Array([c + Vector2(-20, 0), c + Vector2(-14, -7), c + Vector2(14, -7), c + Vector2(20, 0), c + Vector2(14, 7), c + Vector2(-14, 7)])
+				draw_colored_polygon(lg2, col)
+				draw_line(c + Vector2(-8, -3), c + Vector2(6, -3), col.darkened(0.3), 2.0)
+				draw_line(c + Vector2(-4, 3), c + Vector2(10, 3), col.darkened(0.3), 2.0)
+				draw_circle(c + Vector2(-18, 0), 3.0, Color("#d9b27a"))
 			"powdertrail":
 				for kx in [-13, 0, 13]:
 					draw_rect(Rect2(c + Vector2(float(kx) - 6, -12), Vector2(12, 18)), dark)
@@ -165,13 +181,12 @@ class AmmoSlot extends Control:
 					draw_rect(Rect2(c + Vector2(float(kx) - 4.5, -5), Vector2(9, 2.5)), Color("#9aa2ad"))
 				for dx in [-16, -7, 4, 14]:
 					draw_circle(c + Vector2(float(dx), 12 + (dx % 3)), 3.0, Color("#1a1a1e"))
-			"redkeg":
-				draw_rect(Rect2(c + Vector2(-17, -20), Vector2(34, 42)), dark)
-				draw_rect(Rect2(c + Vector2(-14, -17), Vector2(28, 36)), col)
-				draw_rect(Rect2(c + Vector2(-14, -9), Vector2(28, 5)), Color("#2b2b33"))
-				draw_rect(Rect2(c + Vector2(-14, 8), Vector2(28, 5)), Color("#2b2b33"))
-				draw_circle(c + Vector2(0, 0), 5.0, Color("#f7f0e0"))
-				draw_rect(Rect2(c + Vector2(-3, 3), Vector2(6, 4)), Color("#f7f0e0"))
+			"meteor":
+				draw_rect(Rect2(c + Vector2(-2, -30), Vector2(4, 40)), Color(0.5, 1.0, 0.7, 0.55 if on else 0.25))
+				draw_circle(c + Vector2(0, 9), 14.0, Color(0.2, 1.0, 0.5, 0.25 if on else 0.1))
+				draw_circle(c + Vector2(0, 9), 10.0, dark)
+				draw_circle(c + Vector2(0, 9), 8.0, col)
+				draw_circle(c + Vector2(-2.5, 6.5), 3.0, col.lightened(0.5))
 		var f: Font = UITheme.font_bold()
 		var w: float = f.get_string_size(ammo.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 		draw_string(f, c + Vector2(-w * 0.5, 30), ammo.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3b2a1a"))

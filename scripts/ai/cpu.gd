@@ -292,15 +292,15 @@ static func _choose_ammo(mode: String, fire_target: bool, target_cat: Catapult) 
 					if bot.has_ammo(a):
 						options.append(a)
 			if settlers_near >= 5:
-				for a2 in ["scatter", "cow", "beehive"]:
+				for a2 in ["scatter", "cow", "quad", "chain"]:
 					if bot.has_ammo(a2):
 						options.append(a2)
 			if not options.is_empty():
 				return options[rng.range_i(0, options.size() - 1)]
 		return "stone"
 	# full
-	if target_player != null and target_player.catapults_left() <= 2 and bot.has_ammo("redkeg"):
-		return "redkeg"
+	if target_player != null and target_player.catapults_left() <= 2 and bot.has_ammo("meteor"):
+		return "meteor"
 	if target_cat != null:
 		var walls_n: int = cover_along(shooter.global_pos() + Vector3(0, 2, 0), target_cat.global_pos() + Vector3(0, 1, 0))
 		if walls_n >= 3 and bot.has_ammo("powderkeg"):
@@ -318,8 +318,12 @@ static func _choose_ammo(mode: String, fire_target: bool, target_cat: Catapult) 
 			return "scatter"
 	if bot.has_ammo("powdertrail") and rng.chance(0.4):
 		return "powdertrail"
-	if bot.has_ammo("beehive") and rng.chance(0.3):
-		return "beehive"
+	if bot.has_ammo("log") and rng.chance(0.25):
+		return "log"
+	if bot.has_ammo("chain") and rng.chance(0.3):
+		return "chain"
+	if bot.has_ammo("quad") and rng.chance(0.3):
+		return "quad"
 	if bot.has_ammo("cow") and rng.chance(0.3):
 		return "cow"
 	if bot.has_ammo("firebarrel") and rng.chance(0.4):

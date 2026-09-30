@@ -2,10 +2,14 @@ class_name Projectile
 extends RefCounted
 @warning_ignore_start("unsafe_cast", "unsafe_call_argument", "unsafe_method_access", "unsafe_property_access")
 ## Projectile entity (spec 6.2 / 6.4): a dynamic body with CCD, wind acceleration, contact based
-## detonation and per-ammo behavior (stone, rolling fire barrel, boulder, powder keg, buckshot, cow, beehive, red keg).
+## detonation and per-ammo behavior (stone, stone volley, chain shot, log, rolling fire barrel, boulder, powder keg, buckshot,
+## cow, meteor marker).
 
 const IMPACT_K := 14.0            # crushing factor: kinetic momentum -> effective impact impulse for parts
 const OWN_CATAPULT_GRACE := 0.3
+const CHAIN_HALF := 1.15          # distance of each ball from the middle of the chain shot
+const CHAIN_SPIN := 26.0          # rad/s (about 4 turns per second): the balls whirl at ~30 m/s
+const LOG_HALF := 2.7             # half length of a log
 
 static var primary: Projectile = null
 static var all_live: Array[Projectile] = []
@@ -50,12 +54,21 @@ var _roll_dir: Vector3 = Vector3.ZERO
 var _fb_acc: float = 0.0
 var pellet_energy: float = 0.0
 var is_event: bool = false           # cow rain etc.: does not hold up the turn
+var power_k: float = 1.0             # damage multiplier of this body (the stone volley: 0.3 per stone)
+var stuck: bool = false              # a log that stays in the ground for the rest of the game
+
+static var stuck_logs: Array = []    # [{id: body id, node: Node3D}]
 
 static func reset() -> void:
 	for p in all_live:
 		p._cleanup(false)
 	all_live.clear()
 	primary = null
+	stuck_logs.clear()
+
+## the ammo this one behaves like (the stone volley fires stones)
+func kind() -> String:
+	return ammo.base if ammo.base != "" else ammo.id
 
 static func busy() -> bool:
 	for p in all_live:
@@ -101,10 +114,32 @@ static func launch(ammo_id: String, muzzle_pos: Vector3, velocity: Vector3, owne
 	var ang: float = rng.range_f(0.0, TAU)
 	var amt: float = rng.range_f(0.0, spread)
 	dir = (dir + (perp1 * cos(ang) + perp2 * sin(ang)) * tan(amt)).normalized()
+	if ammo_id == "quad":
+		pr.power_k = 0.3
 	pr._create_body(muzzle_pos, dir * spd)
 	pr.alive = true
 	all_live.append(pr)
 	primary = pr
+	if ammo_id == "quad":
+		# four stones in a loose fan: two to the sides, one a little short / long
+		for k in 3:
+			var ex2 := Projectile.new()
+			ex2.ammo = pr.ammo
+			ex2.player_id = owner_player_id
+			ex2.launch_catapult = from_catapult
+			ex2.source = pr.source
+			ex2.start_pos = muzzle_pos
+			ex2.is_extra = true
+			ex2.power_k = 0.3
+			var side2: float = [-1.0, 1.0, 0.0][k]
+			var dir3: Vector3 = dir.rotated(Vector3.UP, deg_to_rad(side2 * rng.range_f(1.0, 2.2)))
+			var lob: float = 0.0
+			if k == 2:
+				lob = rng.range_f(0.8, 1.8) * (1.0 if rng.chance(0.5) else -1.0)
+			dir3 = dir3.rotated(dir.cross(Vector3.UP).normalized(), deg_to_rad(lob))
+			ex2._create_body(muzzle_pos + dir.cross(Vector3.UP).normalized() * side2 * 0.6 + Vector3.UP * (0.4 if k == 2 else 0.0), dir3 * spd * rng.range_f(0.97, 1.03))
+			ex2.alive = true
+			all_live.append(ex2)
 	if ammo_id == "powdertrail":
 		# a volley of FIVE small kegs in a tight fan
 		for side in [-2.0, -1.0, 1.0, 2.0]:
@@ -124,15 +159,13 @@ static func launch(ammo_id: String, muzzle_pos: Vector3, velocity: Vector3, owne
 	Events.projectile_launch.emit(owner_player_id, ammo_id, muzzle_pos, dir * spd)
 	Scoring.on_shot(owner_player_id, ammo_id)
 	Sfx.play("whoosh", muzzle_pos, 0.9, 3)
-	if ammo_id == "redkeg":
-		Events.banner.emit(I18n.t("banner.redkeg"), "fire")
 	return pr
 
 func _create_body(pos: Vector3, vel: Vector3) -> void:
 	var d := PhysWorld.BodyDesc.new()
 	var bounce: float = 0.15
 	var friction: float = 0.7
-	match ammo.id:
+	match kind():
 		"boulder":
 			# a lumpy potato, never the same twice: the shape decides how it tumbles and rolls
 			var geo: Dictionary = _boulder_geometry(Rng.new(rng.next_u32()), ammo.radius)
@@ -161,9 +194,36 @@ func _create_body(pos: Vector3, vel: Vector3) -> void:
 			d.ang_velocity = axis * 7.0
 			bounce = 0.3
 			friction = 0.7
-		"powderkeg", "redkeg":
+		"chain":
+			# two black iron balls on a short chain, spinning fast and flat: the whole thing is one body with two spheres
+			var cv: Vector3 = vel.normalized()
+			var cax: Vector3 = Vector3.UP.cross(cv)
+			if cax.length() < 0.05:
+				cax = Vector3.RIGHT
+			cax = cax.normalized()
+			for sgn in [-1.0, 1.0]:
+				d.shapes.append(PhysWorld.sphere_desc(ammo.radius, Transform3D(Basis(), Vector3(CHAIN_HALF * float(sgn), 0, 0))))
+			d.xf = Transform3D(Basis(cax, Vector3.UP, cax.cross(Vector3.UP)), pos)
+			d.mass = ammo.mass
+			d.ang_velocity = Vector3.UP * CHAIN_SPIN * (1.0 if rng.chance(0.5) else -1.0)
+			bounce = 0.25
+			friction = 0.5
+		"log":
+			# a tree trunk, pointed at both ends, lying across the flight direction and tumbling in a random direction
+			var lv: Vector3 = vel.normalized()
+			var lax: Vector3 = Vector3.UP.cross(lv)
+			if lax.length() < 0.05:
+				lax = Vector3.RIGHT
+			lax = lax.normalized()
+			d.shapes.append(_log_shape())
+			d.xf = Transform3D(Basis(lv, lax, lv.cross(lax)), pos)
+			d.mass = ammo.mass
+			d.ang_velocity = rng.unit_vec3() * TAU * rng.range_f(0.5, 2.0)
+			bounce = 0.2
+			friction = 0.7
+		"powderkeg":
 			# real barrels: a bulging stave shape that tumbles like a barrel, not a ball
-			d.shapes.append(_barrel_shape(0.42, 0.78) if ammo.id == "powderkeg" else _barrel_shape(0.68, 1.12))
+			d.shapes.append(_barrel_shape(0.42, 0.78))
 			d.xf = Transform3D(Basis.from_euler(Vector3(rng.range_f(0, TAU), rng.range_f(0, TAU), rng.range_f(0, TAU))), pos)
 			d.mass = ammo.mass
 			d.ang_velocity = Vector3(rng.range_f(-4.0, 4.0), rng.range_f(-4.0, 4.0), rng.range_f(-4.0, 4.0))
@@ -179,9 +239,7 @@ func _create_body(pos: Vector3, vel: Vector3) -> void:
 			d.shapes.append(PhysWorld.sphere_desc(ammo.radius))
 			d.xf = Transform3D(Basis(), pos)
 			d.mass = ammo.mass
-			if ammo.id == "beehive":
-				bounce = 0.05
-			elif ammo.id == "redkeg":
+			if ammo.id == "meteor":
 				bounce = 0.1
 	d.friction = friction
 	d.bounce = bounce
@@ -195,7 +253,7 @@ func _create_body(pos: Vector3, vel: Vector3) -> void:
 	d.ccd = true
 	d.velocity = vel
 	d.damp_lin = ammo.drag
-	d.damp_ang = 0.05 if (ammo.id == "firebarrel" or ammo.id == "powdertrail") else 0.1
+	d.damp_ang = 0.05 if (ammo.id == "firebarrel" or ammo.id == "powdertrail") else (0.01 if ammo.id == "chain" else (0.02 if ammo.id == "log" else 0.1))
 	d.on_contact = Callable(self, "_on_contact")
 	d.can_sleep = false
 	visual = _make_visual()
@@ -206,7 +264,7 @@ func _create_body(pos: Vector3, vel: Vector3) -> void:
 	var pb: PhysWorld.PBody = PhysWorld.body(body_id)
 	if pb != null:
 		pb.buoy = 0.6 if ammo.id != "cow" else 1.3
-		pb.radius = ammo.radius
+		pb.radius = ammo.radius * (3.0 if ammo.id == "log" else 1.0)
 	if ammo.id == "cow":
 		_create_cow_head(pos, vel)
 	# trail
@@ -223,12 +281,12 @@ func _trail_color() -> Color:
 			return Color(1.0, 0.55, 0.15, 0.9)
 		"powdertrail":
 			return Color(0.3, 0.3, 0.33, 0.6)
-		"redkeg":
-			return Color(1.0, 0.25, 0.15, 0.95)
+		"meteor":
+			return Color(0.3, 1.0, 0.55, 0.9)
 		"powderkeg":
 			return Color(1.0, 0.8, 0.3, 0.6)
-		"beehive":
-			return Color(1.0, 0.9, 0.3, 0.5)
+		"chain":
+			return Color(0.75, 0.75, 0.8, 0.5)
 		_:
 			return Color(1, 1, 1, 0.45)
 
@@ -263,7 +321,23 @@ func _create_cow_head(_pos: Vector3, vel: Vector3) -> void:
 func _make_visual() -> Node3D:
 	var buf := MeshGen.Buf.new()
 	var mat: ShaderMaterial = Toon.main()
-	match ammo.id:
+	match kind():
+		"chain":
+			for sgn2 in [-1.0, 1.0]:
+				MeshGen.add_sphere(buf, ammo.radius, Transform3D(Basis(), Vector3(CHAIN_HALF * float(sgn2), 0, 0)), Color("#1c1c21"), 0.04, 8, 12)
+				MeshGen.add_sphere(buf, ammo.radius * 0.3, Transform3D(Basis(), Vector3(CHAIN_HALF * float(sgn2) + ammo.radius * 0.5, 0.14, 0.12)), Color("#4a4a55"), 0.0, 4, 6)
+			for li in 7:
+				var lx2: float = (float(li) - 3.0) * 0.27
+				MeshGen.add_box(buf, Vector3(0.24, 0.07, 0.07) if li % 2 == 0 else Vector3(0.24, 0.07, 0.07), Transform3D(Basis(Vector3(1, 0, 0), PI * 0.5 * float(li % 2)), Vector3(lx2, 0, 0)), Color("#6a6a74"))
+		"log":
+			MeshGen.add_cyl(buf, 0.3, 4.4, 9, Transform3D(Basis(), Vector3.ZERO), Color("#7a5230"))
+			MeshGen.add_frustum(buf, 0.3, 0.04, 0.55, 9, Transform3D(Basis(), Vector3(0, 2.475, 0)), Color("#c9a26a"))
+			MeshGen.add_frustum(buf, 0.04, 0.3, 0.55, 9, Transform3D(Basis(), Vector3(0, -2.475, 0)), Color("#c9a26a"))
+			for ri in 3:
+				MeshGen.add_cyl(buf, 0.33, 0.12, 9, Transform3D(Basis(), Vector3(0, -1.2 + float(ri) * 1.2, 0)), Color("#5f3f24"))
+		"meteor":
+			MeshGen.add_sphere(buf, ammo.radius, Transform3D(Basis(), Vector3.ZERO), Color("#35ff86"), 0.0, 8, 12)
+			mat = Toon.emissive(Color("#2cff7a"), 2.6, false)
 		"stone":
 			MeshGen.add_sphere(buf, ammo.radius, Transform3D(Basis(), Vector3.ZERO), Color("#8d8d94"), 0.04, 8, 12)
 			MeshGen.add_sphere(buf, ammo.radius * 0.35, Transform3D(Basis(), Vector3(ammo.radius * 0.6, 0.1, 0.3)), Color("#a9a9b0"), 0.0, 5, 8)
@@ -285,23 +359,10 @@ func _make_visual() -> Node3D:
 			MeshGen.add_cyl(buf, 0.3, 0.05, 10, Transform3D(Basis(), Vector3(0, 0.17, 0)), Color("#6d7683"))
 			MeshGen.add_cyl(buf, 0.3, 0.05, 10, Transform3D(Basis(), Vector3(0, -0.17, 0)), Color("#6d7683"))
 			MeshGen.add_box(buf, Vector3(0.14, 0.16, 0.04), Transform3D(Basis(), Vector3(0, 0.0, 0.27)), Color("#f0f0e8"))
-		"redkeg":
-			MeshGen.add_cyl(buf, 0.68, 1.1, 14, Transform3D(Basis(), Vector3.ZERO), Color("#d6281f"))
-			MeshGen.add_cyl(buf, 0.73, 0.1, 14, Transform3D(Basis(), Vector3(0, 0.34, 0)), Color("#2b2b33"))
-			MeshGen.add_cyl(buf, 0.73, 0.1, 14, Transform3D(Basis(), Vector3(0, -0.34, 0)), Color("#2b2b33"))
-			MeshGen.add_box(buf, Vector3(0.4, 0.4, 0.06), Transform3D(Basis(), Vector3(0, 0.02, 0.68)), Color("#f7f0e0"))
-			MeshGen.add_box(buf, Vector3(0.22, 0.06, 0.07), Transform3D(Basis(), Vector3(0, 0.08, 0.69)), Color("#2b2b33"))
-			MeshGen.add_cyl(buf, 0.04, 0.4, 5, Transform3D(Basis(), Vector3(0, 0.78, 0)), Color("#e8c060"))
-			mat = Toon.emissive(Color("#d6281f"), 0.35)
 		"scatter":
 			MeshGen.add_sphere(buf, ammo.radius, Transform3D(Basis(), Vector3.ZERO), Color("#c9a15a"), 0.03, 8, 12)
 			MeshGen.add_cyl(buf, 0.1, 0.16, 6, Transform3D(Basis(), Vector3(0, ammo.radius, 0)), Color("#8a5a2a"))
 			MeshGen.add_cyl(buf, 0.42, 0.06, 10, Transform3D(Basis(), Vector3(0, 0.04, 0)), Color("#8a5a2a"))
-		"beehive":
-			for i in 5:
-				var r: float = 0.4 - abs(float(i) - 2.0) * 0.07
-				MeshGen.add_cyl(buf, r, 0.16, 10, Transform3D(Basis(), Vector3(0, -0.32 + float(i) * 0.16, 0)), Color("#f1c40f") if i % 2 == 0 else Color("#e0a80c"))
-			MeshGen.add_box(buf, Vector3(0.14, 0.08, 0.05), Transform3D(Basis(), Vector3(0, -0.2, 0.36)), Color("#2b2b33"))
 		"cow":
 			_add_cow_body(buf)
 		_:
@@ -309,8 +370,10 @@ func _make_visual() -> Node3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = _boulder_mesh if (ammo.id == "boulder" and _boulder_mesh != null) else buf.to_mesh()
 	mi.material_override = mat
-	if ammo.id == "redkeg" or ammo.id == "firebarrel":
+	if ammo.id == "firebarrel":
 		mi.set_instance_shader_parameter("glow", 0.45)
+	elif ammo.id == "meteor":
+		mi.set_instance_shader_parameter("glow", 1.0)
 	return mi
 
 func _add_cow_body(buf: MeshGen.Buf) -> void:
@@ -402,14 +465,18 @@ func tick(dt: float) -> void:
 	if ammo.id == "scatter" and not _scattered and vel.y <= 0.0 and age > 0.25 and not is_sub:
 		_scatter(pos, vel)
 		return
-	if ammo.id == "redkeg" and int(age * 60.0) % 4 == 0:
-		Fx.burst("flame", pos, Color(0, 0, 0, -1), 0.3)
+	if ammo.id == "meteor" and int(age * 60.0) % 5 == 0:
+		Fx.burst("spark", pos, Color("#4dff9a"), 0.25)
 	if ammo.id == "firebarrel" or ammo.id == "powdertrail":
 		_tick_firebarrel(dt, pos, vel)
 		if not alive:
 			return
 	if ammo.id == "boulder" and impact_time >= 0.0:
 		_tick_boulder(dt, pos, vel)
+		if not alive:
+			return
+	if ammo.id == "chain" and impact_time >= 0.0:
+		_tick_chain(dt, pos, vel)
 		if not alive:
 			return
 	# settlers / animals in the flight path are hit directly (they have no bodies while walking)
@@ -453,18 +520,18 @@ func _sweep_living(pos: Vector3, vel: Vector3) -> bool:
 		var d: float = (st.global_pos() + Vector3(0, 0.8, 0) - pos).length()
 		if d < reach:
 			hit_any = true
-			var e: float = ammo.mass * speed
+			var e: float = ammo.mass * speed * power_k * (0.5 if ammo.id == "chain" else 1.0)
 			var dir: Vector3 = vel.normalized() if speed > 0.5 else Vector3.UP
 			var dmg: float = clampf(e / 30.0, 6.0, 80.0)
 			st.hurt(dmg, source, (dir + Vector3.UP * 0.5).normalized() * clampf(e / 60.0, 3.0, 22.0), true)
 			if ammo.id == "cow":
 				if age - _last_moo > 0.4:
 					_moo(pos)
-			elif ammo.id in ["stone", "scatter"]:
+			elif kind() == "stone" or ammo.id == "scatter":
 				Sfx.play("boing", pos, 0.6, 1)
 			elif ammo.id == "firebarrel":
 				st.ignite()
-	if hit_any and ammo.id in ["powderkeg", "beehive", "redkeg", "cow"] and not is_sub and impact_time < 0.0:
+	if hit_any and ammo.id in ["powderkeg", "meteor", "cow"] and not is_sub and impact_time < 0.0:
 		_handle_impact({"pos": pos, "normal": Vector3.UP, "rid": RID(), "shape": 0, "impulse": ammo.mass * speed, "speed": speed, "vel": vel})
 		return true
 	for an in Animal.all:
@@ -494,6 +561,9 @@ func _water_impact(pos: Vector3) -> void:
 	if not is_sub and last_impact_pos == Vector3.INF:
 		last_impact_pos = wp
 	impact_time = age
+	if ammo.id == "meteor" and not detonated:
+		detonated = true
+		Meteor.start(wp, source, _prev_vel)
 	_finish(pos, true, true)
 
 func _handle_impact(info: Dictionary) -> void:
@@ -534,19 +604,46 @@ func _handle_impact(info: Dictionary) -> void:
 					var brid: RID = PhysWorld.body_rid(bid)
 					PhysicsServer3D.body_set_param(brid, PhysicsServer3D.BODY_PARAM_LINEAR_DAMP, ld)
 					PhysicsServer3D.body_set_param(brid, PhysicsServer3D.BODY_PARAM_ANGULAR_DAMP, ad)
-	var energy: float = ammo.mass * speed
+	var energy: float = ammo.mass * speed * power_k
 	var dir: Vector3 = vel.normalized() if vel.length() > 0.5 else -normal
+	var tip_hit: bool = false
+	if ammo.id == "chain":
+		# each of the two balls hits like a stone, plus the speed of the whirl
+		energy = ammo.mass * 0.5 * (speed + CHAIN_SPIN * CHAIN_HALF * 0.45)
+	elif ammo.id == "log" and PhysWorld.bodies.has(body_id):
+		# crosswise it just thumps; a pointed end that arrives first is a spear (internally x10)
+		var lxf: Transform3D = PhysWorld.get_transform(body_id)
+		var lp: Vector3 = lxf.affine_inverse() * pos
+		var tip_dir: Vector3 = lxf.basis.y * signf(lp.y)
+		tip_hit = absf(lp.y) > LOG_HALF - 0.9 and tip_dir.dot(dir) > 0.35
+		energy *= 10.0 if tip_hit else 0.25
+		if tip_hit and (terrain_hit or target == null) and speed > 9.0 and not stuck:
+			_log_stick(pos, tip_dir)
 	# direct catapult hit: impulse / 40 (spec 6.6)
 	if target is Catapult:
 		Damage.damage_catapult(target as Catapult, energy / 22.0, source, "projectile")
 		if not is_sub and target != launch_catapult:
 			Events.slowmo.emit(0.22, 1.5)         # a direct hit on a catapult
-	match ammo.id:
+	match kind():
 		"stone":
 			var broken: int = _kinetic(pos, energy, dir, 1.6 + clampf(speed / 40.0, 0.0, 2.6))
 			Events.camera_shake.emit(clampf(energy / 3500.0, 0.1, 0.6))
 			_impact_fx(pos, energy, target, terrain_hit)
 			_plough(broken, speed, dir, terrain_hit, 0.92)
+		"chain":
+			var cbroken: int = _kinetic(pos, energy, dir, 1.5 + clampf(speed / 45.0, 0.0, 2.2))
+			Events.camera_shake.emit(clampf(energy / 3500.0, 0.1, 0.6))
+			_impact_fx(pos, energy, target, terrain_hit)
+			Sfx.play("clack", pos, 0.9, 2)
+			_plough(cbroken, speed, dir, terrain_hit, 0.9)
+		"log":
+			var lbroken: int = _kinetic(pos, energy, dir, (2.0 if tip_hit else 1.2) + clampf(speed / 50.0, 0.0, 1.5))
+			Events.camera_shake.emit(clampf(energy / 5000.0, 0.1, 0.8))
+			_impact_fx(pos, energy, target, terrain_hit)
+			Fx.burst("splinter", pos, Color("#7a4a25"), 0.5 if tip_hit else 0.25)
+			Sfx.play("crunch" if tip_hit else "thunk", pos, 0.8, 2)
+			if tip_hit:
+				_plough(lbroken, speed, dir, terrain_hit, 0.85)
 		"firebarrel":
 			# bounces and rolls on: every touch sets flammable stuff alight
 			_kinetic(pos, energy * 0.3, dir, 1.3)
@@ -592,16 +689,11 @@ func _handle_impact(info: Dictionary) -> void:
 			_cow_burst(pos, normal, dir)
 			detonated = true
 			_finish(pos, false)
-		"beehive":
+		"meteor":
+			# the marker: it stays where it landed, a beam shoots into the sky and the meteor follows
 			detonated = true
-			Bees.spawn(pos, source)
-			Fx.burst("bee", pos, Color(0, 0, 0, -1), 1.4)
-			Sfx.play("splat", pos, 0.8, 3)
-			Damage.damage_settlers_in_radius(pos, 3.0, 40.0, source, dir, 0.4)
-			_finish(pos, false)
-		"redkeg":
-			detonated = true
-			_redkeg_explode(pos)
+			Meteor.start(pos, source, dir)
+			Sfx.play("thunk", pos, 0.5, 1)
 			_finish(pos, false)
 		_:
 			_kinetic(pos, energy, dir, 1.4)
@@ -722,16 +814,15 @@ func _pellet_hit(info: Dictionary) -> void:
 	Sfx.play("clack", pos, 0.5, 1)
 	_finish(pos, false, false, true)
 
-func _redkeg_explode(pos: Vector3) -> void:
-	# the big red barrel: one good hit flattens most of a village
-	Explosion.explode(pos, 32.0, 9000.0, {"source": source, "sound": "bigboom", "fire": true, "color": Color("#ff3b2a"), "cat_scale": 0.06})
-	Fx.burst("flame", pos + Vector3.UP, Color(0, 0, 0, -1), 1.6)
-	Fx.comic_kind("explosion", pos + Vector3.UP * 12.0)
-	Events.banner.emit(I18n.t("banner.redkeg_boom"), "fire")
-	for i in 14:
-		var a: float = TAU * float(i) / 14.0 + rng.range_f(-0.2, 0.2)
-		var v := Vector3(cos(a) * rng.range_f(10.0, 26.0), rng.range_f(12.0, 26.0), sin(a) * rng.range_f(10.0, 26.0))
-		_spawn_pellet(pos + Vector3(0, 1.5, 0), v, 14.0, 0.3, Color("#ff7a1a"), true)
+## A burst of glowing fragments (meteor impact): `n` fiery stones thrown in every direction
+static func spawn_embers(pos: Vector3, src: Dictionary, n: int) -> void:
+	var tmp := Projectile.new()
+	tmp.source = src
+	tmp.player_id = int(src.get("player_id", -1))
+	for i in n:
+		var a: float = TAU * float(i) / float(n) + rng.range_f(-0.2, 0.2)
+		var v := Vector3(cos(a) * rng.range_f(12.0, 34.0), rng.range_f(14.0, 32.0), sin(a) * rng.range_f(12.0, 34.0))
+		tmp._spawn_pellet(pos, v, 14.0, 0.3, Color("#ff7a1a"), true)
 
 ## Cow chunks: red pieces scattered over the hemisphere around the impact normal
 func _cow_burst(pos: Vector3, normal: Vector3, dir: Vector3) -> void:
@@ -766,7 +857,7 @@ func _finish(pos: Vector3, miss: bool, in_water: bool = false, silent: bool = fa
 		if miss and not in_water:
 			pass
 	# cow and stone-like bodies remain as debris until the cap removes them; explosives vanish
-	var keep: bool = (ammo.id == "cow" or ((ammo.id == "stone" or ammo.id == "boulder") and not is_sub)) and not detonated and not silent
+	var keep: bool = (ammo.id == "cow" or ((kind() == "stone" or ammo.id == "boulder" or ammo.id == "chain" or ammo.id == "log") and not is_sub)) and not detonated and not silent and not stuck
 	_cleanup(keep)
 
 func _cleanup(keep_body: bool) -> void:
@@ -787,7 +878,7 @@ func _cleanup(keep_body: bool) -> void:
 			hb.on_contact = Callable()
 			hb.owner = null
 			Debris.register_shard(head_id, head_visual)
-	else:
+	elif not stuck:
 		if PhysWorld.bodies.has(body_id):
 			PhysWorld.remove_later(body_id)
 		if head_id != 0 and PhysWorld.bodies.has(head_id):
@@ -890,6 +981,86 @@ func _tick_firebarrel(dt: float, pos: Vector3, vel: Vector3) -> void:
 			Fx.burst("flame", pos, Color(0, 0, 0, -1), 1.0)
 			Sfx.play("fwump", pos, 0.9, 3)
 		_finish(pos, false)
+
+# ------------------------------------------------------------------ chain shot / logs
+## The whirling balls keep smashing what they touch while the chain tumbles over the ground
+func _tick_chain(dt: float, pos: Vector3, vel: Vector3) -> void:
+	roll_age += dt
+	_fb_acc += dt
+	if _fb_acc >= 0.1 and PhysWorld.bodies.has(body_id):
+		_fb_acc = 0.0
+		var xf: Transform3D = PhysWorld.get_transform(body_id)
+		var w: Vector3 = PhysicsServer3D.body_get_state(PhysWorld.body_rid(body_id), PhysicsServer3D.BODY_STATE_ANGULAR_VELOCITY) as Vector3
+		for sgn in [-1.0, 1.0]:
+			var off: Vector3 = xf.basis.x * CHAIN_HALF * float(sgn)
+			var bp: Vector3 = pos + off
+			var bv: Vector3 = vel + w.cross(off)
+			var bs: float = bv.length()
+			if bs > 8.0 and bp.y - Terrain.h(bp.x, bp.z) < 1.6:
+				Damage.impact_at(bp, 1.2, ammo.mass * 0.5 * bs * 0.4 * IMPACT_K, bv / bs, source)
+				Damage.damage_settlers_in_radius(bp, 1.4, clampf(bs * 2.0, 15.0, 70.0), source, bv / bs, 0.7)
+	if roll_age >= 5.0 or (roll_age > 1.0 and vel.length() < 1.0):
+		_finish(pos, false)
+
+## The pointed end of a log has dug in: it stays upright in the ground as a static obstacle for the rest of the game
+func _log_stick(pos: Vector3, tip_dir: Vector3) -> void:
+	if not PhysWorld.bodies.has(body_id):
+		return
+	stuck = true
+	var d: Vector3 = tip_dir.normalized()
+	if d.y > -0.5:
+		d = (Vector3(d.x, 0.0, d.z).normalized() * 0.8 + Vector3.DOWN * 0.6).normalized()
+	var bx: Vector3 = d.cross(Vector3.RIGHT)
+	if bx.length() < 0.1:
+		bx = d.cross(Vector3.FORWARD)
+	bx = bx.normalized()
+	# local Y points along the tip, which ends up 1.3 m inside the ground
+	var xf := Transform3D(Basis(bx, d, bx.cross(d)), pos + d * 1.3 - d * LOG_HALF)
+	PhysWorld.set_transform(body_id, xf)
+	PhysWorld.set_velocity(body_id, Vector3.ZERO, Vector3.ZERO)
+	PhysWorld.set_mode(body_id, "static")
+	var pb: PhysWorld.PBody = PhysWorld.body(body_id)
+	pb.on_contact = Callable()
+	pb.owner = null
+	pb.contacts = 0
+	pb.buoy = 0.0
+	PhysicsServer3D.body_set_max_contacts_reported(pb.rid, 0)
+	if visual != null:
+		visual.global_transform = xf
+	stuck_logs.append({"id": body_id, "node": visual})
+	Fx.burst("dust", pos, Color("#8a6d4a"), 0.9, Vector3.UP)
+	Sfx.play("thunk", pos, 1.0, 3)
+	Events.camera_shake.emit(0.4)
+
+## Blasts (the meteor) tear logs out of the ground: they become loose debris again
+static func release_stuck_logs(pos: Vector3, radius: float) -> void:
+	var keep: Array = []
+	for e in stuck_logs:
+		var id: int = int((e as Dictionary)["id"])
+		var node: Node3D = (e as Dictionary)["node"] as Node3D
+		if not PhysWorld.bodies.has(id) or node == null or not is_instance_valid(node):
+			continue
+		var pb: PhysWorld.PBody = PhysWorld.body(id)
+		if pb.xform.origin.distance_to(pos) > radius:
+			keep.append(e)
+			continue
+		PhysWorld.make_dynamic(id, 300.0, 0.05, 0.1, 0, Callable())
+		PhysWorld.apply_impulse(id, (pb.xform.origin - pos).normalized() * 3000.0 + Vector3.UP * 2500.0)
+		Debris.register_shard(id, node)
+	stuck_logs = keep
+
+static func _log_shape() -> PhysWorld.ShapeDesc:
+	var sd := PhysWorld.ShapeDesc.new()
+	sd.type = "convex"
+	sd.uid = "log_hull"
+	var pts := PackedVector3Array()
+	var prof: Array = [[-LOG_HALF, 0.03], [-LOG_HALF + 0.55, 0.3], [LOG_HALF - 0.55, 0.3], [LOG_HALF, 0.03]]
+	for pr in prof:
+		for k in 10:
+			var a: float = TAU * float(k) / 10.0
+			pts.append(Vector3(cos(a) * float((pr as Array)[1]), float((pr as Array)[0]), sin(a) * float((pr as Array)[1])))
+	sd.points = pts
+	return sd
 
 # ------------------------------------------------------------------ rolling boulder
 ## While the big stone rolls it keeps crushing: walls in its path, settlers and animals it runs over

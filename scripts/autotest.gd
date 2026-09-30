@@ -332,7 +332,7 @@ static func run(main: Node, name: String) -> void:
 				await wait_phase(Turn.Phase.AFTERMATH, 20.0)
 				await frames(45)
 				await shot("ammo_" + str(a))
-				await seconds(10.0 if a == "beehive" else 2.5)
+				await seconds(12.0 if a == "meteor" else 2.5)
 				await shot("ammo_" + str(a) + "_later")
 				var settlers1: int = Settler.all.filter(func(x: Settler) -> bool: return x.state != Settler.State.DEAD).size()
 				say("  powder heaps now: %d, landslides: %d" % [Powder.count(), Landslide.slides.size()])
@@ -463,12 +463,12 @@ static func run(main: Node, name: String) -> void:
 			say("fast-forward auto-off at the human's aiming phase: %s" % str(not m.get("_fast_forward")))
 			await seconds(2.0)
 			await shot("aim_marker_turn2")
-		"redkeg":
+		"meteor":
 			await wait_loaded()
 			Settings.palisade_count = 1
 			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
 			await auto_place_all()
-			Game.players[0].add_ammo("redkeg", 2)
+			Game.players[0].add_ammo("meteor", 2)
 			var guard9: float = 0.0
 			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and guard9 < 60.0:
 				await tree.process_frame
@@ -488,13 +488,85 @@ static func run(main: Node, name: String) -> void:
 					best9 = c9 as Catapult
 			Turn.select_catapult(best9)
 			var hp0: float = Breakable.village_hp(1)
-			var rk: Dictionary = await aim_and_fire(tgt, "redkeg", 45.0)
+			var rk: Dictionary = await aim_and_fire(tgt, "meteor", 45.0)
 			say("solver err %.1f m, power %.2f" % [float(rk["err"]), float(rk["power"])])
 			await wait_phase(Turn.Phase.AFTERMATH, 60.0)
-			await seconds(3.0)
+			var mt0: float = Time.get_ticks_msec() * 0.001
+			var ground0: float = Terrain.h(Meteor.strikes[0].target.x, Meteor.strikes[0].target.z) if not Meteor.strikes.is_empty() else 0.0
+			var tp: Vector3 = Meteor.strikes[0].target if not Meteor.strikes.is_empty() else tgt
+			say("marker down at %s (aimed %s), beam up" % [str(tp), str(tgt)])
+			await seconds(2.0)
+			await shot("meteor_1_beam")
+			await seconds(2.6)
+			await shot("meteor_2_fall")
+			var slow_seen: bool = false
+			while Meteor.pending() and Time.get_ticks_msec() * 0.001 - mt0 < 20.0:
+				if Engine.time_scale < 0.99:
+					slow_seen = true
+				await tree.process_frame
+			await seconds(0.4)
+			await shot("meteor_3_boom")
+			await seconds(2.0)
+			await shot("meteor_4_crater")
+			await seconds(4.0)
 			var hp1: float = Breakable.village_hp(1)
-			say("red keg: village HP %.0f -> %.0f (%.0f%% destroyed)" % [hp0, hp1, 100.0 * (1.0 - hp1 / maxf(hp0, 1.0))])
-			await shot("redkeg_impact")
+			say("meteor: village HP %.0f -> %.0f (%.0f%% destroyed), crater depth at the point %.1f m, bullet time seen: %s, time scale %.2f" % [hp0, hp1, 100.0 * (1.0 - hp1 / maxf(hp0, 1.0)), ground0 - Terrain.h(tp.x, tp.z), str(slow_seen), Engine.time_scale])
+			await shot("meteor_5_after")
+		"logstick":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			var spot := Vector3(0, 0, 0)
+			spot.y = Terrain.h(spot.x, spot.z)
+			var lvel := Vector3(14, -22, 0)
+			var lpr: Projectile = Projectile.launch("log", spot + Vector3(-14, 32, 0), lvel, 0, null)
+			# nose first: the pointed end (local Y) along the flight direction, no tumbling
+			var ly: Vector3 = lvel.normalized()
+			var lx: Vector3 = ly.cross(Vector3.FORWARD).normalized()
+			PhysWorld.set_transform(lpr.body_id, Transform3D(Basis(lx, ly, lx.cross(ly)), spot + Vector3(-14, 32, 0)))
+			PhysWorld.set_velocity(lpr.body_id, lvel, Vector3.ZERO)
+			await seconds(4.0)
+			say("stuck logs: %d (ground y %.1f)" % [Projectile.stuck_logs.size(), spot.y])
+			if not Projectile.stuck_logs.is_empty():
+				var sid: int = int((Projectile.stuck_logs[0] as Dictionary)["id"])
+				say("log mode static: %s, pos %s" % [str(PhysicsServer3D.body_get_mode(PhysWorld.body_rid(sid)) == PhysicsServer3D.BODY_MODE_STATIC), str(PhysWorld.get_transform(sid).origin)])
+				await shot("log_stuck")
+				await seconds(5.0)
+				say("still stuck after 5 s: %d" % Projectile.stuck_logs.size())
+				Projectile.release_stuck_logs(spot, 20.0)
+				say("after a blast: stuck logs %d" % Projectile.stuck_logs.size())
+		"wind":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			var landings: Array = []
+			var winds: Array = [Vector2.ZERO, Vector2(14.0, 0.0), Vector2.ZERO, Vector2(14.0, 0.0)]
+			var aim_yaw0: float = 0.0
+			var aim_pow0: float = 0.0
+			for wi in winds.size():
+				var gd: float = 0.0
+				while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and gd < 120.0:
+					await tree.process_frame
+					gd += 1.0 / 60.0
+				await seconds(0.5)
+				var sel0: Catapult = Game.cur().living_catapults()[0] as Catapult
+				Turn.select_catapult(sel0)
+				Game.wind = winds[wi] as Vector2
+				if wi == 0:
+					aim_yaw0 = sel0.yaw
+					aim_pow0 = 0.6
+				Turn.aim_ammo = "stone"
+				Turn.set_aim(aim_yaw0, 40.0, aim_pow0)
+				var org: Vector3 = Turn.launch_origin(sel0, 40.0, aim_yaw0)
+				var pred: Vector3 = Ballistics.landing(org, aim_yaw0, 40.0, aim_pow0, "stone", winds[wi] as Vector2)
+				Turn.fire()
+				await wait_phase(Turn.Phase.AFTERMATH, 40.0)
+				landings.append(Projectile.last_impact_pos)
+				say("shot %d wind %s: landed %s, predicted %s" % [wi, str(winds[wi]), str(Projectile.last_impact_pos), str(pred)])
+				await wait_phase(Turn.Phase.TURN_START, 60.0)
+			var d1: Vector3 = (landings[1] as Vector3) - (landings[0] as Vector3)
+			var d2: Vector3 = (landings[3] as Vector3) - (landings[2] as Vector3)
+			say("WIND shift of the landing point: %.1f m and %.1f m along the wind (+X)" % [d1.x, d2.x])
 		"tab":
 			await wait_loaded()
 			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
