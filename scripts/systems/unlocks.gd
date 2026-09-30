@@ -25,10 +25,22 @@ static func _pid(source: Dictionary) -> int:
 		return -1
 	return int(source["player_id"])
 
+static var _from_host: bool = false
+
+## A grant announced by the host (online clients never decide this themselves)
+static func net_grant(player_id: int, ammo_id: String, n: int, reason_key: String) -> void:
+	_from_host = true
+	grant(player_id, ammo_id, n, reason_key)
+	_from_host = false
+
 static func grant(player_id: int, ammo_id: String, n: int, reason_key: String) -> void:
+	if Net.is_client() and not _from_host:
+		return
 	var p: PlayerData = Game.player(player_id)
 	if p == null or p.eliminated:
 		return
+	if Net.active and Net.is_host:
+		NetGame.send_grant(player_id, ammo_id, n, reason_key)
 	p.add_ammo(ammo_id, n)
 	Events.ammo_changed.emit(p.id)
 	var txt: String = I18n.t("unlock.got", {"name": p.name, "ammo": I18n.t("ammo." + ammo_id), "n": n, "why": I18n.t("unlock." + reason_key)})

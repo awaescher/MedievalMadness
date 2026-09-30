@@ -276,8 +276,8 @@ func is_firing() -> bool:
 
 # ---------------------------------------------------------------- damage
 func take_damage(amount: float, source: Dictionary, reason: String = "hit") -> void:
-	if destroyed:
-		return
+	if destroyed or Net.is_client():
+		return          # online: only the host decides about damage (hp arrives with the turn snapshot)
 	hp -= amount
 	damaged_recently = 4.0
 	if not source.is_empty():
@@ -302,7 +302,7 @@ func ensure_grounded() -> bool:
 		return false
 	var xf: Transform3D = PhysWorld.get_transform(body_id)
 	var gh: float = Terrain.h(xf.origin.x, xf.origin.z)
-	if gh - xf.origin.y > 3.0:
+	if gh - xf.origin.y > 3.0 and not Net.is_client():
 		destroy("buried")
 		return false
 	var buried: bool = xf.origin.y < gh - 0.3
@@ -336,10 +336,12 @@ func extinguish() -> void:
 		_flame = null
 	Fx.burst("steam", global_pos() + Vector3.UP, Color(0, 0, 0, -1), 0.5)
 
-func destroy(reason: String) -> void:
-	if destroyed:
+func destroy(reason: String, from_host: bool = false) -> void:
+	if destroyed or (Net.is_client() and not from_host):
 		return
 	destroyed = true
+	if Net.active and Net.is_host:
+		NetGame.send_cat_dead(player_id, index, reason)
 	hp = 0.0
 	var xf: Transform3D = PhysWorld.get_transform(body_id)
 	var vel: Vector3 = PhysWorld.get_velocity(body_id)

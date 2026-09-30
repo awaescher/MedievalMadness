@@ -1134,3 +1134,19 @@ godot --headless --path . --export-release "Linux"   build/linux/MedievalMadness
 
 ### 25.3 Optional (out of scope unless everything else is done)
 Web export, mobile, gamepad, online multiplayer, code signing/notarization, auto-updater, installers.
+
+## 19. Online play (up to 8 players)
+
+**Transport** (`autoload/net.gd`): one WebSocket per player to a **relay** (`relay/cloudflare/worker.js` on Cloudflare Workers + Durable Objects, or `tools/relay_server.gd` self-hosted; same protocol). Rooms have a 4 letter code, topology is a star: clients only send to the host, the host sends to one or all. JSON text frames: `hi`, `hello`, `peer`, `msg`, `err`, 15 s heartbeat. No port forwarding, works behind every NAT. Lobby overlay `ui/lobby.gd` (name, relay URL, host / join by code, roster); the host starts the match from the main menu (`START ONLINE GAME`). Seat 1 = host, then peers in joining order, the remaining seats are CPUs run by the host. Weather and random events are off online.
+
+**Sync model** (`net/netgame.gd`): the world is built from seed + layout nonce on every machine. The **host decides the rules**, every machine **simulates every shot itself** for the visuals:
+- *Placement*: the author of a seat (human, or the host for a CPU) sends the result (`placed`: catapult poses / fences with layers); the others apply it in seat order.
+- *Turns*: the host picks the next player and the wind and sends `turn_start`. The active player's aim is streamed (`aim`, 8 Hz) so the others see the catapult turn.
+- *Shots*: a client sends `fire_req`; the host stamps it with a random seed and broadcasts `shot`; all machines reseed all gameplay RNGs (`NetGame.reseed`) and fire exactly that shot.
+- *Authority*: only the host damages / destroys catapults (`cat_dead` events), grants weapons (`grant`), eliminates players and announces the winner (`over`). Clients never decide these.
+- *Turn end* (`turn_end`): snapshot of ammo, stats, catapult hp / poses and the **list of damaged structures as bitmaps of living parts**. Clients remove parts that already fell on the host and **put back** parts that fell only here (`Breakable.revive_part`, parts remember their pose `xf0`), so the villages are identical at the start of every turn even though the physics never agree bit by bit. A structure-hash is compared for diagnostics (`NetGame.hash_mismatches`). Debris, settlers, fire and craters may differ slightly between machines.
+- *Leaving*: a client that disconnects is out (`drop`): its catapults vanish, its turn is skipped; a join after the start is rejected; if the host leaves the relay ends the room.
+- Pause does not stop the world online; rematch / same map are not offered online.
+- Seats: `PlayerData.net_peer`; `is_human()` means "a human on THIS machine", `is_remote()` a human elsewhere.
+
+**Tests**: `--autotest=nethost` / `--autotest=netjoin` (see `relay/README.md`) play a whole match with several headless processes; their `NETLOG` lines must agree.

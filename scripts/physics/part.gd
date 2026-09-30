@@ -13,6 +13,7 @@ var size: Vector3 = Vector3.ONE
 var shape: String = "box"
 var segs: int = 12
 var xf: Transform3D = Transform3D.IDENTITY
+var xf0: Transform3D = Transform3D.IDENTITY       # the pose it was built in (online play puts parts back there)
 var color: Color = Color.WHITE
 var glow: bool = false
 var hp: float = 10.0

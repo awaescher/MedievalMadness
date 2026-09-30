@@ -69,6 +69,48 @@ static func aim_and_fire(target: Vector3, ammo: String, elev: float = 45.0) -> D
 	Turn.fire()
 	return r
 
+static func uarg(name: String, default_value: String) -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--" + name + "="):
+			return a.get_slice("=", 1)
+	return default_value
+
+## Online test player: place automatically, then fire a stone at an enemy every time it is this peer's turn
+static func net_play(max_turns: int, max_wall: float) -> void:
+	var wall: float = 0.0
+	var last_turn: int = -1
+	var logged: int = -1
+	while Game.state != Game.State.GAME_OVER and wall < max_wall and Game.turn_number < max_turns + 1:
+		await tree.process_frame
+		wall += 1.0 / maxf(Engine.get_frames_per_second(), 20.0)
+		var pl: Node = m.get("placement") as Node
+		if Game.state == Game.State.PLACEMENT and pl != null and bool(pl.get("_active")):
+			var pidx: int = int(pl.get("player_idx"))
+			if pidx >= 0 and pidx < Game.players.size() and Game.players[pidx].is_human():
+				pl.call("_auto_place")
+				await frames(3)
+				pl.call("_done")
+		if Game.state == Game.State.BATTLE and Game.turn_number != logged and Turn.phase == Turn.Phase.TURN_START:
+			logged = Game.turn_number
+			var cats: Array = Game.players.map(func(x: PlayerData) -> int: return x.catapults_left())
+			say("NETLOG turn=%d cur=%d wind=(%.2f,%.2f) hash=%d dead=%d fixed=%d missing=%d impact=%s cats=%s" % [Game.turn_number, Game.current_player, Game.wind.x, Game.wind.y, NetGame.live_hash(), NetGame.dead_total(), NetGame.fixed_parts, NetGame.missing_parts, str(Projectile.last_impact_pos), str(cats)])
+		if Game.state == Game.State.BATTLE and Turn.phase == Turn.Phase.AIMING and Game.cur().is_human() and last_turn != Game.turn_number and Turn.sel == null:
+			pass
+		if Game.state == Game.State.BATTLE and Turn.phase == Turn.Phase.AIMING and Game.cur().is_human() and last_turn != Game.turn_number:
+			last_turn = Game.turn_number
+			await seconds(0.6)
+			var me: PlayerData = Game.cur()
+			var tgt: PlayerData = null
+			for o in Game.players:
+				if o.id != me.id and not o.eliminated and o.catapults_left() > 0:
+					tgt = o
+					break
+			if tgt != null and not me.living_catapults().is_empty():
+				Turn.select_catapult(me.living_catapults()[0] as Catapult)
+				aim_and_fire((tgt.living_catapults()[0] as Catapult).global_pos(), "stone", 45.0)
+	var cats2: Array = Game.players.map(func(x: PlayerData) -> int: return x.catapults_left())
+	say("NETDONE state=%d turn=%d hash=%d cats=%s mismatches=%d fixed_parts=%d missing_parts=%d winner=%d bytes_out=%d bytes_in=%d" % [Game.state, Game.turn_number, NetGame.live_hash(), str(cats2), NetGame.hash_mismatches, NetGame.fixed_parts, NetGame.missing_parts, Game.last_winner, Net.bytes_out, Net.bytes_in])
+
 static func run(main: Node, name: String) -> void:
 	m = main
 	tree = main.get_tree()
@@ -512,6 +554,44 @@ static func run(main: Node, name: String) -> void:
 			var hp1: float = Breakable.village_hp(1)
 			say("meteor: village HP %.0f -> %.0f (%.0f%% destroyed), crater depth at the point %.1f m, bullet time seen: %s, time scale %.2f" % [hp0, hp1, 100.0 * (1.0 - hp1 / maxf(hp0, 1.0)), ground0 - Terrain.h(tp.x, tp.z), str(slow_seen), Engine.time_scale])
 			await shot("meteor_5_after")
+		"nethost":
+			await wait_loaded()
+			Settings.seed_text = uarg("seed", "net-test")
+			Settings.timer = 0
+			Settings.catapult_count = 2
+			Settings.palisade_count = 1
+			Settings.player_count = int(uarg("players", "4"))
+			Net.host_game(uarg("relay", "ws://127.0.0.1:9080"), "Host")
+			var g0: float = 0.0
+			while not Net.active and g0 < 15.0:
+				await tree.process_frame
+				g0 += 1.0 / 60.0
+			say("NETCODE " + Net.code)
+			var f: FileAccess = FileAccess.open("/tmp/mm_netcode.txt", FileAccess.WRITE)
+			f.store_string(Net.code)
+			f.close()
+			var want: int = 1 + int(uarg("peers", "1"))
+			g0 = 0.0
+			while Net.roster.size() < want and g0 < 60.0:
+				await tree.process_frame
+				g0 += 1.0 / 60.0
+			say("roster: %s" % str(Net.roster))
+			var menu0: Menu = m.get("menu") as Menu
+			menu0.count = int(uarg("players", "4"))
+			NetGame.host_start(NetGame.make_cfg(menu0.players_config(), menu0.count))
+			await net_play(int(uarg("turns", "6")), 400.0)
+			await seconds(1.0)
+		"netjoin":
+			await wait_loaded()
+			Settings.timer = 0
+			Net.join_game(uarg("relay", "ws://127.0.0.1:9080"), uarg("code", ""), uarg("name", "Guest"))
+			var g1: float = 0.0
+			while not Net.active and g1 < 15.0:
+				await tree.process_frame
+				g1 += 1.0 / 60.0
+			say("joined=%s as %d, roster %s" % [str(Net.active), Net.my_id, str(Net.roster)])
+			await net_play(int(uarg("turns", "6")), 400.0)
+			await seconds(1.0)
 		"logstick":
 			await wait_loaded()
 			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])

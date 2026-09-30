@@ -42,8 +42,18 @@ var trees_hit: Dictionary = {}        # distinct trees damaged since the last lo
 var ammo_sel: String = "stone"      # this player's own ammo choice (kept between turns, never shared)
 var marker: Vector3 = Vector3.INF   # the one map marker of this player (spec 6.7), INF = none
 
+## Online play: set by the Net autoload. `net_peer` is the peer that controls this seat (-1 = nobody / the CPU).
+static var net_on: bool = false
+static var net_id: int = -1
+var net_peer: int = -1
+
+## A human on THIS machine (in an online game: only the seat this peer controls)
 func is_human() -> bool:
-	return type == "human"
+	return type == "human" and (not net_on or net_peer == net_id)
+
+## A human on another machine (online game)
+func is_remote() -> bool:
+	return type == "human" and net_on and net_peer != net_id
 
 func is_cpu() -> bool:
 	return type != "human"

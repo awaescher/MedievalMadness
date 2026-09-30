@@ -4,6 +4,7 @@ extends Control
 ## Main menu (spec 2.1): language, players (name / color / type), seed, options, START BATTLE.
 
 signal start_requested
+signal online_requested
 
 const SEED_WORDS: Array[String] = ["cheese", "goose", "pitchfork", "turnip", "moat", "dragon", "haystack", "gravy", "kaboom", "ale", "gauntlet", "pumpernickel", "trebuchet", "wobble", "porridge", "yeet"]
 const TYPES: Array[String] = ["human", "peasant", "squire", "knight", "king"]
@@ -30,6 +31,8 @@ func _ready() -> void:
 	_build()
 	Events.language_changed.connect(_on_lang_changed)
 	Sfx.synth_progress.connect(_on_synth_progress)
+	Net.roster_changed.connect(_refresh_start)
+	Net.joined.connect(func(_c: String) -> void: _refresh_start())
 	Sfx.synth_ready.connect(_on_synth_ready)
 	if Sfx.is_ready:
 		_on_synth_ready()
@@ -68,9 +71,12 @@ func _on_synth_ready() -> void:
 
 func _refresh_start() -> void:
 	if start_btn != null:
-		start_btn.disabled = not _sound_ready
+		start_btn.disabled = not _sound_ready or Net.is_client()
+		start_btn.text = I18n.t("net.start_online") if Net.active else I18n.t("menu.start")
 	if status != null:
 		status.text = I18n.t("menu.ready") if _sound_ready else status.text
+		if Net.active:
+			status.text = I18n.t("net.online_as", {"code": Net.code, "n": Net.roster.size()}) + ("" if Net.is_host else "  -  " + I18n.t("net.waiting"))
 
 # ------------------------------------------------------------------ layout
 func _build() -> void:
@@ -113,6 +119,9 @@ func _build() -> void:
 	start_btn = UITheme.button(I18n.t("menu.start"), "RedButton", Vector2(380, 64), 30)
 	start_btn.pressed.connect(_on_start)
 	bottom.add_child(start_btn)
+	var online_btn: Button = UITheme.button(I18n.t("net.open"), "GoldButton", Vector2(220, 64), 22)
+	online_btn.pressed.connect(func() -> void: online_requested.emit())
+	bottom.add_child(online_btn)
 	var quit_btn: Button = UITheme.button(I18n.t("menu.quit"), "ParchButton", Vector2(140, 64), 20)
 	quit_btn.pressed.connect(func() -> void: get_tree().root.propagate_notification(NOTIFICATION_WM_CLOSE_REQUEST); get_tree().quit())
 	bottom.add_child(quit_btn)

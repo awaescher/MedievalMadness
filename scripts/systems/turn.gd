@@ -38,6 +38,7 @@ static var paused_by_focus: bool = false
 static var _frozen_time: float = 0.0
 static var _end_hold: float = 0.6
 static var _epic_done: bool = false
+static var _net_firing: bool = false
 
 # ------------------------------------------------------------------ ballistic prediction (also used by the CPU)
 static func launch_velocity(yaw: float, elev_deg: float, power: float) -> Vector3:
@@ -78,6 +79,8 @@ static func start_battle(_players: Array) -> void:
 	_next_turn()
 
 static func _next_turn() -> void:
+	if Net.is_client():
+		return          # online: the host decides who plays next and sends it (net_turn_start)
 	var n: int = Game.players.size()
 	var idx: int = Game.current_player
 	for i in n:
@@ -87,14 +90,6 @@ static func _next_turn() -> void:
 	Game.current_player = idx
 	Game.turn_number += 1
 	turn_count += 1
-	var p: PlayerData = Game.cur()
-	impact_points.clear()
-	has_aimed = false
-	shots_this_turn = 0
-	_hit_reported = false
-	_lightning_done = false
-	sel = null
-	timer_on = false
 	# wind: change speed +-3 and rotate direction +-40 degrees (x1.8 during storms)
 	var r: Rng = Game.rng_battle
 	var base_speed: float = clampf(Game.wind_speed() / _wind_mult() + r.range_f(-Cfg.WIND_CHANGE_MAX, Cfg.WIND_CHANGE_MAX), 0.0, Cfg.WIND_MAX)
@@ -103,15 +98,36 @@ static func _next_turn() -> void:
 	# weather first (may change the multiplier)
 	Weather.turn_start()
 	Game.wind = Vector2(cos(ang), sin(ang)) * base_speed * _wind_mult()
+	_begin_turn()
+	if Net.active:
+		NetGame.send_turn_start()
+
+## Online client: the host announced the next turn (player, number, wind)
+static func net_turn_start(d: Dictionary) -> void:
+	Game.current_player = int(d["cur"])
+	Game.turn_number = int(d["turn"])
+	turn_count = Game.turn_number
+	Game.wind = Vector2(float(d["wx"]), float(d["wy"]))
+	_begin_turn()
+
+static func _begin_turn() -> void:
+	var p: PlayerData = Game.cur()
+	impact_points.clear()
+	has_aimed = false
+	shots_this_turn = 0
+	_hit_reported = false
+	_lightning_done = false
+	sel = null
+	timer_on = false
+	NetGame.awaiting_shot = false
 	Events.wind_changed.emit(Game.wind)
 	_set_phase(Phase.TURN_START)
 	Events.turn_start.emit(p.id)
-	Events.banner.emit(I18n.pick("banner.turn_start", r, {"name": p.name}), "turn")
+	Events.banner.emit(I18n.pick("banner.turn_start", Game.rng_battle, {"name": p.name}), "turn")
 	Sfx.play("turn_start", Vector3.INF, 0.8, 5)
 	# camera to the village
 	if cam != null:
 		cam.focus_on(p.village_center + Vector3(0, 0, 0), 46.0, 40.0)
-	# ammo selection default: keep last, fall back to stone
 	# every player keeps their own ammo choice (nothing carries over from the previous player)
 	aim_ammo = p.ammo_sel if p.has_ammo(p.ammo_sel) else "stone"
 
@@ -184,6 +200,9 @@ static func current_velocity() -> Vector3:
 static func fire() -> void:
 	if phase != Phase.AIMING or sel == null or sel.destroyed:
 		return
+	if Net.active and not _net_firing:
+		NetGame.request_fire()          # host: broadcast the shot; client: ask the host
+		return
 	if not sel.ensure_grounded():
 		return
 	var p: PlayerData = Game.cur()
@@ -208,6 +227,45 @@ static func fire() -> void:
 	_set_phase(Phase.FIRING)
 	Sfx.play("creak", sel.global_pos(), 0.5, 0)
 
+## Online: the host sent a shot (seat, catapult, aim, ammo, RNG seed): everybody fires exactly that
+static func net_fire(d: Dictionary) -> void:
+	var p: PlayerData = Game.cur()
+	if p == null or phase != Phase.AIMING or int(d["seat"]) != Game.current_player:
+		return
+	var cat: Catapult = null
+	for c in p.living_catapults():
+		if (c as Catapult).index == int(d["cat"]):
+			cat = c as Catapult
+	if cat == null:
+		return
+	if sel != cat:
+		select_catapult(cat)
+	if sel == null:
+		return
+	aim_ammo = str(d["ammo"])
+	if p.has_ammo(aim_ammo):
+		p.ammo_sel = aim_ammo
+	set_aim(float(d["yaw"]), float(d["elev"]), float(d["power"]))
+	NetGame.reseed(int(d["seed"]))
+	_net_firing = true
+	fire()
+	_net_firing = false
+
+## Online: the active player's aim, shown on the other machines
+static func net_aim(d: Dictionary) -> void:
+	var p: PlayerData = Game.cur()
+	if p == null:
+		return
+	if sel == null or sel.index != int(d["cat"]):
+		for c in p.living_catapults():
+			if (c as Catapult).index == int(d["cat"]):
+				select_catapult(c as Catapult)
+	if sel == null:
+		return
+	aim_ammo = str(d["ammo"])
+	sel.set_ammo_visual(aim_ammo)
+	set_aim(float(d["yaw"]), float(d["elev"]), float(d["power"]))
+
 static func _on_released() -> void:
 	if _pending_shot.is_empty():
 		return
@@ -223,6 +281,9 @@ static func _on_released() -> void:
 		cam.follow_projectile(pr.position(), vel)
 
 static func skip_turn() -> void:
+	if Net.is_client():
+		NetGame.send_skip()
+		return
 	if phase == Phase.AIMING or phase == Phase.TURN_START:
 		Events.banner.emit(I18n.t("banner.skipped", {"name": Game.cur().name}), "info")
 		if sel != null:
@@ -249,6 +310,8 @@ static func update(dt: float) -> void:
 				CpuAI.update(dt)
 			elif sel != null and cam != null and cam.mode != CameraRig.Mode.OVERVIEW:
 				cam.aim_at(sel.global_pos(), aim_yaw, deg_to_rad(aim_elev))
+			if Net.active and Game.cur() != null and Game.cur().is_human():
+				NetGame.tick_aim(dt)
 		Phase.FIRING:
 			if phase_time > 4.0 and not Projectile.any_alive():
 				_set_phase(Phase.AFTERMATH)
@@ -267,7 +330,7 @@ static func _begin_aiming() -> void:
 		_finish_turn()
 		return
 	_set_phase(Phase.AIMING)
-	cpu_active = p.is_cpu()
+	cpu_active = p.is_cpu() and not Net.is_client()
 	var pick: Catapult = null
 	if p.last_catapult >= 0:
 		for c in list:
@@ -279,7 +342,12 @@ static func _begin_aiming() -> void:
 		CpuAI.begin_turn(p)
 	else:
 		select_catapult(pick)
-	timer_on = Game.turn_timer > 0 and not cpu_active
+	# online: a shot that reached us before this machine was ready to aim
+	if not NetGame.queued_shot.is_empty():
+		var qs: Dictionary = NetGame.queued_shot
+		NetGame.queued_shot = {}
+		net_fire(qs)
+	timer_on = Game.turn_timer > 0 and p.is_human()
 	time_left = float(Game.turn_timer)
 
 static func _timeout() -> void:
@@ -430,7 +498,9 @@ static func min_dwell() -> float:
 		return 6.0
 	return 2.8 if Scoring.current_shot_score() > 250.0 else 2.0
 
-static func _finish_turn() -> void:
+static func _finish_turn(net: Dictionary = {}) -> void:
+	if Net.is_client() and net.is_empty():
+		return          # online: the host decides when a turn is over (net_turn_end)
 	# announce the shot result
 	var p: PlayerData = Game.cur()
 	if p != null and shots_this_turn > 0:
@@ -448,23 +518,56 @@ static func _finish_turn() -> void:
 		sel.set_selected(false)
 	_end_hold = 1.5 if (shots_this_turn > 0 and shot_relevant()) else 0.35
 	_set_phase(Phase.TURN_END)
-	_end_of_turn_checks()
+	_end_of_turn_checks(net)
 
-static func _end_of_turn_checks() -> void:
+## Online client: the host says the turn is over: apply its snapshot and the eliminations it found
+static func net_turn_end(d: Dictionary) -> void:
+	if Game.state != Game.State.BATTLE:
+		return
+	NetGame.apply_snapshot(d["snap"] as Dictionary)
+	_finish_turn(d)
+
+## Online host: a seat left in the middle of the battle
+static func host_player_dropped(seat: int) -> void:
+	if Game.living_players().size() <= 1:
+		_end_of_turn_checks({})
+		return
+	if Game.current_player == seat and (phase == Phase.TURN_START or phase == Phase.AIMING):
+		_finish_turn()
+
+static func net_game_over(winner: int) -> void:
+	if Game.state == Game.State.BATTLE:
+		_game_over(winner)
+
+static func _end_of_turn_checks(net: Dictionary = {}) -> void:
 	# eliminations are checked here only (spec 2.5)
 	var newly: Array[PlayerData] = []
-	for pl in Game.players:
-		if not pl.eliminated and pl.catapults_left() == 0:
-			newly.append(pl)
+	if net.is_empty():
+		for pl in Game.players:
+			if not pl.eliminated and pl.catapults_left() == 0:
+				newly.append(pl)
+	else:
+		for id in (net["newly"] as Array):
+			var np: PlayerData = Game.player(int(id))
+			if np != null and not np.eliminated:
+				newly.append(np)
+	if Net.is_host:
+		var ids: Array = []
+		for np2 in newly:
+			ids.append(np2.id)
+		NetGame.send_turn_end(ids)
 	for pl2 in newly:
 		Scoring.on_elimination(pl2.id)
-		Unlocks.on_player_eliminated(pl2.id)
+		if not Net.is_client():
+			Unlocks.on_player_eliminated(pl2.id)
 		Events.player_eliminated.emit(pl2.id)
 		Events.banner.emit(I18n.pick("banner.eliminated", Game.rng_battle, {"name": pl2.name}), "elim")
 		Sfx.play("defeat", Vector3.INF, 0.9, 5)
 	Scoring.on_turn_survived()
 	Events.turn_end.emit(Game.current_player)
 	var alive: Array[PlayerData] = Game.living_players()
+	if Net.is_client():
+		return          # the host announces the end of the game ("over")
 	if alive.size() <= 1:
 		var winner: int = -1
 		if alive.size() == 1:
@@ -488,6 +591,8 @@ static func _end_of_turn_checks() -> void:
 	RandomEvents.turn_end_check()
 
 static func _game_over(winner: int) -> void:
+	if Net.is_host:
+		NetGame.send_over(winner)
 	_set_phase(Phase.GAME_OVER)
 	Game.last_winner = winner
 	Game.set_state(Game.State.GAME_OVER)

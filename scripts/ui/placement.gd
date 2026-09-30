@@ -171,21 +171,42 @@ func _next_player() -> void:
 			_finish()
 			return
 	var p: PlayerData = Game.players[player_idx]
+	if p.eliminated:
+		_next_player()          # somebody who left the online game
+		return
 	Game.current_player = player_idx
 	stage = round_no
 	post_ghost.visible = false
 	cam.focus_on(p.village_center, 44.0, 52.0, 0.0)
 	Events.turn_start.emit(p.id)
 	yaw = _default_yaw(p)
-	if p.is_cpu():
+	if p.is_cpu() or p.is_remote():
 		title.text = I18n.t("placement.cpu_placing", {"name": p.name})
 		hint.text = ""
 		for b in [remove_btn, auto_btn, done_btn]:
 			(b as Button).disabled = true
 		ghost.visible = false
 		_cpu_timer = 0.45
+		if p.is_remote() or Net.is_client():
+			# somebody else places (a human on another machine, or the host's CPU): wait for their message
+			var pd: Dictionary = NetGame.take_pending_placed(player_idx, stage)
+			if not pd.is_empty():
+				net_placed(pd)
 	else:
 		_refresh()
+
+## Online: another seat finished its placement (message from its author)
+func net_placed(d: Dictionary) -> void:
+	if not _active or int(d["idx"]) != player_idx or int(d["stage"]) != stage:
+		NetGame._placed_pending["%d:%d" % [int(d["idx"]), int(d["stage"])]] = d
+		return
+	NetGame.apply_placement(world, d, _rng)
+	_next_player()
+
+## Online: the seat that was placing left the game
+func net_player_dropped(seat: int) -> void:
+	if _active and seat == player_idx:
+		_next_player()
 
 func _default_yaw(p: PlayerData) -> float:
 	var best: PlayerData = null
@@ -273,6 +294,7 @@ func _done() -> void:
 	if stage == 0 and _cur().catapults.size() < Game.catapults_per_player:
 		return
 	Sfx.play("ui_click", Vector3.INF, 0.8, 0)
+	NetGame.send_placed(player_idx, stage)
 	_next_player()
 
 ## Fill the player's remaining catapults with valid spots (spec 14.3). Static so tests/CPU can call it.
@@ -357,14 +379,17 @@ static func auto_place(p: PlayerData, w: GameWorld, kind: String, r: Rng) -> voi
 func _process(delta: float) -> void:
 	if not _active:
 		return
-	if player_idx >= 0 and player_idx < Game.players.size() and Game.players[player_idx].is_cpu():
+	if player_idx >= 0 and player_idx < Game.players.size() and (Game.players[player_idx].is_cpu() or Game.players[player_idx].is_remote()):
+		var pp: PlayerData = Game.players[player_idx]
+		if pp.is_remote() or Net.is_client():
+			return          # waiting for the message of the seat's author
 		_cpu_timer -= delta
 		if _cpu_timer <= 0.0:
-			var p: PlayerData = Game.players[player_idx]
 			if round_no == 0:
-				auto_place(p, world, p.type, _rng)
+				auto_place(pp, world, pp.type, _rng)
 			else:
-				Posts.auto_place(p, _rng)
+				Posts.auto_place(pp, _rng)
+			NetGame.send_placed(player_idx, round_no)
 			_next_player()
 		return
 	if player_idx < 0 or player_idx >= Game.players.size():
@@ -448,7 +473,7 @@ func _update_ghost() -> void:
 	ghost_ring.material_override = m
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not _active or player_idx < 0 or player_idx >= Game.players.size() or _cur().is_cpu():
+	if not _active or player_idx < 0 or player_idx >= Game.players.size() or _cur().is_cpu() or _cur().is_remote():
 		return
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event
