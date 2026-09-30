@@ -44,6 +44,7 @@ var _water_time: float = 0.0
 var _fire_exposure: float = 0.0
 var _flame: Fx.Flame
 var _burn_t: float = 0.0
+var _buried_t: float = 0.0
 var _pos_cache: Vector3 = Vector3.ZERO
 var _sleep_check: float = 0.0
 var last_source: Dictionary = {}
@@ -294,6 +295,25 @@ func apply_impulse(imp: Vector3) -> void:
 		return
 	PhysWorld.apply_impulse(body_id, imp)
 
+## A catapult must stand on the ground to shoot: if it is stuck in the soil it is lifted onto it and set upright; if it is
+## buried deeper than 3 m it is destroyed. Returns false when it was destroyed.
+func ensure_grounded() -> bool:
+	if destroyed or body_id == 0:
+		return false
+	var xf: Transform3D = PhysWorld.get_transform(body_id)
+	var gh: float = Terrain.h(xf.origin.x, xf.origin.z)
+	if gh - xf.origin.y > 3.0:
+		destroy("buried")
+		return false
+	var buried: bool = xf.origin.y < gh - 0.3
+	var tilted: bool = xf.basis.y.y < 0.75
+	if buried or tilted:
+		var up_xf := Transform3D(Basis(Vector3.UP, yaw), Vector3(xf.origin.x, gh + 0.35, xf.origin.z))
+		PhysWorld.set_transform(body_id, up_xf)
+		PhysWorld.set_velocity(body_id, Vector3.ZERO, Vector3.ZERO)
+		_pos_cache = up_xf.origin
+	return true
+
 func ignite() -> void:
 	if burning or destroyed:
 		return
@@ -419,6 +439,16 @@ func tick(dt: float) -> void:
 		return
 	var xf: Transform3D = PhysWorld.get_transform(body_id)
 	_pos_cache = xf.origin
+	# stuck in the ground (landslide, crater edge...): lift it out, or it is lost if buried deep
+	if xf.origin.y < Terrain.h(xf.origin.x, xf.origin.z) - 0.45:
+		_buried_t += dt
+		if _buried_t > 0.4:
+			_buried_t = 0.0
+			if not ensure_grounded():
+				return
+			xf = PhysWorld.get_transform(body_id)
+	else:
+		_buried_t = 0.0
 	# tipped over
 	if xf.basis.y.y < 0.2:
 		_tip_time += dt

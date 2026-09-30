@@ -335,6 +335,13 @@ static func apply_impulse(id: int, impulse: Vector3, at: Vector3 = Vector3.INF) 
 		PhysicsServer3D.body_apply_impulse(pb.rid, impulse, at - pb.xform.origin)
 
 ## Impulse with a cap on the resulting velocity change (tiny props must not be shot to the moon)
+## Wakes every sleeping dynamic body inside the box (the ground under it may just have been dug away)
+static func wake_in_box(box: AABB) -> void:
+	for id in bodies:
+		var pb: PBody = bodies[id] as PBody
+		if pb.mass > 0.0 and box.has_point(pb.xform.origin) and PhysicsServer3D.body_get_mode(pb.rid) == PhysicsServer3D.BODY_MODE_RIGID:
+			PhysicsServer3D.body_set_state(pb.rid, PhysicsServer3D.BODY_STATE_SLEEPING, false)
+
 static func apply_impulse_capped(id: int, impulse: Vector3, max_dv: float = 32.0, at: Vector3 = Vector3.INF) -> void:
 	var pb: PBody = bodies.get(id) as PBody
 	if pb == null:

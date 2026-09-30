@@ -37,6 +37,7 @@ func setup_roots(sky_rig: SkyRig) -> void:
 	add_child(fx_root)
 	Powder.attach(fx_root)
 	Terrain.ground_hook = Callable(Breakable, "ground_changed")
+	Terrain.wake_hook = Callable(PhysWorld, "wake_in_box")
 	catapult_parent = Node3D.new()
 	catapult_parent.name = "Catapults"
 	add_child(catapult_parent)
@@ -74,7 +75,6 @@ func reset_systems() -> void:
 	Scoring.reset()
 	Debris.reset()
 	Brigade.reset()
-	ReplayRec.reset()
 
 func teardown() -> void:
 	reset_systems()
@@ -361,7 +361,6 @@ func physics_tick(dt: float, cam_pos: Vector3) -> void:
 	Bees.tick(dt)
 	Stink.tick(dt)
 	Brigade.tick_all(dt)
-	ReplayRec.tick(dt)
 	for p in Game.players:
 		for c in p.catapults:
 			if is_instance_valid(c):

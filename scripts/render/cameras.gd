@@ -4,7 +4,7 @@ extends Node3D
 ## Camera rig with modes: OVERVIEW (free orbit), AIM (chase), FOLLOW (projectile), IMPACT,
 ## FOCUS (fixed orbit target, e.g. placement), REPLAY, ORBIT (menu attract). Spec 6.1 / 18.2.
 
-enum Mode { OVERVIEW, AIM, FOLLOW, IMPACT, FOCUS, REPLAY, ORBIT }
+enum Mode { OVERVIEW, AIM, FOLLOW, IMPACT, FOCUS, ORBIT }
 
 var cam: Camera3D
 var mode: int = Mode.OVERVIEW
@@ -101,11 +101,18 @@ func follow_projectile(p: Vector3, v: Vector3) -> void:
 	follow_pos = p
 	follow_vel = v
 
-func impact_cam(p: Vector3) -> void:
+## Impact camera. With `shot_dir` it is set up once: behind the shot looking along it, high enough to see the whole
+## village around the impact; without it only the focus point moves (rolling barrels) and the angle stays put.
+func impact_cam(p: Vector3, shot_dir: Vector3 = Vector3.ZERO) -> void:
+	var fresh: bool = shot_dir.length() > 0.01
 	mode = Mode.IMPACT
 	focus = p
-	dist = 26.0
-	pitch = deg_to_rad(48.0)
+	if fresh:
+		var fd := Vector3(shot_dir.x, 0.0, shot_dir.z)
+		if fd.length() > 0.01:
+			yaw = atan2(-fd.x, -fd.z)
+		dist = 34.0
+		pitch = deg_to_rad(44.0)
 
 # ------------------------------------------------------------ input
 func orbit_drag(dx: float, dy: float) -> void:
@@ -186,11 +193,6 @@ func update(delta: float) -> void:
 			want_pos = _orbit_pos(focus, dist, yaw, pitch)
 			want_target = focus
 			k = 3.0
-		Mode.REPLAY:
-			yaw += dt * 0.15
-			want_pos = _orbit_pos(focus, dist, yaw, pitch)
-			want_target = focus + Vector3.UP * 2.0
-			k = 5.0
 		_:
 			# OVERVIEW / FOCUS
 			want_pos = _orbit_pos(focus, dist, yaw, pitch)

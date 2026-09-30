@@ -69,7 +69,7 @@ medieval-madness-native/
     render/
       quality.gd            quality tiers application (section 15)
       toon.gd               toon + outline shader materials factory (16.1)
-      cameras.gd            camera rig (overview, aim, follow, replay)
+      cameras.gd            camera rig (overview, aim, follow, impact, focus, orbit)
       sky.gd                gradient sky shader, sun, clouds
       water.gd              water plane(s) + shader
       shaders/              *.gdshader written by hand (toon, outline, sky, water, terrain, particles)
@@ -111,7 +111,7 @@ medieval-madness-native/
       cpu.gd                bot logic (section 14)
     ui/
       theme.gd              builds the parchment Theme resource in code
-      menu.gd  hud.gd  aiming.gd  placement.gd  replay.gd  results.gd  pause.gd  debug_overlay.gd
+      menu.gd  hud.gd  aiming.gd  placement.gd  results.gd  pause.gd  debug_overlay.gd
   tests/
     run_tests.gd            headless test entry (section 21)
     (test_*.gd)
@@ -357,7 +357,7 @@ Each call records `source` ({playerId, projectileType}) so stats can attribute d
 | 5 | scatter | Grandma's Buckshot | Omas Streuschuss | earned | 30 | 0.4 | 0.35 | Splits at apex or on impact into **24 stones (mass 9 each, radius 0.24)** scattering in a 2–20° cone; each smashes parts in 1.3 m (energy ×9), hurts settlers in 2.2 m (30) and sparks fires. Split when velocity.y <= 0 first time, or at impact. |
 | 6 | cow | Moo-nition (a Cow) | Muh-nition (eine Kuh) | earned | 250 | 0.9 | 0.15 | A cow body + head. **On its first impact it bursts into 34 red chunks** (mass 8, radius 0.2, 16–40 m/s, flat fan around the impact normal) that fly outwards like small projectiles in a **flat fan along the ground** (little lift, vertical speed capped at 22%): each smashes parts in 1.3 m, hurts settlers in 2.2 m (30 damage) and splats; plus a heavy kinetic hit (radius 2.4–5.4 m, energy ×0.7), 80 damage to settlers within 6 m and a bowling pressure wave (radius 11). |
 | 7 | beehive | Angry Beehive | Wütender Bienenstock | earned | 20 | 0.4 | 0.5 | On impact bursts into **three killer swarms (16 s each)** that hunt every settler and animal within 13 m (+6 m leash) of the hive at 8 m/s; everyone within 28 m panics; stings do **8 dmg/s** (settlers have 30 hp) within 2.8 m, so they kill everything living in a wide area. Idle swarms circle above the impact. Bees do not damage buildings or catapults. |
-| 8 | redkeg | The Big Red Barrel | Das Große Rote Fass | earned | 160 | 0.75 (barrel) | 0.2 | **Superweapon.** Explodes on impact: **radius 32, max damage 9000**, sets everything in 80% of the radius on fire, huge pressure wave (radius 77), 14 burning fragments. A good hit on a village destroys **roughly 50–70% of its buildings** (test: `--autotest=replay`, measured 47–73% over several seeds). Catapults use the steep blast falloff with a reduced scale (0.06 instead of 0.14, option `cat_scale` of `explode()`), so the barrel kills catapults close to the centre but does not wipe out a whole village's catapults. Red, larger than the black keg (barrel hull 0.68 × 1.12 m), with a skull-ish mark. |
+| 8 | redkeg | The Big Red Barrel | Das Große Rote Fass | earned | 160 | 0.75 (barrel) | 0.2 | **Superweapon.** Explodes on impact: **radius 32, max damage 9000**, sets everything in 80% of the radius on fire, huge pressure wave (radius 77), 14 burning fragments. A good hit on a village destroys **roughly 50–70% of its buildings** (test: `--autotest=redkeg`, measured 47–73% over several seeds). Catapults use the steep blast falloff with a reduced scale (0.06 instead of 0.14, option `cat_scale` of `explode()`), so the barrel kills catapults close to the centre but does not wipe out a whole village's catapults. Red, larger than the black keg (barrel hull 0.68 × 1.12 m), with a skull-ish mark. |
 | 9 | powdertrail | Black Powder Kegs | Schwarzpulver-Fässer | earned | 28 each | 0.27 (small barrel hull 0.27 × 0.62 m) | 0.25 | **One shot launches FIVE small kegs** (the aimed one plus four in a tight fan of ±0.8–3° and ±0.55 m offsets); they roll **like Flaming Barrels** (same barrel hull, bounce off houses and trees) but a little longer: roll assist 4.8 s, burn-out after 7.5 s (4 s once stopped) but instead of fire they **leave black powder**: irregular heaps on the ground (about every 0.09 s with 85% chance, jittered ±1 m) and powder smeared on every building part within 1.5 m of a contact; at the end of its roll a keg bursts into a last heap. Extra kegs do not score as shots of their own. See 11.6 for what powder does. |
 
 **No water weapon and no cheese weapon exist** (the old Water Balloon and Holy Cheese were removed). Goats and chickens are never ammunition. (The random event "Cheese Meteor" stays as a joke event, 11.5.)
@@ -780,13 +780,15 @@ Tracked per player: `shots`, `hits` (shot that damaged any enemy building/settle
 
 Winner crown title (random): "Supreme Overlord of Rubble" / "Oberster Herrscher über Trümmer"; "Grand Pooh-Bah of Ashes" / "Großmeister der Asche"; "Emperor of Ruins" / "Kaiser der Ruinen"; "Chief Chaos Officer" / "Oberster Chaos-Beauftragter".
 
-### 13.2 Best hit replay
-During a replay the physics server is frozen and `Main._physics_process` skips the whole world tick (like the pause menu): nothing may add or remove bodies while the replay plays (avoids a release-build crash after aborting a replay).
-Each shot is scored: `score = damageDealt + 50 × settlersLaunched + 200 × buildingsDestroyed + 300 × catapultsDestroyed + explosionCount × 30`. Store during the battle a **replay record** of the best-scoring shot per game: launch parameters (position, velocity, ammo, wind) — NOT the full physics state. At GAME_OVER (or on the result screen button "Watch best hit") the game re-simulates by loading the seed's map state... Simplification (allowed and required): record **keyframes** instead: each 1/20 s store transforms of the top 150 moving bodies + projectile + effect events (explosions, fires) in a ring buffer during the AFTERMATH; keep only the best shot's buffer (max 12 s = 240 frames × 150 bodies × 7 floats ≈ 250k floats, acceptable). Playback shows kinematic ghosts of those bodies on top of the last state? -> no: at playback time, the world state is different. Therefore replay is **only shown right after the shot** ("Replay!" banner) if the shot's score exceeded 600 (and at most once every 3 turns): re-apply the buffered transforms of the moving bodies as they were, in slow motion (0.4×), with a "REPLAY" film-grain border, from a different camera angle, while the real world state is frozen and hidden behind... **Original state (required)**: the replay must show the settlement as it was BEFORE the shot, not the ruins. At the moment of firing `ReplayRec.begin()` snapshots every live part with its pose; `Breakable.break_part/discard_part` log the recorder time at which each part dies. At playback start every part that died during the shot is re-created as a ghost mesh at its original pose and hidden exactly at its break time (frames use the same clock); recorded debris bodies stay hidden until the frame in which they first appear. Ghosts are freed when the replay ends. Implementation detail: replay uses the **same meshes**: pause physics, save current transforms of the recorded bodies, set transforms from buffer frame by frame, then restore. Skippable with click/`Space`. Frames use only bodies present in the recorded set. Bodies removed during the shot (broken parts) are simply not visible in later frames if they don't exist in the frame list (store `id` per record; hide those not present).
-
----
-
-## 14. CPU AI (`scripts/ai/cpu.gd`)
+### 13.2 Impact focus and bullet time (replaces the former replay — replays were removed)
+- No replay exists. After a shot the **impact camera** keeps the village where the shot lands in view (yaw behind the shot direction, ~34 m, pitch 44°), it never turns away, also for scatter/fire bombs.
+- Exceptional hits (direct catapult hit by a projectile, explosions with max damage ≥ 5000 such as the red barrel, kills of enemy catapults not caused by fire) trigger **bullet time**: `Engine.time_scale` 0.12–0.22 for 1.5–2.8 s, audio `playback_speed_scale` follows so sounds are stretched and epic. Any click/key cancels it. A deeper request wins over a shallower one.
+- Banners/turn panel are larger and no longer repeat messages.
+- Catapults must stand on the ground: `Catapult.ensure_grounded()` re-seats a buried catapult (terrain + 0.35, upright); if buried > 3 m deep it is destroyed ("buried"). A catapult cannot be selected/fire unless grounded.
+- Terrain changes (`Terrain.flush`) wake sleeping debris in the changed area (`PhysWorld.wake_in_box`) so it sinks into craters instead of floating.
+- Boulder mass is 12 t. A powder keg that gets the camera focus bursts at the end of its roll and scatters several powder blobs within one catapult size; powder trails are 60% denser.
+- **Village layout**: the seed decides only the terrain; the village layout uses a separate RNG (`seed|layout|nonce`), the nonce is random per fresh match and kept on "same map"/restart.
+- **Versioning**: `VERSION` file, shown in the menu credits via `Cfg.game_version()`; releases via `tools/release.sh <ver> "<note>"` (git commit + tag).
 
 ### 14.1 Difficulty parameters
 ```gdscript
@@ -1053,7 +1055,7 @@ godot --headless --path . --script res://tests/run_tests.gd
 **Phase 6 — AI.** Full cpu.gd per section 14; difficulty comparisons: Peasant misses > 80% at 60 m, King hits within 3 m on average when no wind noise applies (test on `predict_trajectory` without full physics).
 *Accept:* 4-bot game (Peasant, Squire, Knight, King) runs alone to completion (`--autotest` with a speed-up); King wins most.
 
-**Phase 7 — Extras.** Weather, random events, replay, statistics, titles, all audio, full localization check, pause menu, settings persistence.
+**Phase 7 — Extras.** Weather, random events, impact focus, statistics, titles, all audio, full localization check, pause menu, settings persistence.
 *Accept:* every event in 11.5 can be triggered via debug key `E` cycle; all sounds exist in the `Sfx` cache (test); both languages complete (i18n test passes, no key fallbacks visible).
 
 **Phase 8 — Polish, performance and packaging.** Auto quality, shadow optimization, pooled particles audit, allocation audit, bugs, README, **export builds for all three platforms (section 25)**.
