@@ -218,7 +218,10 @@ func _create_body(pos: Vector3, vel: Vector3) -> void:
 			d.shapes.append(_log_shape())
 			d.xf = Transform3D(Basis(lv, lax, lv.cross(lax)), pos)
 			d.mass = ammo.mass
-			d.ang_velocity = rng.unit_vec3() * TAU * rng.range_f(0.5, 2.0)
+			# tumbles in every direction, but mostly end over end (a roll about its own axis would never bring a tip forward)
+			var tum: Vector3 = rng.unit_vec3()
+			tum -= lax * tum.dot(lax) * 0.75
+			d.ang_velocity = tum.normalized() * TAU * rng.range_f(0.5, 2.0)
 			bounce = 0.2
 			friction = 0.7
 		"powderkeg":
@@ -520,7 +523,7 @@ func _sweep_living(pos: Vector3, vel: Vector3) -> bool:
 		var d: float = (st.global_pos() + Vector3(0, 0.8, 0) - pos).length()
 		if d < reach:
 			hit_any = true
-			var e: float = ammo.mass * speed * power_k * (0.5 if ammo.id == "chain" else 1.0)
+			var e: float = ammo.mass * speed * power_k * (1.0 if ammo.id == "chain" else 1.0)
 			var dir: Vector3 = vel.normalized() if speed > 0.5 else Vector3.UP
 			var dmg: float = clampf(e / 30.0, 6.0, 80.0)
 			st.hurt(dmg, source, (dir + Vector3.UP * 0.5).normalized() * clampf(e / 60.0, 3.0, 22.0), true)
@@ -609,13 +612,13 @@ func _handle_impact(info: Dictionary) -> void:
 	var tip_hit: bool = false
 	if ammo.id == "chain":
 		# each of the two balls hits like a stone, plus the speed of the whirl
-		energy = ammo.mass * 0.5 * (speed + CHAIN_SPIN * CHAIN_HALF * 0.45)
+		energy = ammo.mass * (speed + CHAIN_SPIN * CHAIN_HALF * 0.45)
 	elif ammo.id == "log" and PhysWorld.bodies.has(body_id):
 		# crosswise it just thumps; a pointed end that arrives first is a spear (internally x10)
 		var lxf: Transform3D = PhysWorld.get_transform(body_id)
 		var lp: Vector3 = lxf.affine_inverse() * pos
 		var tip_dir: Vector3 = lxf.basis.y * signf(lp.y)
-		tip_hit = absf(lp.y) > LOG_HALF - 0.9 and tip_dir.dot(dir) > 0.35
+		tip_hit = absf(lp.y) > LOG_HALF - 1.0 and tip_dir.dot(dir) > 0.3
 		energy *= 10.0 if tip_hit else 0.25
 		if tip_hit and (terrain_hit or target == null) and speed > 9.0 and not stuck:
 			_log_stick(pos, tip_dir)
@@ -969,8 +972,8 @@ func _tick_firebarrel(dt: float, pos: Vector3, vel: Vector3) -> void:
 		if powder:
 			# the keg bursts: a last big heap
 			# the keg the camera follows bursts for good: several blobs within about a catapult's size around it
-			var blobs: int = 4 if is_extra else 9
-			var spread: float = 1.5 if is_extra else 2.3
+			var blobs: int = 8 if is_extra else 16
+			var spread: float = 6.0 if is_extra else 9.2
 			for k in blobs:
 				Powder.drop(pos + Vector3(rng.range_f(-spread, spread), 0, rng.range_f(-spread, spread)), source, rng.range_f(1.0, 1.8))
 			Powder.stain(pos, spread + 0.5, source)
@@ -997,8 +1000,8 @@ func _tick_chain(dt: float, pos: Vector3, vel: Vector3) -> void:
 			var bv: Vector3 = vel + w.cross(off)
 			var bs: float = bv.length()
 			if bs > 8.0 and bp.y - Terrain.h(bp.x, bp.z) < 1.6:
-				Damage.impact_at(bp, 1.2, ammo.mass * 0.5 * bs * 0.4 * IMPACT_K, bv / bs, source)
-				Damage.damage_settlers_in_radius(bp, 1.4, clampf(bs * 2.0, 15.0, 70.0), source, bv / bs, 0.7)
+				Damage.impact_at(bp, 1.2, ammo.mass * bs * 0.4 * IMPACT_K, bv / bs, source)
+				Damage.damage_settlers_in_radius(bp, 1.4, clampf(bs * 4.0, 30.0, 140.0), source, bv / bs, 0.7)
 	if roll_age >= 5.0 or (roll_age > 1.0 and vel.length() < 1.0):
 		_finish(pos, false)
 

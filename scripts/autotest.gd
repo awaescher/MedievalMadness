@@ -535,6 +535,29 @@ static func run(main: Node, name: String) -> void:
 				say("still stuck after 5 s: %d" % Projectile.stuck_logs.size())
 				Projectile.release_stuck_logs(spot, 20.0)
 				say("after a blast: stuck logs %d" % Projectile.stuck_logs.size())
+		"lograte":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			var total: int = 0
+			var stuck_n: int = 0
+			for batch in 4:
+				var before: int = Projectile.stuck_logs.size()
+				var launched: int = 0
+				for k in 10:
+					var sp := Vector3(-150.0 + float(k) * 6.0, 0.0, -100.0 + float(batch) * 60.0)
+					if Terrain.is_water(sp.x, sp.z):
+						continue
+					sp.y = Terrain.h(sp.x, sp.z)
+					var spd: float = Rng.new(batch * 100 + k).range_f(26.0, 40.0)
+					var ang: float = deg_to_rad(Rng.new(batch * 7 + k * 3).range_f(35.0, 55.0))
+					var v := Vector3(cos(ang) * spd, sin(ang) * spd, 0.0)
+					Projectile.launch("log", sp + Vector3(0, 3.0, 0), v, 0, null)
+					launched += 1
+				await seconds(14.0)
+				total += launched
+				stuck_n += Projectile.stuck_logs.size() - before
+			say("LOGRATE stuck %d of %d (%.0f%%)" % [stuck_n, total, 100.0 * float(stuck_n) / float(maxi(total, 1))])
 		"wind":
 			await wait_loaded()
 			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
