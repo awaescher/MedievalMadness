@@ -55,6 +55,8 @@ var _fb_acc: float = 0.0
 var pellet_energy: float = 0.0
 var is_event: bool = false           # cow rain etc.: does not hold up the turn
 var power_k: float = 1.0             # damage multiplier of this body (the stone volley: 0.3 per stone)
+var _fuse_snd: AudioStreamPlayer3D = null
+var _fuse_acc: float = 0.0
 var stuck: bool = false              # a log that stays in the ground for the rest of the game
 
 static var stuck_logs: Array = []    # [{id: body id, node: Node3D}]
@@ -264,6 +266,8 @@ func _create_body(pos: Vector3, vel: Vector3) -> void:
 		world_root.add_child(visual)
 		d.visual = visual
 	body_id = PhysWorld.add_body(d)
+	if ammo.id == "powderkeg" and visual != null:
+		_fuse_snd = Sfx.attach_loop("fuse", visual, 0.75)
 	var pb: PhysWorld.PBody = PhysWorld.body(body_id)
 	if pb != null:
 		pb.buoy = 0.6 if ammo.id != "cow" else 1.3
@@ -468,6 +472,12 @@ func tick(dt: float) -> void:
 	if ammo.id == "scatter" and not _scattered and vel.y <= 0.0 and age > 0.25 and not is_sub:
 		_scatter(pos, vel)
 		return
+	if ammo.id == "powderkeg":
+		# the fuse spits sparks (the hiss is attached to the keg)
+		_fuse_acc += dt
+		if _fuse_acc >= 0.045:
+			_fuse_acc = 0.0
+			Fx.burst("spark", pb.xform * Vector3(0, 0.66, 0), Color("#ffcf5a"), 0.16)
 	if ammo.id == "meteor" and int(age * 60.0) % 5 == 0:
 		Fx.burst("spark", pos, Color("#4dff9a"), 0.25)
 	if ammo.id == "firebarrel" or ammo.id == "powdertrail":
@@ -866,6 +876,10 @@ func _finish(pos: Vector3, miss: bool, in_water: bool = false, silent: bool = fa
 	_cleanup(keep)
 
 func _cleanup(keep_body: bool) -> void:
+	if _fuse_snd != null and is_instance_valid(_fuse_snd):
+		_fuse_snd.stop()
+		_fuse_snd.queue_free()
+	_fuse_snd = null
 	if trail != null and is_instance_valid(trail):
 		trail.stop()
 	trail = null

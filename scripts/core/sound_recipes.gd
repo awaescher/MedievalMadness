@@ -9,24 +9,26 @@ const NAMES: Array[String] = [
 	"thunk", "clack", "crunch", "clang", "tinkle", "fwump", "swish", "boom", "bigboom", "whoosh", "twang", "creak",
 	"fire_loop", "splash", "moo", "bawk", "baa", "neigh", "quack", "honk", "squeak", "bell", "scream", "yeet", "boing",
 	"buzz", "thunder", "zap", "rain_loop", "gust", "stinger_event", "ui_click", "ui_hover", "turn_start", "victory",
-	"defeat", "splat", "pop"]
+	"defeat", "splat", "pop", "fuse"]
 
 const VARIANTS: Dictionary = {
 	"thunk": 3, "clack": 3, "crunch": 3, "splash": 3, "boing": 3, "scream": 3, "moo": 3, "tinkle": 3, "fwump": 2, "swish": 2,
 	"clang": 3, "boom": 3, "bigboom": 2, "splat": 3, "yeet": 2, "twang": 2, "creak": 2, "pop": 2, "zap": 2, "bawk": 3, "baa": 3, "quack": 3, "neigh": 2, "honk": 2,
 }
 const LOOPED: Array[String] = ["fire_loop", "rain_loop", "gust", "buzz"]
+## looped streams that are not part of the global ambience mix: players attach them to things (Sfx.attach_loop)
+const LOOP_SINGLE: Array[String] = ["fuse"]
 ## Final peak level per sound (UI stays discreet, loops sit under everything else)
 const LEVEL: Dictionary = {
 	"ui_hover": 0.30, "ui_click": 0.55, "fire_loop": 0.55, "rain_loop": 0.5, "gust": 0.5, "buzz": 0.5, "tinkle": 0.7,
-	"clack": 0.8, "squeak": 0.7, "pop": 0.7, "bawk": 0.75, "quack": 0.75, "baa": 0.8, "moo": 0.85, "neigh": 0.8, "honk": 0.8,
+	"fuse": 0.6, "clack": 0.8, "squeak": 0.7, "pop": 0.7, "bawk": 0.75, "quack": 0.75, "baa": 0.8, "moo": 0.85, "neigh": 0.8, "honk": 0.8,
 }
 
 static func variants_of(name: String) -> int:
 	return int(VARIANTS.get(name, 1))
 
 static func is_looped(name: String) -> bool:
-	return LOOPED.has(name)
+	return LOOPED.has(name) or LOOP_SINGLE.has(name)
 
 ## A brass note: two detuned saws + a square an octave down through a low-pass that opens (the "blaat" of a horn)
 static func _brass(b: PackedFloat32Array, f: float, t0: float, dur: float, amp: float, f_end: float = -1.0, wah: float = 0.0) -> void:
@@ -396,6 +398,16 @@ static func make(name: String, variant: int) -> PackedFloat32Array:
 				Synth.osc(b, Synth.SINE, fb, fb * 1.8, 0.06 + float(k) * 0.05, 0.05, 0.22, 42.0, 0.0, 0.0, 0.001)
 			Synth.saturate(b, 1.6)
 			Synth.reverb(b, 0.25, 0.5, 0.08)
+		"fuse":
+			# a burning fuse: a steady bright hiss with a crackle of tiny pops and now and then a spit
+			b = Synth.make(1.7)
+			Synth.noise(b, Synth.WHITE, 0.0, 1.7, 0.30, 0.0, 9500.0, 8500.0, 4200.0, r, 0.0)
+			Synth.noise(b, Synth.PINK, 0.0, 1.7, 0.22, 0.0, 3200.0, 2600.0, 900.0, r, 0.0)
+			for k in 70:
+				Synth.noise(b, Synth.WHITE, r.range_f(0.0, 1.6), r.range_f(0.002, 0.012), r.range_f(0.35, 1.0), 120.0, r.range_f(5000.0, 11000.0), 3000.0, r.range_f(1200.0, 3800.0), r, 0.0002)
+			for k2 in 7:
+				Synth.noise(b, Synth.WHITE, r.range_f(0.0, 1.5), r.range_f(0.03, 0.08), r.range_f(0.4, 0.7), 40.0, 8000.0, 5000.0, 2500.0, r, 0.003)
+			b = Synth.loopify(b, 0.25)
 		"pop":
 			b = Synth.make(0.2)
 			Synth.osc(b, Synth.SINE, 720.0 - v * 100.0, 240.0, 0.0, 0.08, 1.0, 42.0, 0.0, 0.0, 0.0008)
