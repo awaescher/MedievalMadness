@@ -297,7 +297,7 @@ static func _test_settings_roundtrip() -> void:
 	# i18n runtime: a few keys resolve in both languages without falling back to the key
 	for lang in ["en", "de"]:
 		I18n.set_lang(lang)
-		for key in ["menu.start", "hud.wind", "ammo.redkeg", "building.church", "banner.win", "title.pyro", "event.dragon", "stats.title", "pause.resume"]:
+		for key in ["menu.start", "hud.wind", "ammo.meteor", "building.church", "banner.win", "title.pyro", "event.dragon", "stats.title", "pause.resume"]:
 			TestBase.check(I18n.t(key) != key, "%s resolves in %s" % [key, lang])
 	I18n.set_lang(old_lang)
 
@@ -321,35 +321,41 @@ static func _test_unlocks() -> void:
 	var a: PlayerData = Game.players[0]
 	var b: PlayerData = Game.players[1]
 	a.reset_ammo()
-	b.reset_ammo({"beehive": 2})
+	b.reset_ammo({"meteor": 2})
 	TestBase.eq(a.ammo_count("stone"), -1, "stone is always there")
 	TestBase.eq(a.ammo_count("firebarrel"), 2, "two fire barrels at the start")
 	TestBase.eq(a.ammo_count("cow"), 0, "the cow is locked at the start")
-	TestBase.eq(b.ammo_count("beehive"), 2, "menu pre-grant works")
-	TestBase.check(not a.has_ammo("redkeg"), "a locked weapon is not usable")
+	TestBase.eq(b.ammo_count("meteor"), 2, "menu pre-grant works")
+	TestBase.check(not a.has_ammo("meteor"), "a locked weapon is not usable")
 	var src: Dictionary = {"player_id": a.id, "ammo": "stone"}
-	Unlocks.on_animal_killed("cow", src)
-	TestBase.eq(a.ammo_count("cow"), 1, "killing a cow earns a cow")
-	Unlocks.on_animal_killed("sheep", src)
+	Unlocks.on_animal_killed("cow", b.id)
+	TestBase.eq(a.ammo_count("cow"), 0, "killing the ENEMY's cow earns nothing")
+	Unlocks.on_animal_killed("cow", a.id)
+	TestBase.eq(a.ammo_count("cow"), 1, "losing your own cow earns a cow")
+	Unlocks.on_animal_killed("sheep", a.id)
 	TestBase.eq(a.ammo_count("cow"), 1, "a sheep earns nothing")
+	Unlocks.on_shot_buildings(a.id, 2)
+	TestBase.eq(a.ammo_count("quad"), 1, "two buildings with one shot earn the stone hail")
+	Unlocks.on_shot_settlers(a.id, 5)
+	TestBase.eq(a.ammo_count("chain"), 1, "five settlers with one shot earn the chain shot")
 	Unlocks.on_catapult_destroyed(b.id, src, "projectile")
 	TestBase.eq(a.ammo_count("scatter"), 1, "destroying an enemy catapult earns buckshot")
 	TestBase.eq(b.ammo_count("boulder"), 1, "losing a catapult earns a boulder")
 	Unlocks.on_catapult_destroyed(b.id, src, "projectile")
 	TestBase.eq(b.ammo_count("powderkeg"), 1, "the second lost catapult earns a powder keg")
 	Unlocks.on_building_destroyed("church", b.id, src)
-	TestBase.eq(a.ammo_count("redkeg"), 1, "destroying a church earns the big red barrel")
+	TestBase.eq(a.ammo_count("meteor"), 1, "destroying a church earns the meteor marker")
 	Unlocks.on_building_destroyed("farmhouse", b.id, src)
-	TestBase.eq(a.ammo_count("redkeg"), 1, "a farmhouse does not")
-	# five different trees
+	TestBase.eq(a.ammo_count("meteor"), 1, "a farmhouse does not")
+	# three different trees
 	var fake: Array[Structure] = []
-	for i in 5:
+	for i in 3:
 		var s := Structure.new()
 		s.kind = "tree"
 		fake.append(s)
 		Unlocks.on_tree_damaged(src, s)
 		Unlocks.on_tree_damaged(src, s)
-	TestBase.eq(a.ammo_count("beehive"), 1, "five damaged trees earn a beehive")
+	TestBase.eq(a.ammo_count("log"), 1, "three damaged trees earn a log")
 	a.use_ammo("cow")
 	TestBase.eq(a.ammo_count("cow"), 0, "ammo is used up")
 

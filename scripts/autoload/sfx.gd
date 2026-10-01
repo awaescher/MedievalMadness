@@ -254,8 +254,6 @@ func _update_loops(delta: float) -> void:
 			target["gust"] = 0.55
 		elif Game.wind.length() > 6.0:
 			target["gust"] = 0.18
-		if Bees.active():
-			target["buzz"] = 0.35
 	for sname in _loop_vol:
 		var cur: float = float(_loop_vol[sname])
 		var tg: float = float(target[sname])

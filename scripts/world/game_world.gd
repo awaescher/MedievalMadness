@@ -68,7 +68,7 @@ func reset_systems() -> void:
 	Projectile.reset()
 	Settler.reset()
 	Animal.reset()
-	Bees.reset()
+	Meteor.reset()
 	Stink.reset()
 	Village.reset()
 	Flag.reset()
@@ -381,8 +381,8 @@ func physics_tick(dt: float, cam_pos: Vector3) -> void:
 	Animal.update_all(dt)
 	prof["Animal"] = int(prof.get("Animal", 0)) + Time.get_ticks_usec() - _t0
 	_t0 = Time.get_ticks_usec()
-	Bees.tick(dt)
-	prof["Bees"] = int(prof.get("Bees", 0)) + Time.get_ticks_usec() - _t0
+	Meteor.tick_all(dt)
+	prof["Meteor"] = int(prof.get("Meteor", 0)) + Time.get_ticks_usec() - _t0
 	_t0 = Time.get_ticks_usec()
 	Stink.tick(dt)
 	prof["Stink"] = int(prof.get("Stink", 0)) + Time.get_ticks_usec() - _t0

@@ -88,16 +88,17 @@ func test_material_table() -> void:
 
 func test_ammo_table() -> void:
 	var all: Array[AmmoDef] = AmmoDef.all()
-	TestBase.eq(all.size(), 9, "nine ammo types")
+	TestBase.eq(all.size(), 11, "eleven ammo types")
 	TestBase.eq(AmmoDef.get_def("stone").start_count, -1, "stone is unlimited")
 	TestBase.eq(AmmoDef.get_def("firebarrel").start_count, 2, "only two fire barrels at the start")
-	for id in ["boulder", "powderkeg", "scatter", "cow", "beehive", "redkeg", "powdertrail"]:
+	for id in ["boulder", "powderkeg", "scatter", "cow", "quad", "chain", "log", "meteor", "powdertrail"]:
 		TestBase.eq(AmmoDef.get_def(id).start_count, 0, "%s has to be earned" % id)
-	TestBase.eq(AmmoDef.earnable_ids().size(), 8, "seven earnable weapons (everything but the stone)")
+	TestBase.eq(AmmoDef.earnable_ids().size(), 10, "ten earnable weapons (everything but the stone)")
 	TestBase.check(not AmmoDef.ids().has("waterbomb") and not AmmoDef.ids().has("cheese"), "water balloon and cheese are gone")
 	TestBase.eq(AmmoDef.get_def("cow").mass, 250.0, "cow mass")
 	TestBase.near(AmmoDef.get_def("cow").wind_factor, 0.15, 0.001, "cow wind factor")
-	TestBase.near(AmmoDef.get_def("beehive").radius, 0.4, 0.001, "beehive radius")
+	TestBase.near(AmmoDef.get_def("chain").radius, 0.4, 0.001, "chain ball radius")
+	TestBase.eq(AmmoDef.get_def("quad").base, "stone", "the stone hail behaves like stones")
 
 func test_constants() -> void:
 	TestBase.eq(Cfg.ZONE_RADIUS, 22.0, "zone radius")

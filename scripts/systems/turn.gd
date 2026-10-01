@@ -307,7 +307,7 @@ static func _update_flight() -> void:
 			impact_points.append(pr.first_impact_pos)
 			if cpu_active:
 				CpuAI.record_result(pr.first_impact_pos)
-			if cam != null:
+			if cam != null and not Meteor.active():
 				cam.impact_cam(_impact_focus(pr.first_impact_pos), _launch_dir)
 			aftermath_time = 0.0
 			settle_acc = 0.0
@@ -344,7 +344,7 @@ static func _enter_aftermath_from_gone() -> void:
 		pr_last = Projectile.last_pos
 	if pr_last == Vector3.INF and sel != null:
 		pr_last = sel.global_pos() + _launch_dir * 40.0
-	if pr_last != Vector3.INF and cam != null:
+	if pr_last != Vector3.INF and cam != null and not Meteor.active():
 		cam.impact_cam(_impact_focus(pr_last), _launch_dir)
 	aftermath_time = 0.0
 	settle_acc = 0.0
@@ -361,7 +361,7 @@ static func _is_relevant(pos: Vector3) -> bool:
 
 ## Click / Space after the first impact: don't wait for the world, go on with the next player
 static func skip_aftermath() -> bool:
-	if phase != Phase.AFTERMATH:
+	if phase != Phase.AFTERMATH or Meteor.active():
 		return false
 	_finish_turn()
 	return true
@@ -369,7 +369,9 @@ static func skip_aftermath() -> bool:
 static func _update_aftermath(dt: float) -> void:
 	aftermath_time += dt
 	# a really good hit is shown in bullet time (once per turn)
-	if not _epic_done and aftermath_time < 2.5 and Scoring.current_shot_score() >= 600.0:
+	if shot_ammo == "meteor" or Meteor.active():
+		Meteor.camera(cam, dt)
+	elif not _epic_done and aftermath_time < 2.5 and Scoring.current_shot_score() >= 600.0:
 		_epic_done = true
 		Events.slowmo.emit(0.25, 1.6)
 	# a rolling fire barrel is followed by the impact camera while it burns its way through the village
@@ -380,8 +382,10 @@ static func _update_aftermath(dt: float) -> void:
 	if not _lightning_done and Game.weather == "thunder" and aftermath_time > 2.0 and Game.rng_battle.chance(0.4):
 		_lightning_done = true
 		Weather.lightning_strike()
-	if aftermath_time >= Cfg.SETTLE_MAX:
+	if aftermath_time >= Cfg.SETTLE_MAX and not Meteor.active():
 		_finish_turn()
+		return
+	if Meteor.active():
 		return
 	if aftermath_time < 0.5:
 		return
@@ -419,11 +423,11 @@ static func _update_aftermath(dt: float) -> void:
 
 ## Did this shot do anything worth watching (damage, blast, fire, kills, bees, stink)?
 static func shot_relevant() -> bool:
-	return Scoring.shot_any or Bees.active() or shot_ammo == "beehive" or shot_ammo == "redkeg" or shot_ammo == "firebarrel" or shot_ammo == "boulder" or shot_ammo == "powdertrail" or Landslide.active() or Powder.active() or not Stink.clouds.is_empty()
+	return Scoring.shot_any or Meteor.active() or shot_ammo == "meteor" or shot_ammo == "firebarrel" or shot_ammo == "boulder" or shot_ammo == "powdertrail" or Landslide.active() or Powder.active() or not Stink.clouds.is_empty()
 
 static func min_dwell() -> float:
-	if shot_ammo == "beehive":
-		return 4.5
+	if shot_ammo == "meteor":
+		return 6.0
 	return 2.8 if Scoring.current_shot_score() > 250.0 else 2.0
 
 static func _finish_turn() -> void:

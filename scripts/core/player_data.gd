@@ -38,7 +38,7 @@ var post_log: Array = []              # undo steps in placement order: each is a
 var fences: Array = []                # [{id, cols, center, yaw}]
 var fence_counter: int = 0
 var hits_taken: int = 0               # catapults lost (for the consolation weapons)
-var trees_hit: Dictionary = {}        # distinct trees damaged since the last beehive
+var trees_hit: Dictionary = {}        # distinct trees damaged since the last log
 var ammo_sel: String = "stone"      # this player's own ammo choice (kept between turns, never shared)
 var marker: Vector3 = Vector3.INF   # the one map marker of this player (spec 6.7), INF = none
 

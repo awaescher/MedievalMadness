@@ -82,6 +82,7 @@ static func on_settler_launched(source: Dictionary, owner_id: int) -> void:
 		shot_hit = true
 		if int(source["player_id"]) == shot_player:
 			shot_settlers_launched += 1
+			Unlocks.on_shot_settlers(p.id, shot_settlers_launched)
 
 static func on_settler_killed(source: Dictionary, owner_id: int) -> void:
 	var p: PlayerData = _pl(source)
@@ -140,7 +141,7 @@ static func on_shot(player_id: int, ammo: String) -> void:
 	p.stats.shots += 1
 	if ammo == "cow":
 		p.stats.cows_fired += 1
-	if ammo == "redkeg":
+	if ammo == "meteor":
 		p.stats.cheese_used += 1
 	begin_shot(player_id)
 

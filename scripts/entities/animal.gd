@@ -200,7 +200,7 @@ func hurt(amount: float, launch_vel: Vector3, source: Dictionary = {}) -> void:
 			PhysWorld.apply_impulse(id, launch_vel * 6.0)
 	if hp <= 0.0:
 		dead = true
-		Unlocks.on_animal_killed(kind, source)
+		Unlocks.on_animal_killed(kind, owner_id)
 		Fx.burst("feather" if kind in ["chicken", "duck", "goose"] else "wool", global_pos() + Vector3.UP * 0.6, Color(0, 0, 0, -1), 0.8)
 	_voice()
 

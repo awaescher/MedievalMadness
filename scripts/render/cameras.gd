@@ -4,7 +4,7 @@ extends Node3D
 ## Camera rig with modes: OVERVIEW (free orbit), AIM (chase), FOLLOW (projectile), IMPACT,
 ## FOCUS (fixed orbit target, e.g. placement), REPLAY, ORBIT (menu attract). Spec 6.1 / 18.2.
 
-enum Mode { OVERVIEW, AIM, FOLLOW, IMPACT, FOCUS, ORBIT }
+enum Mode { OVERVIEW, AIM, FOLLOW, IMPACT, FOCUS, ORBIT, CINEMA }
 
 var cam: Camera3D
 var mode: int = Mode.OVERVIEW
@@ -32,6 +32,11 @@ var aim_off_pitch: float = 0.0
 var aim_dist: float = 11.0
 var _aim_yaw_smooth: float = 0.0
 var aim_hold: bool = false              # freeze the chase yaw (while the player pulls the slingshot)
+
+# cinema state (scripted shots, e.g. the meteor)
+var cin_pos: Vector3 = Vector3.ZERO
+var cin_target: Vector3 = Vector3.ZERO
+var cin_fov: float = 60.0
 
 # follow state
 var follow_pos: Vector3 = Vector3.ZERO
@@ -92,6 +97,13 @@ func aim_at(p: Vector3, yaw_rad: float, elev_rad: float) -> void:
 	aim_pos = p
 	aim_yaw = yaw_rad
 	aim_elev = elev_rad
+
+## Scripted shot: the camera goes to `p` and looks at `t` (smoothed)
+func cinema(p: Vector3, t: Vector3, fov_deg: float = 60.0) -> void:
+	mode = Mode.CINEMA
+	cin_pos = p
+	cin_target = t
+	cin_fov = fov_deg
 
 func follow_projectile(p: Vector3, v: Vector3) -> void:
 	if mode != Mode.FOLLOW:
@@ -188,6 +200,11 @@ func update(delta: float) -> void:
 			want_pos = _orbit_pos(focus, dist, yaw, pitch)
 			want_target = focus + Vector3.UP * 1.5
 			k = 4.0
+		Mode.CINEMA:
+			want_pos = cin_pos
+			want_target = cin_target
+			want_fov = cin_fov
+			k = 5.0
 		Mode.ORBIT:
 			yaw += dt * 0.05
 			want_pos = _orbit_pos(focus, dist, yaw, pitch)
