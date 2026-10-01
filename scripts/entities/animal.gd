@@ -8,7 +8,7 @@ enum State { WANDER, IDLE, FLEE, RAGDOLL, DEAD }
 
 const HP: Dictionary = {"chicken": 15.0, "sheep": 20.0, "cow": 60.0, "horse": 60.0, "duck": 8.0, "goose": 8.0}
 const SPEED: Dictionary = {"chicken": 1.0, "sheep": 0.9, "cow": 0.6, "horse": 1.4, "duck": 0.7, "goose": 1.4}
-const SOUND: Dictionary = {"chicken": "bawk", "sheep": "baa", "cow": "moo", "horse": "neigh", "duck": "quack", "goose": "quack"}
+const SOUND: Dictionary = {"chicken": "bawk", "sheep": "baa", "cow": "moo", "horse": "neigh", "duck": "quack", "goose": "honk"}
 
 static var all: Array[Animal] = []
 static var world_root: Node3D

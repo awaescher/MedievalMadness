@@ -37,17 +37,17 @@ static func _ensure() -> void:
 		return
 	# stone + fire barrel are always there; everything else has to be earned (see Unlocks) or pre-granted in the menu
 	_mk("stone", 1, -1, 40.0, 0.45, 0.30, 0.010, "#9a9aa2", "ST")
-	_mk("firebarrel", 2, 2, 60.0, 0.50, 0.25, 0.012, "#ff7a1a", "FB")
-	_mk("boulder", 3, 0, 12000.0, 0.9, 0.12, 0.012, "#7d7d86", "BO")
-	_mk("powderkeg", 4, 0, 35.0, 0.50, 0.40, 0.020, "#3a3a44", "PK")
-	_mk("scatter", 5, 0, 30.0, 0.40, 0.35, 0.020, "#c9a15a", "SG")
-	_mk("cow", 6, 0, 250.0, 0.90, 0.15, 0.030, "#f2f2f2", "MU")
-	_mk("quad", 7, 0, 40.0, 0.45, 0.30, 0.010, "#9a9aa2", "S4")
-	_mk("chain", 8, 0, 80.0, 0.40, 0.25, 0.008, "#26262c", "CH")
-	_mk("log", 9, 0, 300.0, 0.35, 0.20, 0.010, "#8a5a2a", "LG")
+	_mk("quad", 2, 0, 40.0, 0.45, 0.30, 0.010, "#9a9aa2", "S4")
+	(_by_id["quad"] as AmmoDef).base = "stone"
+	_mk("chain", 3, 0, 80.0, 0.40, 0.25, 0.008, "#26262c", "CH")
+	_mk("boulder", 4, 0, 12000.0, 0.9, 0.12, 0.012, "#7d7d86", "BO")
+	_mk("log", 5, 0, 300.0, 0.35, 0.20, 0.010, "#8a5a2a", "LG")
+	_mk("firebarrel", 6, 2, 60.0, 0.50, 0.25, 0.012, "#ff7a1a", "FB")
+	_mk("powderkeg", 7, 0, 35.0, 0.50, 0.40, 0.020, "#3a3a44", "PK")
+	_mk("scatter", 8, 0, 30.0, 0.40, 0.35, 0.020, "#c9a15a", "SG")
+	_mk("cow", 9, 0, 250.0, 0.90, 0.15, 0.030, "#f2f2f2", "MU")
 	_mk("powdertrail", 10, 0, 28.0, 0.3, 0.25, 0.012, "#2a2a30", "PT")
 	_mk("meteor", 11, 0, 30.0, 0.30, 0.30, 0.010, "#35ff86", "MT")
-	(_by_id["quad"] as AmmoDef).base = "stone"
 	for a in _all:
 		a.earnable = a.id != "stone"
 

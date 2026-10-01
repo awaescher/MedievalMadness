@@ -374,6 +374,104 @@ static func voice(buf: PackedFloat32Array, f_a: float, f_b: float, t0: float, du
 			break
 		buf[start + i] += out[i] * amp
 
+# ------------------------------------------------------------------ animal / vocal tract
+static func _pt(pts: Array, u: float) -> float:
+	if u <= float((pts[0] as Array)[0]):
+		return float((pts[0] as Array)[1])
+	for i in range(1, pts.size()):
+		var b: Array = pts[i] as Array
+		if u <= float(b[0]):
+			var a: Array = pts[i - 1] as Array
+			var k: float = (u - float(a[0])) / maxf(float(b[0]) - float(a[0]), 0.0001)
+			k = k * k * (3.0 - 2.0 * k)
+			return lerpf(float(a[1]), float(b[1]), k)
+	return float((pts[pts.size() - 1] as Array)[1])
+
+## A more natural voice: glottal source with a pitch contour (control points [[u, hz], ...] over u = 0..1), random
+## jitter / shimmer, optional vocal fry (subharmonic) and tremolo, driving a bank of time-varying 2-pole formant
+## resonators. `forms` = [[[[u, hz], ...], bandwidth_hz, gain], ...]; `amp_pts` = [[u, level], ...].
+## opts: jitter, shimmer, breath, vib_hz, vib_depth, trem_hz, trem_depth, fry (0..1 strength), fry_from (u), tilt (Hz
+## low-pass on the source, 0 = bright/buzzy), drive (soft clip). ADDS into buf at t0.
+static func vocal(buf: PackedFloat32Array, t0: float, dur: float, amp: float, f0_pts: Array, forms: Array, amp_pts: Array, r: Rng, opts: Dictionary = {}) -> void:
+	var n: int = int(dur * float(SR))
+	if n < 8:
+		return
+	var jitter: float = float(opts.get("jitter", 0.01))
+	var shimmer: float = float(opts.get("shimmer", 0.08))
+	var breath: float = float(opts.get("breath", 0.03))
+	var vib_hz: float = float(opts.get("vib_hz", 0.0))
+	var vib_depth: float = float(opts.get("vib_depth", 0.0))
+	var trem_hz: float = float(opts.get("trem_hz", 0.0))
+	var trem_depth: float = float(opts.get("trem_depth", 0.0))
+	var fry: float = float(opts.get("fry", 0.0))
+	var fry_from: float = float(opts.get("fry_from", 0.8))
+	var tilt: float = float(opts.get("tilt", 2500.0))
+	var drive: float = float(opts.get("drive", 0.0))
+	var inv: float = 1.0 / float(SR)
+	var tilt_a: float = 1.0 if tilt <= 0.0 else 1.0 - exp(-TAU * tilt * inv)
+	var src := PackedFloat32Array()
+	src.resize(n)
+	var phase: float = 0.0
+	var jn: float = 0.0
+	var sn: float = 0.0
+	var lp: float = 0.0
+	var alt: bool = false
+	for i in n:
+		var t: float = float(i) * inv
+		var u: float = float(i) / float(maxi(n - 1, 1))
+		jn = lerpf(jn, r.next_f() * 2.0 - 1.0, 0.003)
+		sn = lerpf(sn, r.next_f() * 2.0 - 1.0, 0.003)
+		var f: float = _pt(f0_pts, u) * (1.0 + jn * jitter * 40.0)
+		if vib_hz > 0.0:
+			f *= 1.0 + sin(TAU * vib_hz * t) * vib_depth
+		var dt: float = clampf(f * inv, 0.0001, 0.45)
+		phase += dt
+		var a_pulse: float = 1.0
+		if phase >= 1.0:
+			phase -= 1.0
+			alt = not alt
+		if fry > 0.0 and u >= fry_from and alt:
+			a_pulse = 1.0 - 0.65 * fry * clampf((u - fry_from) / maxf(1.0 - fry_from, 0.01) + 0.3, 0.0, 1.0)
+		var sv: float = (phase * 2.0 - 1.0) - _blep(phase, dt)
+		if tilt > 0.0:
+			lp += tilt_a * (sv - lp)
+			sv = lp * 1.6
+		var env: float = _pt(amp_pts, u) * maxf(0.0, 1.0 + sn * shimmer * 30.0) * a_pulse
+		if trem_hz > 0.0:
+			env *= 1.0 - trem_depth + trem_depth * (0.5 + 0.5 * sin(TAU * trem_hz * t))
+		sv += (r.next_f() * 2.0 - 1.0) * breath
+		src[i] = sv * env
+	var out := PackedFloat32Array()
+	out.resize(n)
+	for fm in forms:
+		var fpts: Array = (fm as Array)[0] as Array
+		var bw: float = float((fm as Array)[1])
+		var gain: float = float((fm as Array)[2])
+		var y1: float = 0.0
+		var y2: float = 0.0
+		var b1: float = 0.0
+		var b2: float = 0.0
+		var ga: float = 0.0
+		for i in n:
+			if i % 16 == 0:
+				var fc: float = _pt(fpts, float(i) / float(maxi(n - 1, 1)))
+				var rr: float = exp(-PI * bw * inv)
+				b1 = 2.0 * rr * cos(TAU * fc * inv)
+				b2 = -rr * rr
+				ga = (1.0 - rr) * 2.2
+			var y: float = ga * src[i] + b1 * y1 + b2 * y2
+			y2 = y1
+			y1 = y
+			out[i] += y * gain
+	if drive > 0.0:
+		for i in n:
+			out[i] = tanh(out[i] * drive) / tanh(drive)
+	var start: int = int(t0 * float(SR))
+	for i in n:
+		if start + i >= buf.size():
+			break
+		buf[start + i] += out[i] * amp
+
 # ------------------------------------------------------------------ space / dynamics
 ## Freeverb-style mono reverb (4 damped combs + 2 allpass). Mixes the tail into the buffer; give the buffer a long
 ## enough tail beforehand.
