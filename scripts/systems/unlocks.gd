@@ -110,6 +110,7 @@ static func on_tree_damaged(source: Dictionary, tree: Structure) -> void:
 static func on_powder_barrel(source: Dictionary) -> void:
 	var att: int = _pid(source)
 	if att >= 0:
+		Scoring.award(att, 120, "chain")
 		grant(att, "powderkeg", 1, "barrel_blown")
 
 static func on_player_eliminated(victim_id: int) -> void:

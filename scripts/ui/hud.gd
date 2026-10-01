@@ -394,6 +394,7 @@ func _ready() -> void:
 	Events.banner.connect(_on_banner)
 	Events.toast.connect(_on_toast)
 	Events.kill_feed.connect(_on_feed)
+	Events.points_awarded.connect(_on_points)
 	Events.turn_start.connect(func(_id: int) -> void: _dirty_players = true)
 	Events.turn_end.connect(func(_id: int) -> void: _dirty_players = true)
 	Events.catapult_destroyed.connect(func(_id: int, _s: Dictionary, _r: String) -> void: _dirty_players = true)
@@ -638,6 +639,27 @@ func _on_banner(text: String, kind: String) -> void:
 		banner_panel.visible = false
 		banner_panel.offset_top = start_y)
 
+static func _fmt_points(n: int) -> String:
+	var s: String = str(absi(n))
+	var out: String = ""
+	for i in s.length():
+		if i > 0 and (s.length() - i) % 3 == 0:
+			out += "."
+		out += s[i]
+	return ("-" if n < 0 else "") + out
+
+func _on_points(pid: int, pts: int, text: String) -> void:
+	var p: PlayerData = Game.player(pid)
+	if p == null:
+		return
+	var l: Label = UITheme.label("%s%d  %s  (%s)" % ["+" if pts > 0 else "", pts, text, p.name], 16, Color("#ffe27a") if pts > 0 else Color("#ff8a7a"), true, 6)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	feed_box.add_child(l)
+	_feed_items.append({"node": l, "t": 5.0})
+	while _feed_items.size() > 6:
+		var old: Dictionary = _feed_items.pop_front()
+		(old["node"] as Node).queue_free()
+
 func _on_toast(text: String) -> void:
 	toast_label.text = text
 	_toast_t = 4.0
@@ -674,6 +696,10 @@ func _update_players() -> void:
 		if p.eliminated:
 			n.text = p.name + "  (" + I18n.t("hud.eliminated") + ")"
 		row.add_child(n)
+		var pts: Label = UITheme.label(_fmt_points(p.points), 15, Color("#8a5a00"), true)
+		pts.custom_minimum_size = Vector2(62, 0)
+		pts.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(pts)
 		var ic := CatIcons.new()
 		ic.alive = p.catapults_left()
 		ic.total = Game.catapults_per_player
@@ -686,7 +712,7 @@ func _process(delta: float) -> void:
 	# rebuild the player list whenever a catapult count / elimination changes (never trust a single event)
 	var sig: String = ""
 	for pl in Game.players:
-		sig += "%d%s%d|" % [pl.catapults_left(), "x" if pl.eliminated else "o", 1 if pl.id == Game.current_player else 0]
+		sig += "%d%s%d,%d|" % [pl.catapults_left(), "x" if pl.eliminated else "o", 1 if pl.id == Game.current_player else 0, pl.points]
 	if sig != _players_sig:
 		_players_sig = sig
 		_dirty_players = true

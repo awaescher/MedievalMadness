@@ -229,10 +229,16 @@ func _update_bar() -> void:
 		return
 	_bar.set_instance_shader_parameter("fill", clampf(hp / HP_MAX, 0.0, 1.0))
 
+var _ammo_id: String = ""
+
 func set_ammo_visual(ammo_id: String) -> void:
-	var a: AmmoDef = AmmoDef.get_def(ammo_id)
-	_ammo_vis.mesh = MeshGen.sphere_mesh(minf(a.radius, 0.5), 6, 10)
-	_ammo_vis.material_override = Toon.colored(a.color)
+	if ammo_id == _ammo_id and _ammo_vis.get_child_count() > 0:
+		_ammo_vis.visible = true
+		return
+	_ammo_id = ammo_id
+	for c in _ammo_vis.get_children():
+		c.queue_free()
+	_ammo_vis.add_child(Projectile.bucket_visual(ammo_id))
 	_ammo_vis.visible = true
 
 func hide_ammo_visual() -> void:

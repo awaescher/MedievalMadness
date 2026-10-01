@@ -201,6 +201,9 @@ func hurt(amount: float, launch_vel: Vector3, source: Dictionary = {}) -> void:
 	if hp <= 0.0:
 		dead = true
 		Unlocks.on_animal_killed(kind, owner_id)
+		var att: int = int(source.get("player_id", -1)) if not source.is_empty() else -1
+		if att >= 0 and att != owner_id:
+			Scoring.award(att, {"chicken": 30, "cow": 60, "sheep": 40, "horse": 80, "duck": 40, "goose": 40}.get(kind, 30), "animal_" + kind)
 		Fx.burst("feather" if kind in ["chicken", "duck", "goose"] else "wool", global_pos() + Vector3.UP * 0.6, Color(0, 0, 0, -1), 0.8)
 	_voice()
 

@@ -77,18 +77,18 @@ func show_results(winner: int, replay_available: bool) -> void:
 		(title_map[pid] as Array).append(I18n.t("title." + str(td["title_id"])))
 	var ranking: Array[PlayerData] = _ranking(winner)
 	var grid := GridContainer.new()
-	grid.columns = 12
+	grid.columns = 13
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 4)
 	v.add_child(grid)
-	var heads: Array[String] = ["rank", "player", "shots", "hits", "damage", "launched", "killed", "catapults", "buildings", "fires", "longest", "left"]
+	var heads: Array[String] = ["rank", "player", "points", "shots", "hits", "damage", "launched", "killed", "catapults", "buildings", "fires", "longest", "left"]
 	for hd in heads:
 		var hl: Label = UITheme.label(I18n.t("stats." + hd), 14, UITheme.RED, true)
 		grid.add_child(hl)
 	for i in ranking.size():
 		var p: PlayerData = ranking[i]
 		var st: PlayerData.Stats = p.stats
-		var cells: Array = [str(i + 1), p.name, str(st.shots), str(st.hits), Util.format_int(int(st.damage_dealt)), str(st.settlers_launched), str(st.settlers_killed),
+		var cells: Array = [str(i + 1), p.name, Hud._fmt_points(p.points), str(st.shots), str(st.hits), Util.format_int(int(st.damage_dealt)), str(st.settlers_launched), str(st.settlers_killed),
 			str(st.catapults_destroyed), str(st.buildings_destroyed), str(st.fires_started), I18n.t("stats.unit_m", {"d": int(st.longest_shot)}), str(p.catapults_left())]
 		for ci in cells.size():
 			var l: Label = UITheme.label(str(cells[ci]), 16, p.color.darkened(0.3) if ci == 1 else UITheme.INK, ci == 1 or p.id == winner)

@@ -394,6 +394,13 @@ static func _update_flight() -> void:
 		# projectile already gone (water, timeout, detonated same tick)
 		_enter_aftermath_from_gone()
 
+## Centre of the village (within 34 m) around a position, or Vector3.INF
+static func _village_near(pos: Vector3) -> Vector3:
+	for pl in Game.players:
+		if Util.dist_xz(pl.village_center, pos) < 34.0:
+			return pl.village_center
+	return Vector3.INF
+
 ## The village around an impact must stay in view: the camera aims a little towards the village centre
 static func _impact_focus(pos: Vector3) -> Vector3:
 	for pl in Game.players:
@@ -446,7 +453,13 @@ static func _update_aftermath(dt: float) -> void:
 	if (shot_ammo == "firebarrel" or shot_ammo == "boulder" or shot_ammo == "powdertrail") and Projectile.primary != null and Projectile.primary.alive and cam != null:
 		var bp: Vector3 = Projectile.primary.position()
 		if bp != Vector3.INF:
-			cam.impact_cam(bp)
+			# follow the rolling thing but keep the village that is being hit in the picture
+			var vc: Vector3 = _village_near(impact_points[0] if not impact_points.is_empty() else bp)
+			if vc == Vector3.INF:
+				cam.impact_cam(bp)
+			else:
+				cam.impact_cam(bp.lerp(vc, 0.5))
+				cam.dist = clampf(maxf(34.0, Util.dist_xz(bp, vc) * 1.05 + 30.0), 34.0, 120.0)
 	if not _lightning_done and Game.weather == "thunder" and aftermath_time > 2.0 and Game.rng_battle.chance(0.4):
 		_lightning_done = true
 		Weather.lightning_strike()
@@ -591,6 +604,8 @@ static func _end_of_turn_checks(net: Dictionary = {}) -> void:
 	RandomEvents.turn_end_check()
 
 static func _game_over(winner: int) -> void:
+	if winner >= 0:
+		Scoring.award(winner, 1000, "winner")
 	if Net.is_host:
 		NetGame.send_over(winner)
 	_set_phase(Phase.GAME_OVER)
