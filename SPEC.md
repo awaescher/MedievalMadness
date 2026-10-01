@@ -1,0 +1,1124 @@
+# MEDIEVAL MADNESS (NATIVE) — Implementation Specification
+
+Version 2.0 (Godot edition). Audience: an implementing developer or LLM. Everything needed is defined here. When something is not specified, choose the simplest option that satisfies the acceptance criteria. Do NOT add features not listed here until all phases are done.
+
+This spec is the native port of the browser version (Three.js + Rapier). Game rules, content, numbers and tables are unchanged; only the technology (engine, project layout, rendering, audio, UI, packaging) differs. Section numbers match the browser spec on purpose.
+
+---
+
+## 0. Summary
+
+**Medieval Madness** is a local hot-seat, turn-based, physics-heavy 3D artillery game that runs as a **standalone desktop application on Windows, macOS and Linux**, built with **Godot 4**. 2–8 players (humans and/or CPU bots) each own a medieval village and 5 catapults. Players take turns firing one shot from one catapult at any other village. Everything in the world is a physics object and is destructible. Fire spreads, water extinguishes, settlers become ragdolls and shout jokes. A player whose 5 catapults are all destroyed is eliminated. The last player standing wins.
+
+Tone: silly, cartoonish, modern comic look. Humor everywhere (texts, sounds, effects).
+
+### 0.1 Hard constraints
+- **Engine: Godot 4.4 or newer 4.x stable**, standard (non-.NET) build, **GDScript only**. No C#, no GDExtension, no C++ modules, no addons/plugins, no Asset Library content.
+- **Physics: Jolt Physics** (built into Godot 4.4+). Set explicitly in `project.godot`: `physics/3d/physics_engine="Jolt Physics"`. Do not use the legacy GodotPhysics3D.
+- **Renderer: Mobile** (`rendering/renderer/rendering_method="mobile"`; Vulkan on Windows/Linux, Metal on macOS via MoltenVK/Metal driver). Forward+ features (SSAO, SDFGI, volumetric fog…) are NOT used. The Compatibility renderer is not a target.
+- All graphics are procedural (Godot primitive meshes, `ArrayMesh`/`SurfaceTool` generated geometry, shaders, `Image`-generated textures). **No image, model, font or audio files** in the project. (An empty `assets/` folder is reserved for later additions; nothing may depend on it.)
+- All audio is synthesized at startup into `AudioStreamWAV` resources (section 17). No audio files.
+- Fonts: engine default font + `SystemFont` (see 16.1). No bundled fonts.
+- UI languages: English (default) and German, switchable at runtime.
+- Target: 60 FPS with 4 players on Medium quality on a mid-range laptop (integrated GPU, e.g. Apple M1 / Intel Iris Xe / Radeon 680M).
+- Input: mouse + keyboard. Gamepad/touch are out of scope.
+- Fully static typing in GDScript (`var x: float`, `func f(a: int) -> void`). Warnings "untyped declaration" and "unsafe *" are set to *warn* in project settings; the project must start with zero errors and zero GDScript warnings in the output panel.
+- **Standalone**: exported builds must run by double-click with no installer, no network, no runtime downloads and no separately installed engine (details in section 25).
+- Cross-platform means: identical gameplay and visuals on Windows 10+, macOS 12+ (Apple Silicon and Intel) and Linux (x86_64, Vulkan-capable GPU). Never use platform-specific APIs; use `user://` for all writes; use `/` path separators; never call `OS.execute` in game code.
+
+### 0.2 Deliverable folder
+Everything lives in `./medieval-madness-native/`. Do not read or modify any other folder in the parent directory (in particular not `../medieval-madness/`).
+
+### 0.3 Prerequisites (for building, not for players)
+- Godot 4.4+ standard editor binary on `PATH` as `godot` (macOS: `brew install --cask godot`, binary at `/Applications/Godot.app/Contents/MacOS/Godot`; Windows: `godot.exe`; Linux: package or download).
+- Godot export templates matching the editor version (Editor → Manage Export Templates, or download `Godot_v4.x-stable_export_templates.tpz`). Required only for section 25.
+- Check with `godot --version` and adapt to the installed version; if it is newer than 4.4, keep the code compatible with 4.4 API where possible.
+
+---
+
+## 1. Project Layout
+
+```
+medieval-madness-native/
+  SPEC.md
+  README.md                 short: how to run, build, controls
+  project.godot             all engine settings (section 1.2)
+  export_presets.cfg        Windows / macOS / Linux presets (section 25)
+  icon.svg                  tiny hand-written SVG (a catapult silhouette); only allowed "asset"
+  export.sh  export.bat     build scripts (section 25)
+  run.sh     run.bat        launch from source: godot --path .
+  assets/                   reserved, empty (.gdkeep)
+  scenes/
+    main.tscn               ONE scene: Node root (main.gd) - everything else is created in code
+  scripts/
+    main.gd                 bootstrap, state switching, main loop glue
+    autoload/
+      cfg.gd                class_name Cfg: ALL constants from section 3 (not an autoload, static consts)
+      events.gd             autoload "Events": signal bus (section 20)
+      settings.gd           autoload "Settings": ConfigFile persistence (section 18.3)
+      i18n.gd               autoload "I18n": t(), tr_list(), set_lang(), get_lang()
+      game.gd               autoload "Game": global game state + state machine
+      sfx.gd                autoload "Sfx": sound synthesis + playback pool (section 17)
+    core/
+      rng.gd                class_name Rng: seeded PRNG (mulberry32) + helpers, FNV-1a string hash
+      noise.gd              value noise / fbm (own implementation, no FastNoiseLite for map gen)
+      util.gd               static helpers (mesh merge, easing, spatial hash, ...)
+    lang/
+      en.gd                 const DATA := { ... } all strings + quips
+      de.gd
+    render/
+      quality.gd            quality tiers application (section 15)
+      toon.gd               toon + outline shader materials factory (16.1)
+      cameras.gd            camera rig (overview, aim, follow, replay)
+      sky.gd                gradient sky shader, sun, clouds
+      water.gd              water plane(s) + shader
+      shaders/              *.gdshader written by hand (toon, outline, sky, water, terrain, particles)
+    physics/
+      world.gd              physics helpers on top of PhysicsServer3D, body registry, sleeping
+      materials.gd          material table (section 4)
+      breakable.gd          destructible parts + structures (section 5)
+      debris.gd             debris cap + cleanup
+    world/
+      terrain.gd            heightmap mesh + HeightMapShape3D
+      mapgen.gd             seeded map generation (section 7)
+      village.gd            village generator (section 8)
+    buildings/
+      kit.gd                helper functions (box, wall, gable roof, ...)
+      registry.gd           registry of building builders
+      (one file per building type, section 9)
+    props/
+      registry.gd           registry of prop builders (section 10)
+    entities/
+      catapult.gd
+      projectile.gd
+      settler.gd
+      animal.gd
+    systems/
+      damage.gd
+      fire.gd
+      water_sys.gd
+      explosion.gd
+      weather.gd
+      random_events.gd      dragon, meteor cheese etc.
+      turn.gd               turn manager, settle detection, predict_trajectory
+      scoring.gd            stats and titles
+    fx/
+      particles.gd          pooled GPUParticles3D effect presets
+      comic_text.gd         floating "KRAWUMM!" Label3D pool
+      speech.gd             speech bubbles
+      trails.gd
+    ai/
+      cpu.gd                bot logic (section 14)
+    ui/
+      theme.gd              builds the parchment Theme resource in code
+      menu.gd  hud.gd  aiming.gd  placement.gd  replay.gd  results.gd  pause.gd  debug_overlay.gd
+  tests/
+    run_tests.gd            headless test entry (section 21)
+    (test_*.gd)
+```
+
+### 1.1 Scene and code style
+- `main.tscn` contains only a root `Node` with `main.gd` attached. All other nodes are created in code (this keeps the project diff-friendly and avoids `.tscn` authoring errors). Only autoloads are registered in `project.godot`.
+- One `class_name` per file where the class is referenced elsewhere. Files are `snake_case.gd`, classes `PascalCase`.
+- Systems talk through `Events` signals (section 20); systems never call UI directly.
+- Hot paths (physics sync loop, fire tick, part release, particle spawn) must avoid allocations: reuse `Transform3D`/`Vector3` locals, use `PackedFloat32Array`/`PackedVector3Array`, avoid per-frame `Array.append` churn, no `Dictionary` creation per frame.
+
+### 1.2 project.godot (required settings)
+```
+[application]
+config/name="Medieval Madness"
+run/main_scene="res://scenes/main.tscn"
+config/icon="res://icon.svg"
+[autoload]
+Events="*res://scripts/autoload/events.gd"
+Settings="*res://scripts/autoload/settings.gd"
+I18n="*res://scripts/autoload/i18n.gd"
+Game="*res://scripts/autoload/game.gd"
+Sfx="*res://scripts/autoload/sfx.gd"
+[display]
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/size/window_width_override=1600
+window/size/window_height_override=900
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+[physics]
+common/physics_ticks_per_second=60
+common/max_physics_steps_per_frame=3
+3d/physics_engine="Jolt Physics"
+3d/default_gravity=19.62
+3d/run_on_separate_thread=false
+[rendering]
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+anti_aliasing/quality/msaa_3d=2
+environment/defaults/default_clear_color=Color(0.29, 0.66, 1, 1)
+[debug]
+gdscript/warnings/untyped_declaration=1
+```
+(Adapt exact key names to the installed Godot version; the intent is what matters.) The window is resizable, minimum size 1024×600, F11 toggles fullscreen (also an option in the menu).
+
+### 1.3 Autoloads and startup
+`main.gd` `_ready()`: load settings, apply quality tier and language, build UI theme, start audio synthesis (progress shown on a splash label), then show the MENU state. Wait for `Sfx.ready` before enabling `START BATTLE` (usually < 2 s).
+
+---
+
+## 2. Game Flow (State Machine)
+
+States (in `scripts/autoload/game.gd`): `MENU → GENERATING → PLACEMENT → BATTLE → GAME_OVER → MENU`.
+
+### 2.1 MENU
+Main menu (Godot `Control` nodes built in `ui/menu.gd`). Fields:
+- Language toggle EN/DE.
+- Player count 2–8 (slider). For each player row: name (text input, prefilled), color swatch (cycle), type dropdown: `Human`, `CPU Peasant`, `CPU Squire`, `CPU Knight`, `CPU King`.
+- Map seed (text input; `Random` button generates one), map size preset is derived from player count (section 7).
+- **Match rules**: terrain (flat … mountainous), catapults per player (slider 1–5, default 5), palisade fences per player (slider 1–10, default 4; each fence = 3 posts), and a **Starting arsenal** dialog where every weapon except the Stone (Flaming Barrel, Mighty Boulder, Powder Keg, Buckshot, Cow, Beehive, Big Red Barrel) can be pre-granted 0–9 extra times (default 0; Stone and Flaming Barrel are always available). All three persist in `Settings` and are copied into `Game` at match start.
+- Options: Turn timer (Off / 20 / 30 / 45 / 60 s, default 30), Quality (Low/Medium/High/Ultra, default Medium), Weather events (on/off, default on), Random events (on/off, default on), Sound volume slider, Screen shake on/off.
+- Button `START BATTLE`.
+- Default player names pool (section 12.1) used for prefill; CPU names use the pool in 12.2.
+
+### 2.2 GENERATING
+Show a loading bar with rotating funny messages (section 12.6). Generate terrain, villages, physics. Then go to PLACEMENT.
+
+### 2.3 PLACEMENT
+Players in order each place their catapults (`Game.catapults_per_player`, 1–5) inside their own **village zone** (a circle on the ground, radius `ZONE_RADIUS`), and then their palisade posts (2.3b).
+- Human: click on the ground inside the zone to place; a ghost preview follows the mouse (green = valid, red = invalid). Valid = inside zone, slope ≤ 25°, not overlapping a building/prop (raycast down + overlap test with radius 2.2 m), min distance 4 m from other catapults. Right-click / `Z` removes the last placed one. `Q`/`E` rotate the catapult facing. Button `Auto-place` places the remaining ones automatically. Button `Done` is enabled when all catapults are placed and leads on to the palisade stage (or to the next player when the post count is 0).
+- CPU: places automatically (random valid spots, spread out; Knight/King prefer spots behind walls or next to buildings), then builds a short palisade wall towards the nearest enemy.
+- Camera focuses on the current player's village during their placement.
+- All villages are visible to everybody (no fog of war).
+
+### 2.3b Palisade posts
+**Posts are placed in a second round, only after EVERY player's catapults stand** (round 1: all players in order place catapults; round 2: all players in order place posts; a banner announces the palisade phase). Each player places `Game.palisades_per_player` (1–10, default 4) **wooden posts** as cover (`world/posts.gd`, kind `palisadepost`, name "Palisade Post" / "Palisadenpfahl"):
+- A post is a wooden cylinder as thick as a tree trunk (radius 0.25 m) and **half as high as the watchtower** (5.5 m); one wood `Part`, anchored when it stands on the ground.
+- **A fence is always 3 posts side by side** (centre distance 0.52 m, touching) and one placement sets one fence; the match option counts fences (1–10, default 4 = 12 posts). `Q`/`E` turns the fence; a fence set next to the end of another one snaps on and continues it in a straight line (`Posts.snap_fence`).
+- **Where**: anywhere dry and not steeper than 35° within `ZONE_RADIUS + 25 m` of the own village centre, but never closer than `ZONE_RADIUS + 12 m` to an enemy village centre; nothing solid may be in the way, and all three posts must be valid.
+- **Stacking**: pointing at an own fence places the next row of 3 on top of it (max 4 rows = 22 m); a stacked row counts as one fence of the budget. A post only holds up the ones above it: when a post breaks or is released, every post above it falls (`PostBehavior`).
+- UI: second placement stage with its own title/hint (`placement.title_posts`, `placement.hint_posts`), a ghost of three cylinders (green/red), `Undo` (right-click / `Z`) removes the last step (a whole fence or a whole stacked row, `Breakable.remove_structure`), `Auto-place`, `Done`.
+- Posts are ordinary destructible structures: they burn, break, score as damage and can be destroyed by any weapon.
+
+### 2.4 BATTLE
+Loop of turns. Each turn (`scripts/systems/turn.gd`), sub-phases:
+1. `TURN_START`: banner "PlayerName's turn". Skip eliminated players. Roll wind change (section 6.3). Apply weather tick. Camera flies to the current player's village.
+2. `SELECT_CATAPULT`: a human chooses which of their living catapults fires: click the catapult, press `Tab` / `Shift+Tab` to cycle (handled before GUI focus navigation), or click one of the numbered catapult buttons of the **catapult selector** (bottom right, shown when the player has more than one living catapult; the selected one has a red frame, destroyed ones are dark red). Default selected = last used still alive. CPU chooses by its own logic.
+3. `AIMING`: slingshot aiming (section 6.1). Human also selects ammo in the ammo bar (keys `1`–`9`). Timer runs (if enabled). If the timer expires, fire with the current aim pulled at that moment (if never aimed: random angle at 50% power with Stone).
+4. `FLIGHT`: projectile in flight. Camera follows.
+5. `AFTERMATH`: physics continues until the world is **settled** (section 6.5). Camera shows the impact area; slow motion on big events. Fires keep burning during this phase but are not required to be out.
+6. `TURN_END`: check eliminations (section 2.5). Apply fire/settler damage, update stats. If only 1 player remains → GAME_OVER. Otherwise next living player.
+- Between turns the world keeps simulating (fires burn, settlers run), only the turn logic pauses at a fixed clock.
+
+### 2.5 Elimination
+A catapult is **destroyed** when `hp <= 0`, or it fell into deep water, or it was crushed (see section 11.1). A player with 0 living catapults is **eliminated**: show comic banner (random line from 12.5), the village remains as a burnable playground (all physics keep working). Eliminated players are skipped. A catapult destroyed by its own owner's shot counts normally (a "self-own" stat, see scoring).
+
+Eliminations are checked at `TURN_END` only (not mid-flight) so simultaneous kills are processed together. If all remaining players are eliminated at the same turn end, the winner is the one with the most total remaining building HP; tie → "Everybody loses" screen.
+
+### 2.6 GAME_OVER
+Results screen: winner with confetti and silly crown, ranking, stats table, titles (section 13), buttons `Rematch (same settings, new seed)`, `Play again same map`, `Main menu`.
+
+---
+
+## 3. Constants (`scripts/autoload/cfg.gd`)
+`class_name Cfg` with `const` values (access as `Cfg.GRAVITY`). Values are authoritative; tune later only if noted:
+
+```gdscript
+class_name Cfg
+extends RefCounted
+
+const PHYSICS_HZ := 60
+const MAX_SUBSTEPS := 3
+const GRAVITY := -19.62                # stronger than real for snappy comic feel (set as project gravity 19.62)
+const MIN_PLAYERS := 2
+const MAX_PLAYERS := 8
+const CATAPULTS_PER_PLAYER := 5        # maximum; the match uses Game.catapults_per_player (1–5, menu)
+const ZONE_RADIUS := 22.0              # village zone radius, meters
+const WORLD_UNIT := 1.0                # 1 unit = 1 meter
+const MAX_DYNAMIC_BODIES := 900        # hard cap (quality-scaled, see 15)
+const DEBRIS_LIFETIME := 25.0          # seconds after sleep before fade (Medium)
+const SETTLE_SPEED := 0.35             # m/s: below this a body counts as still
+const SETTLE_TIME := 0.8               # seconds all relevant bodies must be still (kept short: fast turn pacing)
+const SETTLE_MAX := 8.0                # seconds max aftermath wait, then force end
+const WIND_MAX := 8.0                  # m/s
+const WIND_CHANGE_MAX := 3.0
+const DRAG_MAX_PX := 220.0             # max slingshot pull in screen pixels (at 1600x900 reference; scale by window height/900)
+const POWER_MAX_SPEED := 140.0         # m/s launch speed at 100% power; MUST reach every enemy on the largest map (see 6.1 'Guaranteed range')
+const POWER_MIN_SPEED := 8.0           # at 0% (still valid > 8%)
+const PREVIEW_FRACTION := 0.4          # show first 40% of predicted flight path
+const CATAPULT_HP := 100.0
+const SETTLER_HP := 30.0
+const TURN_TIMER_DEFAULT := 30
+const FIRE_TICK := 0.5                 # seconds between fire logic ticks
+const FIRE_SPREAD_RADIUS := 3.2
+const SLOWMO_SCALE := 0.25
+```
+
+---
+
+## 4. Materials (`scripts/physics/materials.gd`)
+
+| id | density kg/m³ | friction | restitution | breakForce (impulse threshold) | flammability 0–1 | burnHP/sec | hp per m³ | shard particle | hit sound |
+|---|---|---|---|---|---|---|---|---|---|
+| wood | 600 | 0.6 | 0.2 | 260 | 0.7 | 6 | 400 | splinter (brown) | thunk |
+| plank | 550 | 0.55 | 0.25 | 160 | 0.75 | 7 | 250 | splinter (light brown) | clack |
+| stone | 2300 | 0.8 | 0.1 | 900 | 0 | 0 | 1200 | dust (grey) + pebbles | crunch |
+| brick | 1900 | 0.75 | 0.12 | 600 | 0 | 0 | 800 | dust (red) | crunch |
+| thatch | 120 | 0.9 | 0.05 | 60 | 1.0 | 12 | 60 | straw bits (yellow) | swish |
+| cloth | 80 | 0.9 | 0.05 | 40 | 0.9 | 10 | 30 | rag bits | fwump |
+| metal | 7800 | 0.4 | 0.2 | 2500 | 0 | 0 | 3000 | sparks | clang |
+| hay | 90 | 0.95 | 0.02 | 80 | 1.0 | 14 | 40 | straw bits | fwump |
+| barrel_wood | 400 | 0.5 | 0.35 | 220 | 0.5 | 5 | 180 | splinter | thunk |
+| glass | 2500 | 0.3 | 0.1 | 50 | 0 | 0 | 20 | glitter | tinkle |
+| flesh | 1000 | 0.7 | 0.15 | n/a | 0.4 | 10 | n/a | (settlers only) | boing/splat-lite |
+
+Physics body/shape properties: set friction, restitution (`PhysicsMaterial` or `PhysicsServer3D.body_set_param(BODY_PARAM_FRICTION / BODY_PARAM_BOUNCE)`), and mass = density × volume from this table. Configure friction/bounce combine mode as Jolt defaults.
+
+`breakForce` semantics: when a contact-force event on a part (or a projectile/explosion impulse applied to it) exceeds `breakForce × part.size_factor` (size_factor = cbrt(volume)/0.3), the part takes damage = `(impulse − breakForce)/breakForce × 40`. A part with `hp <= 0` breaks (section 5.3).
+
+---
+
+## 5. Destructible Structure System (`scripts/physics/breakable.gd`)
+
+### 5.1 Part
+A **Part** is a single rigid box/cylinder with: `id`, `material`, `size (x,y,z)`, `hp`, `mesh instance`, `physics body RID`, `structureId`, `neighbors[]` (adjacent parts it is glued to), `burning` (0–1), `onFire` (bool), `flags`.
+
+Hp = `material.hpPerM3 × volume`, minimum 10.
+
+### 5.2 Structure and dormant/active optimization
+A **Structure** is a building (or big prop). Performance rule:
+- **Dormant**: the whole structure is rendered with merged static geometry (one mesh per material per structure) and has ONE static compound collider (a `StaticBody3D` with one shape child per part, or a static `PhysicsServer3D` body with multiple shapes). Zero dynamic bodies.
+- **Awakening**: when a structure receives a hit (projectile/explosion within `radius + 2` m, or fire damage that breaks a part, or a neighbor structure collapses onto it), it is **awakened**: replaced by individual Part bodies (dynamic `PhysicsServer3D` bodies) **only for parts within the affected radius + 2 m**, others remain in the static compound body as a "remainder" that is rebuilt (or simply the whole structure is converted to parts if it has ≤ 60 parts). Simplification allowed: awaken the entire structure (all parts become dynamic, initially **sleeping** (`body_set_state(rid, BODY_STATE_SLEEPING, true)`) except those in impact range). Parts asleep cost almost nothing.
+- Awakening must be done in one frame without visible popping (same transforms).
+- After awakening, parts are held by **glue links** (5.3).
+
+### 5.3 Glue links (fake joints, cheap)
+**Ground loss**: when the terrain under a building changes (landslide steps, craters deeper than 0.5 m) every anchored part whose bottom now hangs more than 0.7 m above the ground loses its anchor (`Breakable.ground_changed`); the support rule below then drops whatever is no longer held, so buildings never float over a landslide or crater.
+**Support rule v2 (overhangs fall)**: a part stays when it stands on a part that stands (resting contact: its bottom touches the top of a supported linked part; anchored parts are the roots) or when it hangs at most `CANTILEVER = 3` links sideways / downwards off such a part. Everything else is released and falls. So when the lower storey of a house is shot away, the upper storey, sticking-out floors, walls and roofs no longer float on their glue links but come down (`Breakable.support_check`, depth-relaxed BFS).
+
+Do NOT use physics joints for building parts. Use logical links:
+- Each Part has `links[]` to neighbor parts (built at build time: parts whose boxes touch/overlap by ≤ 0.05 m).
+- While linked, a part is dynamic but its body is kept **frozen** until a link is broken: parts with all links intact are static-mode bodies (`BODY_MODE_STATIC`) that the awakening logic converts to `BODY_MODE_RIGID` (`body_set_mode`) only when they are "released".
+- **Release rule**: a part is released (becomes dynamic) when (a) its hp <= 0 (it is destroyed → also becomes a broken **debris piece**, possibly split, see below), or (b) it loses support: run a **support check** (BFS over links) from all "ground-anchored" parts (parts with `anchor:true`, e.g. foundation, or touching terrain); every part not reachable from an anchor is released. Run the support check after any part is removed (max once per 0.1 s per structure, budgeted).
+- Released dynamic parts take normal physics, collide, break more when they hit things (impulse rule of section 4), and add damage to whatever they land on (including settlers and catapults).
+- Damage propagation: when a part's hp reaches 0 it "breaks": remove it; spawn 2–4 smaller **shards** (dynamic small boxes, 40% of the size each, material same, no links, are `debris` with lifetime) and particles (material shard particle), play its hit sound, spawn comic text sometimes (5% chance).
+- Performance: cap shards per structure to 40; beyond that spawn only particles.
+
+### 5.4 Damage sources
+`scripts/systems/damage.gd` exposes:
+- `damage_parts_in_radius(pos, radius, max_damage, falloff := "linear", source)` — for explosions.
+- `apply_impact(part, impulse, source)`.
+- `damage_catapult`, `damage_settler`.
+Each call records `source` ({playerId, projectileType}) so stats can attribute damage/kills. Attribution for indirect damage (collapse, fire) inherits the last `source` that hit the structure within the last 20 s.
+
+### 5.5 Debris cap
+`scripts/physics/debris.gd`: Track all dynamic non-essential bodies (shards, released parts, props). When count > cap (scaled by quality) remove the oldest sleeping ones first (fade scale to 0 over 0.4 s, free the body RID and the visual). Bodies sleeping longer than `DEBRIS_LIFETIME` are removed similarly if they are shards (not full released parts of buildings; those stay unless cap exceeded).
+
+---
+
+## 6. Core Gameplay Mechanics
+
+### 6.1 Aiming (slingshot in 3D)
+- Catapult model has a base (rotates around Y = azimuth) and an arm. Camera in AIMING sits behind and above the selected catapult looking along its facing direction (chase camera, ~9 m behind, ~5 m up, FOV 60). Right mouse drag orbits camera slightly (±60° yaw, ±25° pitch) without changing the aim. **The mouse wheel zooms from 4 m to 260 m**: beyond 16 m the camera climbs steeply (+0.8 m height per metre) and looks further ahead (+0.45 m per metre), so zoomed far out it becomes a map view with the catapult in it, and it can be zoomed in and out at any time, also during the shot.
+- Left mouse (`InputEventMouseButton`/`InputEventMouseMotion`): press on/near the catapult (or anywhere, "drag anywhere" is accepted) starts a pull. While dragging:
+  - Pull vector = current mouse pos − start pos (pixels), clamped to length `DRAG_MAX_PX`.
+  - **Power** = pullLength / DRAG_MAX_PX (0..1) → speed = lerp(POWER_MIN_SPEED, POWER_MAX_SPEED, power).
+  - **Azimuth (screen-true)** = the world heading that the *opposite of the pull vector* points to **on screen**. Project the catapult to screen, add the launch direction (−pull, normalized) × 120 px, unproject that point onto the ground plane at the catapult's height, and use the heading from the catapult to that point (fallback when the ray misses the ground: camera-forward/right flattened onto the ground). So the on-screen arrow, the rubber band (exactly opposite), the catapult's rotation and the real flight direction always agree. Range: any 360°.
+  - **The camera must not rotate during a pull**: while dragging, the chase camera's base yaw is frozen (otherwise the screen axes move under the cursor and the arrow lies). After release / when not dragging the chase camera eases back behind the catapult's new heading.
+  - **Elevation** is *not* part of the pull (it would fight with the screen-true heading). Default 30°, range 5°–80°; changed with `Arrow up/down` (also while pulling; hold = 15°/s, `Shift` = fine) and `Shift+mouse wheel` (±1.5° per notch). The HUD aim info shows it; the preview updates live.
+  - **Direction arrow**: a white arrow is drawn from the *catapult's own screen position* along the projected world heading, so it is faithful by construction (it is the projection of the real launch direction).
+  - **Guaranteed range**: at 100% power, best elevation, worst-case ammo (highest drag: Beehive) and adverse max wind (storm, 14.4 m/s head-on), a shot MUST be able to land at least `1.15 ×` farther than the largest catapult-to-enemy-building distance that can occur on any generated map (8 players, radius `60 + 14·8`). Increase `POWER_MAX_SPEED` — never shrink the map — if this fails. A unit test checks it over many seeds. The preview dots adapt their spacing so that they always cover `PREVIEW_FRACTION` of the flight, and scale with camera distance so far shots stay visible.
+  - Visual: the catapult arm rotates back proportionally, a rubber band/rope stretches, a small pull indicator UI arrow shows power.
+- **Hide what is in the way**: while a catapult aims or fires, every building / tree / post whose bounding box lies between the chase camera and the catapult is hidden (mesh visibility only, physics unchanged) and shown again as soon as the catapult has fired or another one is selected (`Main._update_occluders`).
+- Release: fire. Cancel by pressing Esc or by pulling back to < 10 px.
+- **`Q` / `E` turn the catapult** (2°/tick at 30 Hz, `Shift` 0.4°) — also **while the slingshot is being pulled** (the correction is added to the screen-true heading as a trim until the pull ends). Keyboard fine-tune: Arrow left/right = azimuth ±0.5° (Shift ±0.1°), Arrow up/down = elevation ±0.5° per step, `A/D`... not used. Fire with `Space` using the current values, power held by keys `W/S` ±2%. `M` turns the catapult toward the map marker (6.7). While aiming a **range readout** next to the aim info shows `predicted landing distance` and, if a marker exists, `distance to marker` with the signed difference ("−12 m short" / "+8 m long").
+- **Trajectory preview**: simulate ballistic path with gravity, wind acceleration and the projectile's drag (no collisions except terrain), sample points every 0.05 s. Compute full flight time until y < terrain height. Draw only the first `PREVIEW_FRACTION` (40%) as dotted line of spheres (one `MultiMeshInstance3D`, pool of 40) whose alpha fades toward the end. Not drawn for Cow/Cheese? — Drawn for all ammo types; per-ammo drag modifies it.
+- Predicted preview is computed with the same function used by the CPU (`predict_trajectory(pos, dir, speed, ammo, wind)` in `scripts/systems/turn.gd`).
+
+### 6.2 Projectile launch
+- Muzzle position = catapult arm tip. Initial velocity = direction × speed, plus small random spread of `±0.5°` (none for Stone at ≥ 50% power? no, always ±0.5° for everyone, mandatory for fairness).
+- Projectile is a dynamic physics body with continuous collision detection enabled. Wind applies as constant acceleration: `a_wind = windVector × ammo.windFactor` (windVector in m/s² = wind speed × 0.35).
+- Camera FLIGHT: follows the projectile from behind/above with smoothing; when it hits, switches to impact-cam.
+- Time out: if the projectile is still moving 12 s after launch or falls below y = −30, it is despawned (miss).
+
+### 6.2b Impact strength and ploughing through
+- Stone/cow impact: parts within `1.6 + speed/40` m (stone, max +2.6) or `2.2 + speed/30` m (cow, max +3) receive `mass × speed × IMPACT_K` (`IMPACT_K = 11`) through the break-force rule (section 4) with falloff; settlers within radius + 1.2 m are hurt and launched. Direct catapult hit: `mass × speed / 22` damage.
+- **Ploughing**: if an impact destroys parts of a building, the projectile keeps its direction and most of its speed (`0.92 − 0.04 × partsBroken`, at least 0.45 of the impact speed; 0.9 max for the cow) and rolls/ploughs on through the village, hitting (and damaging) whatever comes next. Hits on the bare ground damp the body strongly so miss-shots stop quickly; hits on buildings use light damping so the stone may roll a few more meters.
+
+- **Masonry**: parts made of `stone` or `brick` take projectile impact energy ×2.6 and `IMPACT_K` is 14, so a fast stone drives through tower walls instead of bouncing off them.
+
+### 6.3 Wind
+- Vector (windX, windZ) with speed ≤ `WIND_MAX`. Each turn start: change speed by random ±`WIND_CHANGE_MAX` and rotate direction ±40°. During Storm weather multiply by 1.8.
+- HUD: wind arrow + speed, plus flags and smoke in the world lean accordingly (flags on buildings: cloth part with sine deformation; simple).
+
+### 6.4 Ammo (per player inventory)
+| # | id | EN name | DE name | start count | mass kg | radius m | windFactor | effect |
+|---|---|---|---|---|---|---|---|---|
+| 1 | stone | Boring Rock | Langweiliger Stein | ∞ (always) | 40 | 0.45 | 0.3 | Heavy impact. Direct damage. |
+| 2 | firebarrel | Flaming Barrel | Brennendes Fass | **2 at the start**, more are earned | 60 | 0.42 (cylinder, lying) | 0.25 | A flaming barrel with a real **barrel-shaped collision hull** (bulging staves, 0.42 × 0.98 m, convex hull) that lies on its side and rolls along its curved belly like a barrel, not like a ball. **It does not explode: it bounces off houses and trees and rolls on for a few seconds** — a rolling assist keeps it at ≥ 9 m/s for 3.5 s after its first impact, it burns out after 5.5 s (or 3 s once it has stopped) — and **every touch sets flammable things alight** (ignite radius 3.2 on contact, 2.1 while rolling, leaves ground fires, sets settlers ablaze). Moderate impact damage (30% of a stone). The impact camera follows it while it rolls. |
+| 3 | boulder | Mighty Boulder | Gewaltige Felskugel | earned | 4000 | ≈0.9 (twice the stone's 0.45) | 0.12 | **Not a sphere but a lumpy potato, different every shot**: a sphere with 4–6 broad bumps/dents (±15–17%), slight axis stretching (0.8–1.15) and in 30% of the shots one outlier lump (+22–38%); the collision shape is the **convex hull of exactly the vertices of the visual mesh** (`Projectile._boulder_geometry`, `PhysWorld` shape type `convex`), so the shape decides how it tumbles and rolls — it is deliberately unpredictable. About twice the size and 100× the mass of the stone (**4 tonnes**; trajectory, wind and drag are unchanged by the mass); impact energy ×1.73 (15% stronger than before), smash radius 2.75–6.15 m, **does not bounce off buildings**: its collision restitution is 0, **everything solid within 1.3 × its radius + 0.4 m of its centre is torn out for certain when it hits (speed > 6 m/s)** and again every 0.1 s while it rolls (`Damage.smash_in_radius`), so it tears straight through walls; per hit it keeps at most 95% of its speed (−1.5% per destroyed part, min 60%) and 90% of its old heading is restored (6.2b), so walls get huge holes instead of throwing it back. It **keeps rolling** (light damping) for up to 10 s and **keeps crushing while it rolls**: every 0.1 s at speed > 3.5 m/s it smashes parts within 2.1 m (energy ×0.52; each destroyed part takes 2.5% of its speed, min 70%) and hurts settlers within 2.6 m. The impact camera follows it while it rolls. |
+| 4 | powderkeg | Mighty Powder Keg | Mächtiges Pulverfass | earned | 35 | 0.5 | 0.4 | Explodes on impact: **radius 12, max damage 1700**, plus a pressure wave (11.2). Flies and tumbles as a real barrel (convex barrel hull 0.42 × 0.78 m). |
+| 5 | scatter | Grandma's Buckshot | Omas Streuschuss | earned | 30 | 0.4 | 0.35 | Splits at apex or on impact into **24 stones (mass 9 each, radius 0.24)** scattering in a 2–20° cone; each smashes parts in 1.3 m (energy ×9), hurts settlers in 2.2 m (30) and sparks fires. Split when velocity.y <= 0 first time, or at impact. |
+| 6 | cow | Moo-nition (a Cow) | Muh-nition (eine Kuh) | earned | 250 | 0.9 | 0.15 | A cow body + head. **On its first impact it bursts into 34 red chunks** (mass 8, radius 0.2, 16–40 m/s, flat fan around the impact normal) that fly outwards like small projectiles in a **flat fan along the ground** (little lift, vertical speed capped at 22%): each smashes parts in 1.3 m, hurts settlers in 2.2 m (30 damage) and splats; plus a heavy kinetic hit (radius 2.4–5.4 m, energy ×0.7), 80 damage to settlers within 6 m and a bowling pressure wave (radius 11). |
+| 7 | beehive | Angry Beehive | Wütender Bienenstock | earned | 20 | 0.4 | 0.5 | On impact bursts into **three killer swarms (16 s each)** that hunt every settler and animal within 13 m (+6 m leash) of the hive at 8 m/s; everyone within 28 m panics; stings do **8 dmg/s** (settlers have 30 hp) within 2.8 m, so they kill everything living in a wide area. Idle swarms circle above the impact. Bees do not damage buildings or catapults. |
+| 8 | redkeg | The Big Red Barrel | Das Große Rote Fass | earned | 160 | 0.75 (barrel) | 0.2 | **Superweapon.** Explodes on impact: **radius 32, max damage 9000**, sets everything in 80% of the radius on fire, huge pressure wave (radius 77), 14 burning fragments. A good hit on a village destroys **roughly 50–70% of its buildings** (test: `--autotest=replay`, measured 47–73% over several seeds). Catapults use the steep blast falloff with a reduced scale (0.06 instead of 0.14, option `cat_scale` of `explode()`), so the barrel kills catapults close to the centre but does not wipe out a whole village's catapults. Red, larger than the black keg (barrel hull 0.68 × 1.12 m), with a skull-ish mark. |
+| 9 | powdertrail | Black Powder Kegs | Schwarzpulver-Fässer | earned | 28 each | 0.27 (small barrel hull 0.27 × 0.62 m) | 0.25 | **One shot launches FIVE small kegs** (the aimed one plus four in a tight fan of ±0.8–3° and ±0.55 m offsets); they roll **like Flaming Barrels** (same barrel hull, bounce off houses and trees) but a little longer: roll assist 4.8 s, burn-out after 7.5 s (4 s once stopped) but instead of fire they **leave black powder**: irregular heaps on the ground (about every 0.09 s with 85% chance, jittered ±1 m) and powder smeared on every building part within 1.5 m of a contact; at the end of its roll a keg bursts into a last heap. Extra kegs do not score as shots of their own. See 11.6 for what powder does. |
+
+**No water weapon and no cheese weapon exist** (the old Water Balloon and Holy Cheese were removed). Goats and chickens are never ammunition. (The random event "Cheese Meteor" stays as a joke event, 11.5.)
+
+### 6.4b Weapons are earned (`systems/unlocks.gd`)
+- **Only the Stone is unlimited. The Flaming Barrel starts with 2, every other weapon starts at 0** (unless pre-granted in the menu, 2.1) and is **locked** in the ammo bar (dimmed, padlock) until the player earns it. `AmmoDef.earnable` marks them; `PlayerData.reset_ammo(extra)` applies the menu arsenal.
+- Earning rules (each grants +1 to ONE player and announces it: kill feed line, banner + toast for humans, stinger sound; `unlock.*` strings in both languages):
+
+| Weapon | Earned by |
+|---|---|
+| Buckshot (scatter) | destroying an enemy catapult (shrapnel from the wreck) |
+| Mighty Boulder | losing a catapult (every time: revenge); a landslide you started wrecks an enemy building (once per slide) |
+| Powder Keg | losing the 2nd, 4th, 6th … catapult (underdog bonus); blowing up a powder barrel (any source); wrecking 3 buildings with one shot |
+| Flaming Barrel | every 8th fire you start (you begin with 2) |
+| Black Powder Kegs | destroying an enemy blacksmith; losing the 3rd, 6th … catapult (powder salvaged from the wreck) |
+| Cow | killing a cow (only cows count) |
+| Beehive | damaging 5 different trees (counter resets after each beehive) |
+| Big Red Barrel | destroying an enemy church or powder store; eliminating an enemy player (the last player who damaged them gets it) |
+
+- Being hit therefore pays back a little (boulder / keg), real achievements pay more. CPU players earn weapons by the same rules and use them (section 14).
+- The ammo bar shows the count; slots with 0 are disabled. Keys `1`–`9` select, locked weapons cannot be selected.
+
+- Projectile detonation: on first contact with anything except own launching catapult during the first 0.3 s.
+- **Ammo choice is per player**: every player keeps their own selected ammo (initially Stone); a choice made by player 1 is never inherited by the next player. If the stored ammo ran out, Stone is used.
+- Bot (King) uses ammo per section 14.
+
+### 6.5 Settled detection and turn pacing
+Turns must feel brisk: `TURN_START` banner phase 1.0 s, the settle check starts 0.5 s after the first impact. **A shot that did nothing relevant** (no damage to anyone, no blast, no fire, no kills, no bees/stink) **ends the turn 0.9 s after the impact** with only a 0.35 s `TURN_END` pause. **A shot that did something** keeps the impact camera in place for at least 2.0 s (2.8 s for scores above 250, 4.5 s for the beehive) before the world may count as settled, and holds 1.5 s at `TURN_END` so the camera never leaves the impact while the destruction is still playing out.
+When a projectile splits in the air (Buckshot, cow burst) the camera keeps following the pieces towards the target and then sits on the first piece's impact; it never swings back to the shooter (`Projectile.last_pos`, `last_impact_pos`). The impact camera must also work when the projectile detonated in the very tick of the impact (keg, red barrel, hive, cow burst): the impact position is recorded separately (`Projectile.last_impact_pos`). Impact cam: 26 m away at 48° pitch, never pulled in by the camera-arm raycast.
+**Skipping**: after the first impact of a shot (phase `AFTERMATH`) a click or `Space` ends the turn immediately and moves on to the next player (a hint is shown); before the first impact it does nothing. **Fast-forward** (key `F`, HUD button `>>`, and `Space` when it is not a human's aiming phase): runs the simulation at 3× (physics ticks ×3 together with `Engine.time_scale = 3`, so every physics step stays 1/60 s). It is available at any time — in particular during CPU turns, during flight and aftermath — and switches itself off when a human's aiming phase begins, at game over and when a match is left.
+The world is **settled** when, for `SETTLE_TIME` seconds continuously: all projectiles are gone, no explosion is active, and the fastest awake dynamic body in the "relevant set" (all bodies within 40 m of any impact this turn, plus all catapults) moves slower than `SETTLE_SPEED`. Ignore settlers that are alive and walking, animals, particles, and fire. Force end after `SETTLE_MAX` seconds.
+
+### 6.7 Map marker (per player, one at a time)
+A player can place **one map marker** to remember where an enemy is (or where a good target lies):
+- In the overview camera (`V`) a plain **left click** on the ground (not a drag; right/middle mouse keep orbit/pan) sets the marker at the picked terrain point. Setting a new marker **removes the old one**; clicking very close to the existing marker (< 4 m) or `Shift+click` removes it. A click on the HUD is ignored.
+- The marker belongs to the player who set it, **persists across turns and camera modes** for the whole match, and is only visible to its owner (hot-seat friendly; CPUs ignore it).
+- In the world it is a tall beacon: a pole with a pennant in the owner's color, a pulsing ground ring and a faint vertical light beam, visible from far away (also in the aiming camera and overview). Unshaded, drawn above fog.
+- **During aiming** the marker's direction is always shown: (a) a dashed ground line from the selected catapult toward the marker (screen-space overlay of the projected ground points), (b) a compass chevron on the screen border / over the marker position with `<distance> m` and the bearing difference to the current aim, e.g. `Marker 142 m · 12° right`, (c) the range readout from 6.1. `M` snaps the azimuth to the marker; `R` (face next enemy) is unchanged.
+- Toast on set / clear; HUD hint in the overview. Strings under `marker.*` in both language files.
+
+### 6.6 Damage to catapults
+Catapult is a compound of parts (base, 2 wheels, arm, bucket) but tracked as a single entity with `hp = 100`. Damage arises from: direct projectile hit (impulse/40), explosions (via damage falloff), falling debris (impulse above 500 → (impulse−500)/30), fire (2 hp/s while burning; catapult is wood so burns), being crushed. Tipped over (up vector y < 0.2 for 3 s) = disabled: counts as destroyed. Upon destruction: catapult breaks into its parts (dynamic pieces), with fire and smoke and a comic text (section 12.4).
+
+---
+
+## 7. Map Generation (`scripts/world/mapgen.gd`, `scripts/world/terrain.gd`)
+
+### 7.1 Seed
+`seed` string → hashed to a 32-bit integer → mulberry32 (`Rng`). All generation uses this RNG only (never `randf()`/default `RandomNumberGenerator`). Gameplay randomness during battle (spread, settlers) uses a separate RNG seeded with `seed + '-battle'`.
+
+### 7.2 Size
+`baseRadius = 60 + 14 × playerCount` (2 players = 88 m … 8 players = 172 m); **the real `mapRadius` is `min(baseRadius × rand(1.3, 3.0), 300)` per seed** (up to twice as big as before), so every map has a different size and the distance to the enemy (and the power needed to hit it) differs from game to game (2 players: villages 58–360 m apart, median 124 m, in a 40-seed probe, `tests/map_probe.gd`). The menu shows the possible range. Terrain is a square heightfield of side `2 × mapRadius + 40`, resolution 1 vertex per 2 m (max 256×256). Circular island shape: heights fall below sea level near the border (`waterLevel = -0.5`), water plane at y = waterLevel. Outside island: infinite sea (large plane).
+
+**Terrain hilliness (menu option, `Settings.terrain_hills` 0–4, default 2 = Normal)**: Flat / Gentle / Normal / Hilly / Mountainous. Main height noise amplitude 2 / 10 / 26 / 34 / 44 m plus broad hills and valleys of ±0 / 4 / 16 / 24 / 35 m; **Mountainous additionally adds sharp ridges** (`ridge² × 30 − 10` m at 1/110 m frequency) and is deliberately drastic (probe `tests/hill_probe.gd` on 3-player maps: slope > 25° on 2% / 2% / 10% / 25% / **58%** of the land, slope > 36° (landslide-capable) on 1% / 2% / 3% / 7% / **31%**, highest point 5 / 11 / 29 / 40 / 71 m). Village zones are flattened as always; placement rules unchanged.
+
+### 7.3 Height function
+`h(x,z) = fbm(x,z) * amplitude * islandMask(x,z) + rivers carving`
+- fbm: value/simplex noise (implement simple 2D value noise + smoothing in `core/noise.gd`), 4 octaves, base freq 1/70, amplitude 9 m.
+- islandMask: smoothstep from radius mapRadius (0) to mapRadius − 25 (1) plus radial falloff so edges dip below sea level.
+- **0–3 watercourses (plus a 45% chance of a tributary each), every one different**, as wandering polylines (22 segments, smoothed random turning) with varying width along the course; kinds: **stream** (2.5–4.5 m wide, shallow, gentle banks), **river** (7–13 m wide, strong meanders, 7–13 m soft banks), **canyon** (3.5–6.5 m wide, 4–7.5 m deep, steep walls with sharp zigzags; the tributary of a canyon is a canyon too) and **dry gorge** (4–8 m wide ravine whose floor stays 1.2–2.2 m above the water). Carving: `h = min(h, lerp(h, floor, smoothstep(...)^profile))` with a per-course bank width and profile (profile < 1 = steep walls, > 1 = gentle). Per-course bounding boxes keep map generation fast (≈0.3–0.9 s).
+- **0–4 lakes** (+ optionally one at the map center): ponds (5–9 m, shallow), big lakes (12–24 m, 1.8–3.4 m deep) and long lakes (10–18 m, stretched 1.8–3.2× and rotated); every outline is made irregular by three harmonic wobbles (amplitude 4–30%), with its own depth and bank softness.
+- **Flatten village sites**: at each village center, blend height toward the average within radius `ZONE_RADIUS`, smoothing over an extra 8 m band. Slope in zone ≤ 10° guaranteed.
+
+### 7.4 Village placement
+- Villages are spread loosely and unevenly: a random global angle offset, angle_i = offset + 2π × i / N + rand(±0.9 × 2π/N), radius = mapRadius × rand(0.22, 0.8) (so neighbours can be near or far). Reject sites where terrain height < waterLevel + 1 (retry up to 240 times, moving toward the center after 150 failures; if everything fails use the ring slot of 24 that is farthest from all placed villages). Minimum distance between village centers = `2.6 × ZONE_RADIUS` (retry). Village index i is player i.
+- The center of the map may contain: a hill with "Ruined Castle" decoration (optional prop group), or a lake (random).
+
+### 7.5 Decor
+- Trees (oak, pine): 60 + 14×N instances, not inside any zone (or rarely: 15% inside zone edges), trees are physics-active only when hit: they are static `MultiMeshInstance3D` instances, converted to a dynamic single body (tree trunk box + crown sphere) when a projectile is nearby (same dormant/awake rule as 5.2). Trees burn (flammability 0.8, crown dies and trunk stays).
+- Rocks, bushes, flowers (pure visuals, instanced, no colliders except rocks with static collider).
+- Sheep/cows/chickens/ducks: see section 10 animals.
+
+### 7.6 Rendering terrain
+Vertex colors by height/slope: grass green (#7ec850 to #5aa53c), sand near water (#e8d8a0), rock on steep slopes (#8a8a8a), dirt paths between village buildings (painted with vertex color in zone). Toon shaded (terrain shader reads vertex colors). Craters: on explosion, deform the heightfield: lower height within radius r by a bell shape depth up to 0.25 × r, update mesh vertices in that area and update the `HeightMapShape3D.map_data` (throttled: at most once per 0.5 s, batch). Scorch color on crater (darken vertex color).
+
+---
+
+### 7.7 Terrain damage and landslides (`world/terrain.gd`, `systems/landslide.gd`)
+- **Dents**: a stone hitting the ground digs a small bell-shaped dent (radius 0.9–1.9 m, depth 0.18–0.48 m, browned soil); a boulder a big one with a raised rim of torn-up soil (radius 3.0–5.5 m, depth 1.0–2.4 m). A **rolling boulder cuts a furrow** along its path (radius 1.1 m, every 0.1 s, real grooves in the heightfield and brown soil). Explosions dig real craters when they go off near the ground (closeness = 1 − height above ground / (1.2 × blast radius), needs > 0.15): crater radius = 0.7 × blast radius, depth = 0.4 × blast radius × closeness, with a **raised rim of thrown-out soil** (up to 1.6 × radius out, height 0.2 × depth, soil browned) and a blackened floor (keg: ~8 m wide, ~4.5 m deep; red barrel: ~22 m wide, ~12 m deep; holes below sea level fill with water). Heights are clamped at −8 m; meshes and the collider are refreshed (`Terrain.dig`, `furrow`, `mark_dirty`).
+- **Landslides** start only when something hits a **very steep** slope (≥ 36° measured at the impact and on a 3 m ring) hard enough: strength = impact energy / 9000 (×1.6 for the boulder) or, for explosions, `maxDamage / 1200 × closeness to the ground` (stone ≈ 0.25 = small, boulder ≈ 1–2, keg ≈ 1.4, red barrel ≈ 7 = huge); minimum 0.2; at most 3 at once; not within 6 m of a running slide. The blow first loosens the soil at the impact.
+- **Simulation**: thermal erosion on the heightfield inside a window of radius `4 + 3.5 × strength` m (max 28): in steps of 0.05 s (3 sweeps each, `24 + 28 × strength` steps at most) soil moves from a cell to its lowest neighbour wherever the slope exceeds the angle of repose (tan 0.62 ≈ 32°), at most 14% of the excess / 0.25 m per move — a slide moves noticeably little material. The slide therefore **runs only as far as the mountain is steep and stops where it flattens out** (it also stops by itself when nothing moves any more).
+- **Everything in the way is pushed and smashed**: where soil piles up, parts within 2.4 m get a heavy impact in the downhill direction (energy up to 26 000 × strength factor, through the normal break-force rule), settlers there take 40 + 10 × strength damage and are flung. The aftermath waits until the slide is over. Dust, sounds, camera shake and a banner "LANDSLIDE!" announce it; the damage is credited to the shooter (ammo "landslide", see 6.4b).
+
+## 8. Village Generation (`scripts/world/village.gd`)
+
+Each village occupies a circle of radius `ZONE_RADIUS` (22 m) at center `c`. Composition (seeded RNG):
+
+**Mandatory** (placed in ring positions to leave open space in the middle for catapults, which are placed by the player anywhere valid):
+- 1× Well (near center, offset 0–4 m)
+- 1× Tavern
+- 1× Church OR 1× Watchtower (50/50)
+- 2–3× Farmhouse
+- 1× Barn
+- 1× Market stall group (2–3 stalls)
+
+**Random extras** (pick 3–5 from list, with weights): Blacksmith, Windmill, Stable, Granary, Powder Store (max 1 per village, weight low 0.4), Water Tower (max 1), Outhouse (1–2, always placed at edge), Palisade segments and Stone Wall segments around parts of the perimeter (about 40% coverage, with 1 gap). Also: haystacks (3–6), barrels (8–15), crates (6–12), carts (1–2), fence sections (around farmhouses), pumpkins (6–10), lanterns (4–8), banners (2–4), tents (0–2), chickens (3–6), sheep (2–4), cow (0–1), settlers (10–16), a duck pond optional.
+
+**Layout algorithm** (simple, robust):
+1. Compute `slots`: 14 candidate positions, at distance 9–20 m from center, evenly spaced by angle with jitter ±10°.
+2. For each building in the mandatory + extras list (largest footprint first), pick the best free slot (no overlap with already placed footprints: test circle radius per building footprint + 1.5 m gap). Rotate to face the village center ±15°.
+3. Leave inner circle r < 7 m free of buildings (open space for catapults and settlers), except the well.
+4. Props scattered near buildings (barrels next to tavern, hay next to barn, etc.) using each building's `propHints`.
+5. Player color is shown on: banner flags on tower/church/well, catapult decals, and roof accent of the tavern (a colored cloth part).
+
+Village HP (for tie-breaking) = sum of part HP still existing.
+
+---
+
+## 9. Building Catalog (`scripts/buildings/*.gd`)
+
+Common interface (every building module exports):
+```gdscript
+const DEF := { "id": "farmhouse", "footprint_radius": 4.0, "prop_hints": [], "name_key": "building.farmhouse" }
+static func build(ctx: BuildContext, rng: Rng, opts: Dictionary) -> BuildResult   # parts: Array[PartDef], extras: Array
+```
+Where `PartDef` (RefCounted): `material: String, size: Vector3, pos: Vector3` (relative to building base, rotation applied later), `rot: Vector3` (optional), `shape: 'box'|'cyl'|'roof'`, `color: Color` (optional), `anchor: bool`, `tag: String`. Use the helper `box()` etc. in `scripts/buildings/kit.gd` (create this file; helper functions for walls of bricks, plank floors, roof pyramids/gables built from tilted boxes, timber frames).
+
+**Global rules for all buildings**
+- Use small parts so buildings collapse convincingly: stone/brick blocks ~0.5–0.8 m; planks 0.25×1.5×0.12–0.25×3×0.12; roof tiles as plank/thatch panels ≤ 1×0.1×1.2.
+- Part count per building: 30–110 (see below). Total per village ≤ 700 parts. (Merge visual dormant geometry, see 5.2.)
+- Foundation parts have `anchor:true`.
+- Doors/windows: parts (wood door box, glass window box that shatters with `tinkle`).
+- Colors: earthy but saturated (toon palette section 16.2).
+
+| id | Nice name (EN / DE) | Footprint r | Description | Parts | Special behavior |
+|---|---|---|---|---|---|
+| `farmhouse` | Cosy Cottage / Gemütliche Hütte | 4 | Stone foundation 5×5, brick/plank walls 3 m high, thatch or tile gable roof, chimney (brick, smoke particles), 2 windows, door. | 60–80 | thatch roof burns very fast; chimney topples nicely. |
+| `barn` | Big Hay Barn / Große Heuscheune | 6 | 8×6 plank walls 5 m, large gable plank roof, big double door, interior 4–6 hay bales. | 80–110 | Hay inside ignites everything; bursts into hay when hit. |
+| `tavern` | The Drunken Goose / Zur Betrunkenen Gans | 5 | Two-story plank + stone building, sign (cloth+wood, swings), balcony, 3 barrels (beer) outside, 4 mugs (tiny props) | 90–110 | Beer barrels: flammable liquids (burning puddle when broken, spawns a 4 s flame). Settlers gather here (many). Fun: when destroyed, spawns 6 "beer geysers" (blue-gold particles). |
+| `church` | Church of Holy Confusion / Kirche der Heiligen Verwirrung | 5 | Stone nave 6×10×5, steeple tower 3×3×10 with metal bell inside (dynamic, `metal` sphere-cyl), red tile roof, stained glass front window. | 90–110 | Bell clangs on any hit anywhere within 30 m (sound "BONG"), falls down when tower collapses and crushes stuff. |
+| `watchtower` | Lookout Tower / Wachturm | 3 | Stone tower 3×3×9, wooden top platform with crenellations and cloth banner (player color), 1 archer settler on top. | 50–70 | Tall = falls in long arc, toppling as chain. |
+| `well` | Wishing Well / Wunschbrunnen | 1.6 | Stone ring, wooden roof frame, bucket, rope. Water inside. | 20–30 | If destroyed: gushes water fountain particles 10 s and puts out fire within 6 m; settlers use it for bucket brigade while intact. |
+| `stall` | Market Stall / Marktstand | 2 | Wood frame with striped cloth awning (player color or random palette), table with crates, fruit props (small spheres, dynamic). | 15–25 | Cloth burns; fruit rolls; spawn sound "splat" when fruit is hit. |
+| `stable` | Stable / Stall | 4 | Plank open shed 6×3.5×3, thatch roof, 2 horses (Animal type horse, ragdoll-lite) | 40–60 | Horses run away when burning. |
+| `granary` | Granary / Kornspeicher | 3 | Raised wooden building on 4 stone stilts (stilts anchor), plank walls, thatch roof, sacks | 40–55 | Collapses when stilts break. Sacks explode in flour cloud (white particles + small explosion when there is fire nearby: "flour dust explosion", radius 4, damage 250). |
+| `powderstore` | Definitely Not Explosive / Ganz Sicher Nicht Explosiv | 3 | Stone shed 4×4×3 with metal-studded door, sign with skull, 6 powder kegs inside (barrel_wood, kind powder). | 40–50 | Any fire or big hit on it → all kegs explode in chain (each radius 5, damage 500). Big BOOM with mushroom cloud particle ("skull smoke"). |
+| `watertower` | Aqua Tower / Wasserturm | 3 | 4 wooden stilts 5 m tall + large round wooden tank on top (barrel, radius 2, height 2.5) full of water. | 25–35 | On tank break: huge water release, spawns 30 water particles/physics droplets (visual + impulse volume push radius 8) and extinguishes fire radius 10, pushes settlers around. |
+| `windmill` | Windy Windmill / Windige Windmühle | 4 | Stone round tower (8-sided) 8 m, wooden cap, 4 sails (each 5 m, dynamic body attached via a hinge joint (`joint_make_hinge`) to a hub; rotates slowly with motor while intact). | 60–80 | When hit, sails fall off and roll; burning sails spin faster (glow). |
+| `blacksmith` | Ye Olde Smithy / Alte Schmiede | 4 | Stone base, open front with anvil (metal), forge (stone block with glowing coal, is a permanent low fire source that does not spread), bellows, weapon rack with swords (tiny). | 45–60 | Anvil dropping onto things does big impact (heavy). Forge coals scatter as fire when destroyed. |
+| `outhouse` | The Royal Loo / Das Königliche Klo | 1.2 | Wooden 1.2×1.2×2.2, crescent moon on door, door, roof | 12–16 | Special: when destroyed, launches a settler (the "occupant" 60% of the time) out with a giant hurl and voice line "OCCUPIED!!!". |
+| `palisade` | Sharp Fence / Spitzer Zaun | seg 3 | Row of sharpened logs (wood cylinders 0.3×3), lashed in segments of 6 logs | 6 per seg | Logs fall like dominoes. |
+| `stonewall` | Sturdy Wall / Feste Mauer | seg 4 | Stone block wall 4×2×0.8 with top crenellations | 20–30 per seg | Blocks are heavy; can protect catapults. |
+
+### 9.1 Structure HP
+Total HP is derived from parts; there is no separate building HP bar. When the majority of parts (> 70%) of a building are broken or collapsed, mark it `destroyed` for stats and play a "CRASH" comic text.
+
+### 9.2 Fire
+Buildings share the fire system of section 11.
+
+---
+
+## 10. Props and Animals (`scripts/props/*.gd`)
+
+Each prop builder returns 1+ physics bodies + meshes; props are dynamic but start asleep (`BODY_STATE_SLEEPING`) and wake on nearby impulse (the engine wakes bodies automatically on contact; also wake within explosion radii).
+
+| id | Name | Description | Material | Mass | Special |
+|---|---|---|---|---|---|
+| `barrel_beer` | Beer Barrel | cylinder r0.45 h0.9 | barrel_wood | 60 | on break: spawns ale splash; flammable puddle |
+| `barrel_water` | Water Barrel | as above, blue-ish bands | barrel_wood | 120 | on break: water splash, extinguish r4 |
+| `barrel_powder` | Powder Keg | small black barrel with skull | barrel_wood | 40 | explosion r5 dmg 500 when broken or burning > 2 s |
+| `crate` | Wooden Crate | 0.8³ box | wood | 30 | shatters |
+| `haybale` | Hay Bale | 1×0.7×0.7 | hay | 25 | burns fast, bounce soft |
+| `pumpkin` | Pumpkin | sphere r0.3 | flesh-like (custom hp 12, restitution 0.5) | 6 | splat, orange particles |
+| `cart` | Farm Cart | box bed 2×0.2×1, 2 cylinder wheels (dynamic each, hinge joints (`joint_make_hinge`)), 2 shaft poles | wood | 80 | rolls downhill |
+| `fence` | Picket Fence | 2 m section (3 posts + rails) | plank | 25 | falls, breaks |
+| `lantern` | Street Lantern | pole 2.4 m + glowing box | wood + glass | 15 | glass breaks → small fire spawn with 30% chance if wood nearby |
+| `banner` | Player Banner | pole with cloth colored | wood+cloth | 10 | burns |
+| `tent` | Circus Tent | striped cloth cone on pole | cloth | 40 | burns, collapses |
+| `anvil` | Anvil | metal block | metal | 150 | only from blacksmith |
+| `mug` | Ale Mug | tiny cylinder | glass | 0.5 | tinkle |
+| `bucket` | Bucket | small cylinder | wood | 3 | carried by settlers |
+| `rubberduck` | Giant Rubber Duck | yellow duck 1 m, floats on water (buoyancy) | flesh-like (restitution 0.8) | 8 | squeak on impacts. Easter egg: 1 per map, at a random lake/pond/river spot. |
+
+### 10.1 Animals (`scripts/entities/animal.gd`)
+Composed of 1–3 bodies with simple joints (pin/cone-twist joint), pure procedural mesh.
+| id | Name | Behavior | Death/hit |
+|---|---|---|---|
+| chicken | Chicken | wanders, pecks | "BAWK!" sound, feathers particle burst (10), ragdoll flies far (light) |
+| sheep | Sheep | wanders, bleats | "BAAA!", wool particles, bouncy |
+| cow | Cow | wanders slow | "MOOO!", heavy |
+| horse | Horse | stable only; flees when fire | "NEIGH!" |
+| duck | Duck | pond only, floats | "QUACK!" |
+Animals: HP 15/20/60/60/8. When HP ≤ 0 or hit by an impulse > 200, switch from wander-AI to ragdoll (all bodies dynamic).
+Fire panic: burning animals run randomly with flame particles for 4 s.
+
+---
+
+## 11. Systems
+
+### 11.1 Fire system (`scripts/systems/fire.gd`)
+- Every flammable part (material flammability > 0) has `burning` in [0,1] and `onFire` bool.
+- **Ignition**: (a) fire-pot impact; (b) explosion: any flammable part in radius gets +0.5 burning (times falloff); (c) lightning; (d) dragon breath; (e) neighbor fire (below); (f) forge coals scattering; (g) burning projectiles.
+- **Tick** every `FIRE_TICK` s (budgeted to ≤ 200 parts checked per tick, round-robin):
+  - For each `onFire` part `P`: damage P by `material.burnHP × 2.6 × FIRE_TICK` (hard-hitting fire) — but **a part burns at most 10 s** (`BURN_TIME`), then it is charred and can never catch fire again; ground fires last 3 s (half as long as before) and catapults burn for at most 10 s (3.6 hp/s). For each flammable part `Q` within `FIRE_SPREAD_RADIUS` (spatial hash grid, cell size 3 m, do not do O(n²)): `Q.burning += flammability(Q) × 0.34 × FIRE_TICK × windBoost × (1 − wet)` where `windBoost = 1 + windSpeed × 0.05` if Q is in downwind half-plane else 1. Upward spread ×1.5.
+  - When `burning >= 1` → `onFire = true`, spawn flame emitter on it.
+  - `burning` decays by 0.15/s if not on fire (partial heating cools).
+  - Part reaches `hp <= 0` → breaks (charred shard: dark color) → ash particles; support check as in 5.3.
+- **Extinguish**: water sources (water barrels, water tower, well rupture, rain) set `wet = 1` on parts within radius, set `onFire=false`, `burning=0` and spawn steam. Rain: while raining, every tick each onFire part has a 25% chance to be extinguished; and no new spread.
+- **Fire visuals**: pooled emitter per burning part (max 60 simultaneous emitters, prioritize nearest to camera; beyond limit only shared glow billboards). Flames = additive billboard particles orange→red→black smoke (`GPUParticles3D` presets). Plus `OmniLight3D`s (max per quality tier) for biggest fires, others emissive only.
+- **Settlers/animals in fire** catch fire: run in panic, 5 dmg/s, jump into water if near (well/pond/river).
+- **Burnable ground**: dry grass under burning part has a 30% chance to spawn a "ground fire" that spreads within 2 m and lasts 6 s (visual + ignites flammable parts touching).
+- Fire creeps from part to part (spread 0.5) rather than jumping: ground fires ignite touching parts at 0.45/s and spawn offspring with 5%/s; flames are big (emitter scale ×1.4, min 1.0; ground fire ×1.5) and the biggest fires cast light (range 13, energy 2.2). **Catapults suffer twice as much**: fire within 4 m heats the wood (2.5 hp/s even before it catches) and ignites it after 0.9 s; a burning catapult loses 7.2 hp/s for at most 10 s; explosions / fire barrels / any `ignite_in_radius` with strength ≥ 0.5 ignite catapults within 90% of the radius.
+- Explosive triggers: powder kegs on fire ≥ 2 s explode (prop keg: radius 9, damage 1000).
+
+- Debris speed is clamped to 60 m/s so a 4-tonne boulder cannot turn splinters into bullets.
+
+### 11.2 Explosion system (`scripts/systems/explosion.gd`)
+`explode(pos, radius, max_damage, opts: {fire: bool, source: Dictionary, sound: String})`:
+1. Query bodies in radius via `PhysicsDirectSpaceState3D.intersect_shape` (sphere shape) or a manual spatial hash.
+2. For each body: falloff `f = 1 − dist/radius` (clamped), impulse magnitude = `max_damage × f × 0.6` direction from pos (add +0.4 up), apply to dynamic bodies (`body_apply_impulse`); wake sleeping ones.
+3. Call `damage_parts_in_radius`, `damage_settlers`, `damage_catapults` with `max_damage × f`.
+4. Terrain crater (radius × 0.35, depth as 7.3).
+5. FX: fireball (expanding sphere mesh, 0.4 s), smoke column, sparks, shockwave ring on ground, screen shake (amplitude scaled), `OmniLight3D` flash, sound. Trigger slow motion (0.25× for 0.8 s) if `max_damage ≥ 700` or the blast killed ≥ 3 settlers.
+6. If `fire:true` ignite flammables in radius × 0.8.
+7. Chain: powder kegs in radius receive an explosion trigger with delay 0.1–0.35 s.
+8. **Pressure wave** (blasts with radius ≥ 6 unless `shock:false`): an expanding front (42 m/s, reach `radius × 2.4`, strength `max_damage × 0.55` N·s, visible as an expanding ring on the ground) that hits things when the front passes them, nearest first: loose bodies and free parts get an impulse `strength × f²` (capped), light building parts (mass < 40 kg and break force < 400: thatch, cloth, hay, glass, leaves, light planks) are shoved and lightly damaged, settlers and animals are knocked over (little damage), **catapults are never damaged or moved by it**. The blast itself damages catapults with a steep falloff: `max_damage × f² × 0.14` (f over `radius + 1.5`), so one keg cannot wipe out a whole village.
+
+### 11.3 Water (`scripts/systems/water_sys.gd`)
+- Global sea/lake/river water plane(s) with animated toon-ish shader/vertex wave (hand-written water shader: animated vertex Y via sine waves + toon-ish banded color/foam at shoreline via depth or height difference; keep cheap). Water is decorative + logic: bodies below `waterLevel` get buoyancy (`body_apply_central_force` up = density_factor × submerged_fraction) and drag; catapults falling into deep water (depth > 1 m) are destroyed after 2 s ("Glug glug").
+- Splash particles when bodies cross the water surface with speed > 3.
+- Droplet effects for water releases (barrels, tower, well): 40 pooled droplets with simple particle physics (not the physics engine) plus an impulse volume (`overlap_sphere` + impulses) on nearby light bodies. A temporary "puddle" decal (blue disc, fades over 12 s) that sets `wet=1` on parts within radius.
+
+### 11.4 Weather (`scripts/systems/weather.gd`)
+State machine, evaluated at each turn start (if the option is on): 
+| weather | chance/turn | duration (turns) | effect |
+|---|---|---|---|
+| Clear | 55% | — | none |
+| Cloudy | 15% | 1–3 | darker sky, no gameplay effect |
+| Rain | 12% | 2–3 | fire spread stops, 25% extinguish chance/tick, wet ground; rain particles (one `GPUParticles3D` following the camera, ≤ 800 particles) & sound; reduces visibility fog |
+| Thunderstorm | 8% | 1–2 | as rain + lightning: at each TURN_START (and 1 additional random time during AFTERMATH) a bolt strikes a random flammable-rich location (weighted by tallest structure: church, tower, windmill weight 3) → ignites (+0.8 burning) parts within 3 m, small explosion r3 dmg 120, lightning flash + thunder + comic text "ZAP!"; announcer line. Strike locations choose among all *living* villages uniformly, biased 60% toward the player who was ahead (most catapults). |
+| Storm (wind only) | 10% | 1–2 | wind ×1.8, trees sway, flags flap, tornado-like leaf particles, `WIND_MAX×1.8` |
+Weather changes announced by banner + funny line (12.7).
+
+### 11.5 Random events (`scripts/systems/random_events.gd`)
+At each TURN_END if enabled: chance 12% for one event (cooldown 3 turns). Pick by weights:
+| id | weight | title EN / DE | effect |
+|---|---|---|---|
+| dragon | 25 | "A wild Dragon appears!" / "Ein wilder Drache erscheint!" | A big procedural dragon (body spheres/tapered cylinders, wings flap, green) flies over the map on a curve at height 25 m over 8 s. Every 0.6 s it breathes a flame cone at the ground at a random spot near a random living village (3 breaths); flame ignites parts within radius 4, no direct explosive damage. Settlers scream "DRAAAGON!". Dragon can be knocked down? No (out of reach). |
+| cheese_meteor | 10 | "Meteor made of Cheese!" | A glowing yellow meteor drops at a random spot in a random village; explosion r6 dmg 500 + leaves cheese chunks (edible... nothing) + stink cloud. |
+| cow_rain | 12 | "It's raining cows!" / "Es regnet Kühe!" | 6–10 cows spawn 40 m above random village positions and fall (with "MOO" sounds), bounce; each impact acts as a Stone with mass 250 (damage) and cows do not explode. Cows stay as props. |
+| earthquake | 10 | "Rumble rumble!" / "Rummel rummel!" | 3 s of camera shake; every structure receives random impulse jitters on top parts causing tall structures (tower, church, windmill, water tower) to collapse with 35% chance each, props hop. |
+| goose_army | 8 | "The Geese Have Come!" / "Die Gänse sind gekommen!" | 20 geese (procedural white geese) run across the map, knocking settlers and light props (they are dynamic bodies with mass 5), honk; they disappear after 10 s off the map edge. |
+| tax_collector | 8 | "The Tax Collector arrives!" | A settler in gold clothes walks to a random village center; on arrival "Tax!!" and 3 random settlers of that village drop coins (visual). If he is hit, comic reaction "AUDIT!". Pure humor, no gameplay effect. |
+| fireworks_accident | 8 | "Fireworks Factory Incident!" | Random village: a burst of 15 rockets fly in random directions (small explosions r2 dmg 80, each with sparkle trails). |
+| bubble | 6 | "Wizard's Bubble Spell!" | Giant bubble (translucent sphere r 4) appears over a random settler group, lifts them slowly 8 m, then pops; they fall as ragdolls. Purely comic. |
+| flood | 5 | "Sudden Flood!" | Water level rises 1.2 m over 4 s and falls again over 8 s. Everything low-lying gets buoyancy, fires extinguished on submerged parts, catapults in water > 1 m for > 3 s are destroyed. Pick only if map has any village with height < waterLevel + 2.5 (else skip). |
+
+Each event has a banner + announcer voice line and a music sting (sfx).
+
+---
+
+### 11.6 Black powder (`systems/powder.gd`)
+- **Powder heaps** (`Powder.Dust`) lie on the ground (dark flat discs in one `MultiMesh`, max 520, oldest dropped first) or are smeared on building parts (the part is tinted dark). They stay **until they are set alight — also over any number of later turns**.
+- **Ignition**: anything that burns lights powder within reach: `Fire.ignite_in_radius` (explosions, fire barrels, lightning, dragon breath…: radius × 0.9), a part starting to burn (1.8 m) and ground fires (1.6 m). Each lit heap flashes after a tiny delay (0.04–0.16 s + 0.03 s per metre), and every flash lights the heaps within 2.8 m: the flame **runs along the whole trail in a blink**.
+- **Flash flame**: a violent, very short jet (upward flame + sparks, sound): area damage 150 to parts within 2.3 m (about **5× the damage of the normal fire** on the same part), 34 to settlers within 2.5 m (and they catch fire within 2 m), catapults within 2.4 m catch fire, flammable parts within 2.4 m are ignited at full strength; then the heap is gone.
+- **Scorch marks**: wherever something burned — powder flashes (radius 1.7 m, 0.95) or normal ground fires (radius 2.6 m, 0.85) — the terrain is painted black and **stays black** for the rest of the match.
+
+## 12. Content Lists (all names, texts, jokes; pre-defined so the implementer only copies them)
+
+### 12.1 Default human player names (pool, pick unused in order shuffled by seed)
+Sir Reginald von Bumblebutt, Lady Guinevere Flatulence, Baron Von Kaboom, Duke Dudley Doomsday, Lord Fluffington, Countess Cheesewheel, Prince Pumpernickel, Dame Doreen Dungpile, Sir Loin of Beef, Lord Percival Pickle, Earl of Hamburg, Baroness Butterfingers, Sir Cumference, Squire Squishy, Queen Mildred the Moist, King Kevin the Kinda Okay.
+
+### 12.2 CPU names (by difficulty)
+- Peasant: Gary the Peasant, Old Man Hobbs, Bertha the Baffled, Dim Dave, Wobbly Wilf, Turnip Tom, Clumsy Clara, Peasant Pete.
+- Squire: Squire Steve, Squire Sheila, Junior Knight Jim, Apprentice Alfred, Shieldbearer Sally, Trainee Trevor, Bucket-Head Bob, Squire Sue.
+- Knight: Sir Lancelot-ish, Sir Bash-a-Lot, Dame Dragonbane, Sir Reads-a-Lot, Sir Robin the Not-So-Brave, Sir Galahad Gains, Dame Gwendolyn Grimm, Sir Kills-a-Lot.
+- King: King Kaboom I, King Cruelbeard, King Mad-Ness the Magnificent, Emperor Explosion, Kaiser Chaos, King Arthur's Evil Twin, Queen Catastrophe, His Royal Highness Rick.
+
+### 12.3 Settler name pool (used in speech/killfeed)
+Bob, Hilda, Wat, Agnes, Ethelred, Mabel, Godric, Petronella, Ned, Wulfric, Beatrix, Cuthbert, Gertrude, Osric, Winifred, Alaric, Sybil, Egbert, Millicent, Thaddeus.
+
+### 12.4 Comic text (floating `Label3D` billboards; random from list per event; each entry is EN/DE; keep both in lang files under `comic.*`)
+- Generic impact: BOOM! / WUMMS!, KRACH! / KRACH!, BAM! / BAM!, WHAM! / WUMM!, KRAWUMM! / KRAWUMM!, SPLAT! / PATSCH!, BONK! / BONK!, THUD! / RUMS!
+- Wood breaking: CRUNCH! / KNACK!, SPLINTER! / SPLITTER!, TIMBER! / UMFALLEN!
+- Stone: CRASH! / KRACHBUMM!, RUMBLE! / RUMMS!
+- Explosion: KABOOM! / KAWUMM!, BLAM! / PENG!, MEGA-BOOM! / MEGA-KNALL!, KA-BLOOEY! / KA-BUMM!
+- Fire: FWOOSH! / FFFUMM!, SIZZLE! / ZISCH!, HOT! / HEISS!
+- Water: SPLASH! / PLATSCH!, GLUG GLUG / BLUBB BLUBB, SPLOOSH! / PLANSCH!
+- Cow: MOO! / MUH!, MOOOO!? / MUUUH!?
+- Settler hit: BOING! / BOING!, OOF! / UFF!, YEET! / JUCHHU!, WHEEE! / WIIIE!
+- Catapult destroyed: TOTAL LOSS! / TOTALSCHADEN!, OUCH, WOOD! / AUA, HOLZ!, R.I.P. / R.I.P.
+- Bell: BONG! / BONG!
+- Outhouse: OCCUPIED! / BESETZT!
+- Lightning: ZAP! / ZACK!
+Rule: spawn comic text only on significant events (explosion ≥ radius 4, building > 30% destroyed, kill of ≥ 1 settler at most once per second, max 3 alive on screen). Font: bold sans (`SystemFont` Impact-like stack, see 16.1) rendered as `Label3D` (billboard, `no_depth_test`), white text with thick black outline, rotate randomly ±12°, scale bounce in, float up and fade out in 1.2 s, colors random from [#ffd400, #ff5b2e, #ffffff, #7cf0ff].
+
+### 12.5 Elimination banners (random, EN/DE)
+1. "{name} has been REDUCED TO KINDLING!" / "{name} wurde zu ANZÜNDHOLZ verarbeitet!"
+2. "{name}'s catapults have left the chat." / "{name}s Katapulte haben den Chat verlassen."
+3. "That was {name}'s last catapult. Also their pride." / "Das war {name}s letztes Katapult. Und der Stolz gleich mit."
+4. "{name} is out! Please queue for the peasant lottery." / "{name} ist raus! Bitte in der Bauernlotterie anstellen."
+5. "RIP {name}. It was a good village. Mostly." / "R.I.P. {name}. Es war ein gutes Dorf. Größtenteils."
+6. "{name} has been declared 'extra crispy'." / "{name} wurde für 'extra knusprig' erklärt."
+7. "The pigeons will mourn {name}." / "Die Tauben trauern um {name}."
+8. "{name} ragequits into the moat." / "{name} verlässt wütend das Spiel und springt in den Burggraben."
+
+### 12.6 Loading messages (random rotating)
+- Sharpening pitchforks… / Mistgabeln werden geschärft…
+- Herding chickens… / Hühner werden zusammengetrieben…
+- Teaching cows to fly… / Kühen wird das Fliegen beigebracht…
+- Inflating peasants… / Bauern werden aufgeblasen…
+- Bribing the dragon… / Der Drache wird bestochen…
+- Stacking questionable buildings… / Fragwürdige Gebäude werden gestapelt…
+- Removing all safety regulations… / Sämtliche Sicherheitsvorschriften werden entfernt…
+- Adding extra explosions… / Zusätzliche Explosionen werden hinzugefügt…
+- Counting the cheese… / Der Käse wird gezählt…
+- Lighting the very first torch… / Die erste Fackel wird angezündet…
+
+### 12.7 Announcer lines (banners at events; EN / DE)
+Turn start (random): "{name}, your move!" / "{name}, du bist dran!"; "Fire at will, {name}!" / "Feuer frei, {name}!"; "{name} cracks their knuckles." / "{name} knackt mit den Fingern."; "Somebody's about to have a bad day, {name}." / "Jemand hat gleich einen schlechten Tag, {name}."; "Choose wisely, {name}. Or don't." / "Wähle weise, {name}. Oder auch nicht."
+Miss (shot lands in water/nowhere): "Missed by a mile." / "Um Meilen verfehlt."; "The fish are offended." / "Die Fische sind beleidigt."; "Did you mean to do that?" / "War das Absicht?"; "Nice shot, if the target was a tree." / "Toller Schuss – wenn das Ziel ein Baum war."
+Big hit (≥ 3 settlers or building destroyed): "DIRECT HIT!" / "VOLLTREFFER!"; "Absolutely devastating." / "Absolut verheerend."; "That's gonna leave a mark." / "Das gibt einen Fleck."; "The insurance company is crying." / "Die Versicherung weint."
+Friendly fire / self-hit: "Did you just shoot yourself? Bold." / "Hast du dich gerade selbst beschossen? Mutig."; "Own goal!" / "Eigentor!"
+Weather: Rain: "Rain! Bad news for arsonists." / "Regen! Schlechte Nachrichten für Brandstifter."; Thunderstorm: "Zeus is angry today." / "Zeus ist heute schlecht gelaunt."; Storm: "Hold on to your hats!" / "Haltet die Hüte fest!"; Clear: "The sun comes out. The chaos continues." / "Die Sonne kommt raus. Das Chaos geht weiter."
+Fire: "Something's burning… and it's not the toast." / "Da brennt was… und es ist nicht der Toast."; "The fire brigade is on the way (it's a guy with a bucket)." / "Die Feuerwehr ist unterwegs (ein Typ mit Eimer)."
+Powder store: "That was NOT the pantry!" / "Das war NICHT die Speisekammer!"
+Cheese: "The Holy Cheese descends!" / "Der Heilige Käse kommt herab!"
+
+### 12.8 Settler speech bubbles (random by situation; show at ≤ 1 bubble per settler at a time, max 6 bubbles on screen, lasts 2.2 s; keep in lang files under `speech.<situation>` arrays)
+
+**idle / chatting (EN / DE)**
+- "Lovely weather for a siege." / "Schönes Wetter für eine Belagerung."
+- "I should've stayed in the other village." / "Ich hätte im anderen Dorf bleiben sollen."
+- "Has anyone seen my goat?" / "Hat jemand meine Ziege gesehen?"
+- "Nice hat!" / "Schicker Hut!"
+- "Back in my day, we had walls." / "Zu meiner Zeit hatten wir Mauern."
+- "I love this village!" / "Ich liebe dieses Dorf!"
+- "Is that a catapult?" / "Ist das ein Katapult?"
+- "Just another Tuesday." / "Ein ganz normaler Dienstag."
+- "Ale o'clock!" / "Bierzeit!"
+- "Somebody feed the chickens." / "Jemand muss die Hühner füttern."
+
+**panic (incoming projectile within 15 m or explosion nearby)**
+- "RUN!" / "LAUFT!"
+- "INCOMING!" / "ACHTUNG, EINSCHLAG!"
+- "NOT MY HOUSE!" / "NICHT MEIN HAUS!"
+- "MOMMYYYY!" / "MAMAAAA!"
+- "WHY MEEEE?" / "WARUM ICHHH?"
+- "I left the stove on!" / "Ich hab den Herd angelassen!"
+- "AAAAAH!" / "AAAAAH!"
+- "Every peasant for themselves!" / "Jeder Bauer für sich!"
+
+**hit / ragdoll launch**
+- "WHEEEEE!" / "WIIIIIE!"
+- "I REGRET NOTHING!" / "ICH BEREUE NICHTS!"
+- "TELL MY WIFE…" / "SAGT MEINER FRAU…"
+- "OH COME ON!" / "ACH KOMM SCHON!"
+- "YEEEEET!" / "JUUUCHHUUU!"
+- "I believe I can fly!" / "Ich glaube, ich kann fliegen!"
+- "Not the face!" / "Nicht das Gesicht!"
+- "It's a bird… it's a plane… it's Bob!" / "Ist es ein Vogel… ein Flugzeug… es ist Bob!"
+
+**on fire**
+- "I'M ON FIRE!" / "ICH BRENNE!"
+- "HOT HOT HOT!" / "HEISS HEISS HEISS!"
+- "STOP DROP AND ROLL… or was it run?" / "Stop, Drop and Roll… oder war's Rennen?"
+- "WATER! ANYONE?!" / "WASSER! IRGENDJEMAND?!"
+
+**bucket brigade**
+- "Pass the bucket!" / "Gebt den Eimer weiter!"
+- "It's leaking!" / "Der ist undicht!"
+- "More water!" / "Mehr Wasser!"
+- "I'm too old for this." / "Ich bin zu alt dafür."
+
+**after landing (dead/limp)**
+- "Ow." / "Aua."
+- "…I'm fine." / "…Mir geht's gut."
+- "Definitely broken." / "Definitiv gebrochen."
+- "I saw the light." / "Ich habe das Licht gesehen."
+
+**bees**
+- "BEEEEES!" / "BIIIENEN!"
+- "NOT THE BEES!" / "NICHT DIE BIENEN!"
+- "They're in my pants!" / "Die sind in meiner Hose!"
+
+**cheese**
+- "WHAT IS THAT SMELL?!" / "WAS IST DAS FÜR EIN GERUCH?!"
+- "So… cheesy…" / "So… käsig…"
+
+**dragon**
+- "DRAAAGON!" / "DRAAACHE!"
+- "I didn't sign up for this!" / "Dafür hab ich nicht unterschrieben!"
+
+**outhouse**
+- "OCCUPIED!!!" / "BESETZT!!!"
+
+**cow**
+- "Is that… a cow?" / "Ist das… eine Kuh?"
+- "The cow! THE COW!" / "Die Kuh! DIE KUH!"
+
+**celebration (own village had enemy destroyed / winner)**
+- "We won! I think!" / "Wir haben gewonnen! Glaub ich!"
+- "Free ale for everyone!" / "Freibier für alle!"
+
+### 12.9 Settler outfits/colors
+Randomized per settler: tunic color from palette [#c0392b, #2980b9, #27ae60, #f39c12, #8e44ad, #d35400, #16a085, #7f8c8d], hat types: none, straw hat, cap, pointy wizard hat, bucket (very rare 3%: bucket on head), crown (0.5%). Villagers of a village have a shoulder patch or hat feather in the player's color.
+
+---
+
+## 13. Statistics and Titles (`scripts/systems/scoring.gd`)
+
+Tracked per player: `shots`, `hits` (shot that damaged any enemy building/settler/catapult), `damageDealt` (sum HP damage to enemy parts, converted: 1 hp = 1 gold coin, display as "Gulden"/"Gold"), `settlersLaunched` (ragdolls launched by your shots), `settlersKilled`, `catapultsDestroyed` (enemy), `buildingsDestroyed`, `firesStarted`, `firesExtinguished`, `cowsFired`, `cheeseUsed`, `selfDamage`, `waterMisses` (shots that landed in water), `longestShot` (m), `turnsSurvived`, `catapultsLeft`.
+
+### 13.1 Titles (awarded at GAME_OVER; each title goes to the top player for that metric if metric ≥ threshold; a player can get max 2; awarded in this order; skip if no candidate)
+| id | EN title | DE title | Metric | Threshold |
+|---|---|---|---|---|
+| cow_launcher | Cow Catapulter | Kuh-Katapultierer | cowsFired | ≥ 1 |
+| pyro | Certified Pyromaniac | Zertifizierter Pyromane | firesStarted | ≥ 10 |
+| pacifist | Pacifist (Accidentally) | Pazifist (aus Versehen) | fewest hits among players with shots ≥ 3 | – |
+| sniper | Eagle Eye | Adlerauge | highest hits/shots ratio, shots ≥ 4 | ≥ 60% |
+| fisherman | Master Fisherman | Meisterfischer | waterMisses | ≥ 3 |
+| destroyer | Wrecking Ball | Abrissbirne | buildingsDestroyed | ≥ 4 |
+| settler_bowler | Peasant Bowler | Bauernkegler | settlersLaunched | ≥ 15 |
+| self_own | Own-Goal Champion | Eigentor-Meister | selfDamage | ≥ 200 |
+| firefighter | Bucket Hero | Eimer-Held | firesExtinguished | ≥ 5 |
+| cheesemaster | Red Barrel Baron | Rote-Fass-Baron | redKegUsed (stat field `cheese_used`) | ≥ 1 |
+| longshot | Long-Range Menace | Weitschuss-Bedrohung | longestShot | ≥ 90 m |
+| survivor | Cockroach | Kakerlake | turnsSurvived (winner excluded) | top |
+| loser | Participation Trophy | Teilnahmeurkunde | first eliminated | – |
+
+Winner crown title (random): "Supreme Overlord of Rubble" / "Oberster Herrscher über Trümmer"; "Grand Pooh-Bah of Ashes" / "Großmeister der Asche"; "Emperor of Ruins" / "Kaiser der Ruinen"; "Chief Chaos Officer" / "Oberster Chaos-Beauftragter".
+
+### 13.2 Best hit replay
+During a replay the physics server is frozen and `Main._physics_process` skips the whole world tick (like the pause menu): nothing may add or remove bodies while the replay plays (avoids a release-build crash after aborting a replay).
+Each shot is scored: `score = damageDealt + 50 × settlersLaunched + 200 × buildingsDestroyed + 300 × catapultsDestroyed + explosionCount × 30`. Store during the battle a **replay record** of the best-scoring shot per game: launch parameters (position, velocity, ammo, wind) — NOT the full physics state. At GAME_OVER (or on the result screen button "Watch best hit") the game re-simulates by loading the seed's map state... Simplification (allowed and required): record **keyframes** instead: each 1/20 s store transforms of the top 150 moving bodies + projectile + effect events (explosions, fires) in a ring buffer during the AFTERMATH; keep only the best shot's buffer (max 12 s = 240 frames × 150 bodies × 7 floats ≈ 250k floats, acceptable). Playback shows kinematic ghosts of those bodies on top of the last state? -> no: at playback time, the world state is different. Therefore replay is **only shown right after the shot** ("Replay!" banner) if the shot's score exceeded 600 (and at most once every 3 turns): re-apply the buffered transforms of the moving bodies as they were, in slow motion (0.4×), with a "REPLAY" film-grain border, from a different camera angle, while the real world state is frozen and hidden behind... **Original state (required)**: the replay must show the settlement as it was BEFORE the shot, not the ruins. At the moment of firing `ReplayRec.begin()` snapshots every live part with its pose; `Breakable.break_part/discard_part` log the recorder time at which each part dies. At playback start every part that died during the shot is re-created as a ghost mesh at its original pose and hidden exactly at its break time (frames use the same clock); recorded debris bodies stay hidden until the frame in which they first appear. Ghosts are freed when the replay ends. Implementation detail: replay uses the **same meshes**: pause physics, save current transforms of the recorded bodies, set transforms from buffer frame by frame, then restore. Skippable with click/`Space`. Frames use only bodies present in the recorded set. Bodies removed during the shot (broken parts) are simply not visible in later frames if they don't exist in the frame list (store `id` per record; hide those not present).
+
+---
+
+## 14. CPU AI (`scripts/ai/cpu.gd`)
+
+### 14.1 Difficulty parameters
+```gdscript
+const AI := {
+  "peasant": { "aim_noise_deg": 14.0, "power_noise": 0.25, "use_wind": false, "learns": false, "ammo_smart": "none", "target_smart": "random", "think_time": [0.8, 1.6], "sim_samples": 1 },
+  "squire":  { "aim_noise_deg": 7.0, "power_noise": 0.14, "use_wind": false, "learns": false, "ammo_smart": "none", "target_smart": "nearest", "think_time": [1.0, 2.0], "sim_samples": 6 },
+  "knight":  { "aim_noise_deg": 3.0, "power_noise": 0.07, "use_wind": true, "learns": true, "ammo_smart": "basic", "target_smart": "weakest", "think_time": [1.2, 2.4], "sim_samples": 20 },
+  "king":    { "aim_noise_deg": 0.8, "power_noise": 0.02, "use_wind": true, "learns": true, "ammo_smart": "full", "target_smart": "threat", "think_time": [1.5, 2.8], "sim_samples": 60 },
+}
+```
+All bots use the same aiming inputs as a human in effect (azimuth, elevation, power, ammo) and are subject to the same ±0.5° launch spread.
+
+### 14.2 Turn procedure
+1. **Pick target player** (rules by `target_smart`):
+   - `random`: random living enemy.
+   - `nearest`: nearest enemy village.
+   - `weakest`: enemy with fewest catapults (ties → lowest total village HP).
+   - `threat`: score = 3 × (catapults left) + 2 × (enemy's last shot damaged me? yes → +8) + (1 if they are the leader) − 0.02 × distance; pick highest.
+2. **Pick target point**:
+   - If enemy has known catapults (all are visible): aim at a random living catapult (prefer the one that has the least cover: fewest parts within 4 m; King computes cover by counting parts along the straight line).
+   - `peasant`: also 30% chance to aim at any random building instead.
+   - Fire targets: King aims at powder store if alive and it is within 4 m of ≥ 1 catapult, or at the barn/haystacks when at least 1 catapult is within 8 m.
+3. **Pick catapult** to fire from: random (peasant/squire); knight/king: the one with the best line (least cover in front), prefer not being close (< 15 m) to burning parts and prefer catapults not yet targeted by known threats.
+4. **Solve ballistic**: For a target point T, run `sim_samples` random tries: sample (azimuth ≈ direct heading ± 3°, elevation ∈ [20°, 70°], power solved by binary search) using `predict_trajectory` (with or without wind depending on `use_wind`) to minimize landing distance to T; pick the best. Then add noise: azimuth += N(0, aimNoiseDeg), power += N(0, powerNoise) × power.
+5. **Learn** (`learns = true`): after a shot at the same target, record error vector (landing − target) in azimuth and range terms; next shot at the same target corrects by the observed error × 0.8 (Knight) or × 1.0 (King); reset when target changes.
+6. **Choose ammo**:
+   - `ammo_smart none`: Stone always.
+   - `basic`: 30% chance for the Flaming Barrel; otherwise Stone by default; 25% chance to use any available special when target catapult has cover (walls: keg / boulder / buckshot) or target village has ≥ 5 settlers close (buckshot / cow / beehive).
+   - `full`: Rules in priority: (a) if the target player has ≤ 2 catapults left and the bot has a Big Red Barrel → red barrel, (b) if the target is behind ≥ 3 walls parts → powderkeg, (c) if a solid wall stands in the way of the target catapult → boulder, (d) if enemy catapults ≥ 3 clustered within 8 m → scatter, (e) 30% beehive, 30% cow if available, (f) 35% Flaming Barrel, (g) otherwise stone. Bots earn weapons by the same rules as humans (6.4b).
+7. **Execution**: think time random in `think_time`, then camera pans, arm animates the pull over 0.9 s, then fire. Show a thinking bubble (text only, no emoji: "Hmm…" / "Hmmm…") above the bot's selected catapult.
+8. Humor: bots occasionally (5%) do a "silly mistake" (fire with random power) even on King; bots occasionally taunt (speech bubble at the start of turn, 25% chance): "Prepare thyself!" / "Bereite dich vor!", "This will hurt you more than me." / "Das tut dir mehr weh als mir.", "I calculated this. Roughly." / "Ich hab das berechnet. Ungefähr.", "Behold, science!" / "Seht her, Wissenschaft!".
+
+### 14.3 Placement AI
+Random valid candidates (30 tries per catapult): score = distance from other own catapults ≥ 5 m (mandatory) + for Knight/King prefer positions with buildings within 6 m in the directions toward enemies (cover) + not near powder store (≥ 8 m, King) + not near flammable barn (≥ 8 m, King). Peasant/Squire: purely random.
+
+---
+
+## 15. Performance Requirements
+
+### 15.1 Quality tiers (`render/quality.gd`)
+| tier | 3D render scale (`Viewport.scaling_3d_scale`) | MSAA 3D | shadows | shadow atlas | particles cap | dynamic bodies cap | settlers per village | fire emitters | point lights (OmniLight3D) | outlines |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Low | 0.75 | off | off (blob shadow decals under catapults/settlers) | – | 600 | 350 | 6 | 20 | 2 | off |
+| Medium | 1.0 | 2× | on | 1024 | 1500 | 600 | 10 | 40 | 4 | on |
+| High | 1.0 | 4× | on | 2048 | 3000 | 900 | 14 | 60 | 6 | on |
+| Ultra | 1.0 | 4× | on (soft: `light_angular_distance` > 0, PCF) | 4096 | 6000 | 1400 | 16 | 80 | 8 | on |
+
+Apply shadow size via `RenderingServer.directional_shadow_atlas_set_size(size, true)`, filtering via `RenderingServer.directional_soft_shadow_filter_set_quality`. Quality changes apply live without restart (except nothing requires restart). The particle cap is enforced by the pooled particle system (15.2).
+
+### 15.2 Rules
+- Fixed physics timestep 60 Hz through the engine (`physics_ticks_per_second=60`, `max_physics_steps_per_frame=3`; the engine drops time when behind). All gameplay logic that touches physics runs in `_physics_process`; visuals/UI in `_process`.
+- **Physics access:** Parts, shards, projectiles, props and ragdoll limbs are bodies created directly on `PhysicsServer3D` (RIDs; `body_create`, `shape_create`, `body_add_shape`, `body_set_space`) — **not** as `RigidBody3D` nodes — to avoid per-node overhead. Simple singletons (catapult base, terrain, dormant structures) may use `StaticBody3D`/`RigidBody3D` nodes if that is simpler. A thin wrapper in `physics/world.gd` owns all RIDs, ids, freeing and the id→object registry.
+- **Sync of awake bodies:** register per body `PhysicsServer3D.body_set_state_sync_callback(rid, callable)` (called only for active bodies) and write the transform into the visual; sleeping bodies cost nothing per frame. If that API is not usable in the installed version, fall back to iterating an "awake list" and reading `PhysicsServer3D.body_get_state(rid, PhysicsServer3D.BODY_STATE_TRANSFORM)`, skipping bodies where `BODY_STATE_SLEEPING` is true. Contact impulses come from `PhysicsDirectBodyState3D.get_contact_impulse()` (enable with `body_set_max_contacts_reported`, only for parts/projectiles/catapults/settlers, small value like 4).
+- Enable continuous collision detection on projectiles (`body_set_enable_continuous_collision_detection`).
+- **Rendering of parts:**
+  - Dormant buildings: one merged `ArrayMesh` per material per structure (merge manually with `Util.merge_meshes`; `SurfaceTool` allowed), one `MeshInstance3D` per material. Vertex colors carry per-part color; a single toon material per material class reads `COLOR`.
+  - Awake parts: one `MeshInstance3D` each, sharing `Mesh` and `ShaderMaterial` resources (materials cached per palette color; instance uniform `instance_uniform` for color is allowed). Debris shards, hay, coins, particles' physical droplets, trees' repeated instances and grass/rocks decor use `MultiMeshInstance3D` (pool per shape+material, max 2048 instances each; unused instances hidden by zero-scale transform + `visible_instance_count` management).
+  - Never call `add_child` / `queue_free` for hundreds of nodes in one frame: budget spawns (≤ 60 nodes/frame) via a spawn queue.
+- Colliders: boxes, cylinders, spheres, capsules only. No concave trimesh shapes for dynamic bodies. Terrain: one `HeightMapShape3D` collider (`StaticBody3D`). Dormant structures: one `StaticBody3D` per structure with one `BoxShape3D`/`CylinderShape3D` child per part (compound).
+- Shadow: one `DirectionalLight3D`, `directional_shadow_mode = PSSM 2 Splits`, `directional_shadow_max_distance` fitted (≈ 90 m Medium). Do not re-render shadows more often than needed if the engine allows (`light_bake`/update mode is not required; acceptable to leave default).
+- Particles: pooled `GPUParticles3D` emitters, one pool per effect preset (see `fx/particles.gd`: splinter, dust, straw, spark, glitter, smoke, flame, steam, splash, feather, wool, bee, stink, confetti, leaf, rain). Each preset: `one_shot=true`, small `amount` (≤ 64), custom `ParticleProcessMaterial`, unshaded billboard quad mesh with `use_billboard`-style draw pass (`BaseMaterial3D` billboard mode particles, or a hand-written `shader_type spatial` with `render_mode unshaded`), spawned by `restart()` at a position from a pool (reuse, never instantiate at runtime beyond the pool). Global live-particle budget = tier particle cap (track `amount` of active emitters).
+- Speech bubbles and comic text: `Label3D` pool (max 6 bubbles alive, max 3 comic texts alive), billboard, `no_depth_test=true`, fixed size scaled by distance.
+- Settlers: a **single kinematic capsule** (or none: pure logic + transform snapping to terrain) per walking settler with animated child meshes (no per-limb bodies). Ragdoll = 6 bodies (torso, head, 2 arms, 2 legs) connected with `PhysicsServer3D.joint_make_cone_twist` or `joint_make_pin`, **only in ragdoll state**. Convert to ragdoll on hit (impulse > 40 or explosion or fire-launch). After 6 s asleep the ragdoll bodies are removed and the settler becomes a static "lying" mesh (pose frozen, if dead) or gets up (if alive, hp > 0: 3 s later, walking again with "Ow." bubble). Limit simultaneously active ragdolls to 40 (others convert immediately to frozen pose). Walking settlers update at 10 Hz (lower when far from the camera).
+- Frame budget (Medium, reference M1/Iris Xe): physics ≤ 6 ms, all GDScript game logic ≤ 3 ms, render ≤ 8 ms. GDScript is slower than JavaScript-JIT for tight loops — so: budget round-robin work per frame (fire ≤ 200 parts/tick, support checks ≤ 1 structure/frame, settlers 10 Hz), use packed arrays and integer indices, cache node references, avoid `get_node` in loops, avoid `Dictionary` lookups in inner loops when an array index works.
+- `Engine.max_fps = 0` (vsync on via `DisplayServer.window_set_vsync_mode(ENABLED)`, option in menu). Clamp `delta` in `_process` to 1/20 s. Pause (`get_tree().paused`) when the window loses focus (`NOTIFICATION_APPLICATION_FOCUS_OUT`) during a human turn only.
+- Debug overlay: launch with user arg `-- --debug` (see 22) or press `F3` in debug builds: FPS (`Engine.get_frames_per_second()`), frame ms, physics active bodies (`Performance.get_monitor(Performance.PHYSICS_3D_ACTIVE_OBJECTS)`), our body count / awake count, draw calls (`Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME`), particles alive, memory (`Performance.MEMORY_STATIC`). Hand-written `Label` overlay.
+- Auto quality: if average FPS < 40 for 5 s, drop one tier (if the option `Auto quality` is on, default on) and show a small toast.
+- Slow motion uses `Engine.time_scale` (0.25); UI timers and animations that must keep real time use `Time.get_ticks_msec()` deltas.
+
+---
+
+## 16. Visual Style
+
+### 16.1 Look
+- Toon/cel look via a hand-written `spatial` shader (`render/shaders/toon.gdshader`): `render_mode unshaded`-free normal spatial shader with a custom `light()` function that quantizes `NdotL * ATTENUATION` into **4 steps** (0.31, 0.55, 0.78, 1.0, hard edges via `floor`), `specular_disabled`, `ALBEDO` from `COLOR` (vertex color) × `albedo` uniform. One shader, many materials (uniform for tint/emission, cached per palette color). Shadows work through the normal `ATTENUATION` path.
+- Outlines: inverted hull as `next_pass` material of the toon material: `shader_type spatial; render_mode cull_front, unshaded;` vertex: `VERTEX += NORMAL * 0.03;` (uniform `width`), fragment: `ALBEDO = vec3(0.10, 0.07, 0.13)` (#1a1220). Works with `MeshInstance3D` and `MultiMeshInstance3D`. Skip outlines for particles, terrain, water, sky. For thin parts (< 0.15 m) use width 0.015. Outlines off on Low.
+- Lighting: 1 `DirectionalLight3D` (warm `#fff1d0`, energy 1.6), an `Environment` with ambient light from sky/color (`ambient_light_source = COLOR`, sky-ish `#9fd8ff` at energy 0.9, approximating the hemisphere light; a subtle ground-tint via a second very weak upward-facing fill is allowed), fog enabled exponential (`fog_density` 0.006, color = sky horizon, density increases in rain), tonemap `FILMIC` or `LINEAR` (choose what gives saturated comic colors; no glow, no SSAO, no SSR).
+- Sky: a custom sky shader (`shader_type sky`) with vertical gradient (top `#4aa8ff`, horizon `#ffe9b8`; storm: `#4a5568` / `#8a8f99`, blended by weather), a sun disc using `LIGHT0_DIRECTION`, plus 8–14 procedural puffy clouds (grouped white toon spheres as `MeshInstance3D`s, slowly drifting with wind, wrap around the map).
+- Post: none required. Optional cheap vignette via a `ColorRect` with a radial-gradient shader on the UI layer.
+- Fonts: HUD/menus use `SystemFont` with `font_names = ["Trebuchet MS", "Comic Sans MS", "Verdana", "DejaVu Sans", "Arial"]` (falls back to the engine default if none exists — must still look fine); comic text uses `SystemFont` `["Impact", "Arial Black", "Haettenschweiler", "DejaVu Sans Bold", "Arial"]` with `font_weight = 900` / `Label3D.outline_size`. Verify German umlauts and emoji-free rendering on all platforms: **do not rely on emoji glyphs** (ammo icons in the HUD are drawn procedurally with `Control._draw()` shapes/colored circles plus a 1–2 letter label; see 18.1).
+- UI look: chunky rounded parchment panels (`StyleBoxFlat`: bg `#f4e4bc`, border `#3b2a1a` 3 px, corner radius 14, shadow via `shadow_size`), bright buttons (`#e74c3c`, `#f1c40f`), hover wobble via `Tween` (scale/rotation ±2°). Built once in `ui/theme.gd` into a `Theme` applied to the UI root `Control`.
+
+### 16.2 Palette (for materials colors, pick via RNG from these sets)
+- wood: #b5763a, #a0622d, #c58a4a
+- plank: #d09a5a, #c48748
+- stone: #9aa0a6, #8a9096, #a9aeb3
+- brick: #c0533a, #b34a33
+- thatch: #e0c060, #d4b04a
+- roof tile: #c0392b, #d35400, #8e44ad-ish accent 10%
+- plaster wall (farmhouse): #f2e6c9, #eddcb0
+- metal: #7f8c9a
+- grass: see 7.6, water: #3fa9f5 alpha 0.75
+- fire: #ffb347 → #ff5722 → #2b2b2b
+
+### 16.3 Catapult model (`scripts/entities/catapult.gd`)
+Procedural: wooden base frame (2.4×0.3×1.6), 4 wheels (cylinders, metal hubs), vertical side frames, rotating arm (long box 3 m, pivot 1.1 m above base) with a bucket (open cylinder/box) at the end; the arm rotates about the pivot; rope; a colored flag/decal on the frame with the player's color; a little nameplate "owner name" floating above (`Label3D`, only visible during TURN and in overview, size scaled by distance).
+Physics: base = one dynamic box body (`PhysicsServer3D` or `RigidBody3D`) (mass 400 kg, damping 0.3), arm is animated (not physical), destroyed catapult replaced by dynamic parts (frame planks ×6, wheels ×4, arm ×1, each own body).
+Selection highlight: a pulsating ring + outline color. Show hp bar above catapult while aiming or when damaged (small, world-space billboard quad).
+
+### 16.4 Settlers (`scripts/entities/settler.gd`)
+Capsule-style procedural model: body (cylinder tapered, tunic color), head (sphere), nose (small cone), arms/legs (thin boxes; animated by sin walk cycle), hat variants. Behaviors (state machine, updated at 10 Hz for all, lower for far):
+- `idle` (stand, occasionally chat bubble),
+- `wander` (walk to random point in village at 1.2 m/s, avoid buildings by simple steering with terrain height snapping via heightfield lookup),
+- `work` (near a building: hammer animation at 20% frequency),
+- `panic` (run away from explosion/projectile impact point at 3.5 m/s, screaming bubble),
+- `extinguish` (grab bucket, run to nearest water (well/pond/river/water barrel), then to nearest fire (max distance 20 m), throw water; each throw extinguishes fire in radius 1.6 m, chain up to 4 settlers passing the bucket if ≥ 3 idle settlers available),
+- `burning` (run randomly, 5 dmg/s),
+- `ragdoll` (physics),
+- `dead` (frozen pose, fades away after 30 s or stays; cap).
+Kill attribution and stats as 13. Every settler killed spawns a small gravestone-shaped billboard? No. On death: a tiny ghost billboard rises (white, semi-transparent, 2 s) — cute and comic.
+
+---
+
+## 17. Audio (`scripts/autoload/sfx.gd`)
+
+**No audio files.** At startup `Sfx` synthesizes every sound below into an `AudioStreamWAV` (16-bit PCM mono, 32 000 Hz, `format = FORMAT_16_BITS`, `data = PackedByteArray`) using a small GDScript synth kit (oscillators sine/square/saw/triangle, noise white/pink/brown, ADSR/exp envelope, biquad low/high/band-pass filter, pitch sweep, vibrato/tremolo, simple soft-clip distortion, mixing of partials). Cache streams in a `Dictionary` by name; for frequently repeated sounds (thunk, clack, crunch, splash, boing, scream, moo …) pre-render **3 variants** with slightly different parameters. Generation may run on a worker `Thread` (or in chunks with `await get_tree().process_frame`) while the splash shows progress; total budget < 3 s on a mid-range laptop; emit `Sfx.ready` when done.
+
+Playback: a pool of 24 `AudioStreamPlayer` (2D/global) and 24 `AudioStreamPlayer3D` nodes (`unit_size` ≈ 20, `max_distance` ≈ 250, attenuation model inverse-square-clamped) reused round-robin with priority stealing; `pitch_scale = randf_range(0.92, 1.08)` per play; UI sounds use non-3D players. Master volume from settings via `AudioServer.set_bus_volume_db(0, linear_to_db(v))`. Looped sounds (`fire_loop`, `rain_loop`, `gust`, `buzz`) use `loop_mode = LOOP_FORWARD` with `loop_end` set to the sample count; volume/pitch modulated at runtime. Audio starts only after the first user input is not required on desktop (no autoplay restrictions), but do not play before `START BATTLE`/menu interaction except UI sounds.
+
+Provide `Sfx.play(name, position := Vector3.INF, volume := 1.0, priority := 0)` (INF = non-positional). **Sound design v2 (required quality bar).** The effects must not sound like beeps: every effect is a *layered* design (sharp transient + body + tail, loudness-matched, reverberated where it makes sense), built from: polyBLEP saw/square oscillators, FM, **modal resonator banks** (wood, metal, glass, bell), **Karplus-Strong plucked string** (catapult rope), a **vocal formant source** (animals, settlers, horns), RBJ biquads incl. swept filters, a Freeverb-style room reverb, soft saturation and seamless equal-power loops (fire, rain, wind, bees). Explosions = noise crack + pressure body (brown noise, swept low-pass) + pitch-dropping sub + debris rattle + large room; impacts = pitch-dropping sub + dull body noise + click; brass (turn start, victory, defeat, stinger) = detuned saws with an opening low-pass and vibrato. `tests/sound_probe.gd` prints duration / peak / RMS / spectrum split / NaN check for every sound. The table below only names the layers roughly; the exact recipes live in `core/sound_recipes.gd`. Synthesis recipes (all with random pitch ±8% to avoid repetition):
+| name | synthesis |
+|---|---|
+| `thunk` | short sine 120→60 Hz thump + noise burst lowpass 400 Hz, 0.12 s |
+| `clack` | two quick triangle blips 700 & 500 Hz + highpass noise, 0.08 s |
+| `crunch` | noise bursts lowpass 800, 3 x 20ms with random spacing, decreasing |
+| `clang` | 3 detuned square/sine partials 620, 930, 1490 Hz exp decay 0.5 s |
+| `tinkle` | 4–6 random sine pings 2–4 kHz, 40 ms each, staggered |
+| `fwump` | lowpass noise 200 Hz, 0.2 s |
+| `swish` | bandpass noise sweep 300→2000 Hz 0.25 s |
+| `boom` | sine sweep 90→30 Hz 0.8 s + noise lowpass sweep 1500→100 Hz 0.9 s, plus optional distortion |
+| `bigboom` | boom ×1.5 length, added sub 30 Hz rumble 1.5 s |
+| `whoosh` | highpass noise whoosh 0.4 s (projectile launch) |
+| `twang` | triangle 180 Hz pluck with fast decay + slight pitch bend (slingshot release) |
+| `creak` | sawtooth 60–90 Hz with slow amplitude wobble 0.5 s (arm pull) |
+| `fire_loop` | filtered brown noise + random crackle pops; volume by number of active fires near camera (one loop node total) |
+| `splash` | bandpass noise 1000 Hz 0.3 s with decay + bubble blips |
+| `moo` | sawtooth 110 Hz with formant filters (bandpass 400 & 800) pitch glide 110→90 Hz 0.9 s, vibrato |
+| `bawk` | short square chirps 500→800→400 Hz ×3 |
+| `baa` | sawtooth 250 Hz with vibrato 8 Hz + formants, 0.7 s |
+| `neigh` | sawtooth 500→800→300 Hz, vibrato, 0.9 s |
+| `quack` | square 400 Hz with lowpass 900 Hz 0.15 s, twice |
+| `squeak` | sine 1200→2000 Hz 0.08 s |
+| `bell` | sines 520, 1040, 1560 Hz exp decay 2 s ("BONG") |
+| `scream` | sawtooth 500→1200 Hz glide 0.6 s + formant bandpass 900 & 2400 + vibrato 12 Hz, random pitch base (per settler, 350–700 Hz) |
+| `yeet` | sine sweep rising 300→1400 Hz 0.5 s with slight tremolo |
+| `boing` | sine with pitch wobble 200→400→200, 0.3 s |
+| `buzz` | sawtooth 180 Hz + AM 40 Hz, looped, for bees |
+| `thunder` | brown noise lowpass sweep 600→60 Hz, 2.5 s with rumble tail, delayed by distance |
+| `zap` | sawtooth 3 kHz → 200 Hz in 80 ms + noise |
+| `rain_loop` | pink/white noise highpass 1000 Hz low volume |
+| `gust` | bandpass noise slow LFO (storm) |
+| `stinger_event` | ascending 4-note arpeggio (square, C-E-G-C) 0.5 s |
+| `ui_click` | sine 800 Hz 30 ms |
+| `ui_hover` | sine 500 Hz 15 ms quiet |
+| `turn_start` | two-note fanfare (trumpet-like sawtooth with lowpass: G4, C5) |
+| `victory` | 6-note major fanfare + cheering noise burst |
+| `defeat` | descending trombone "wah wah wah waaah" (sawtooth slides) |
+| `splat` | noise burst + sine 200→80 Hz, wet 0.15 s |
+| `pop` | sine burst 400 Hz with fast decay (bubble) |
+
+Music: none required. Optional: a simple looping 8-bar chiptune-ish medieval march synthesized the same way, off by default (setting) — can be skipped.
+
+Limit concurrent sounds to 24 (drop lowest priority or oldest). Do not play more than 6 impact sounds per 100 ms.
+
+---
+
+## 18. UI Details
+
+### 18.1 HUD (during BATTLE)
+- Top center: current player's name + color + turn banner and timer (circular).
+- Top left: list of players with color chip, name, catapults left (5 small catapult icons: green alive/red destroyed), and "current" marker.
+- Top right: wind arrow + speed (m/s) and weather icon; settings button (opens pause menu).
+- Bottom center: ammo bar: 9 slots with icon (procedurally drawn icon shapes via `Control._draw()` — colored circle/shape per ammo plus a 1–2 letter mark: ST, FB, BO, PK, SG, MU, BH, RK, PT — **no emoji**, since emoji fonts are not guaranteed on all platforms), count, key number; selected slot highlighted.
+- Bottom left: aim info (power %, elevation°, azimuth°) during aiming.
+- Bottom right: catapult selector (numbered buttons, 6.4 / 2.4), then buttons: `Fast-forward (F)`, `Overview camera (V)`, `Skip turn (hold X, 2 s)`, `Sound`.
+- Center: announcer banner (slides in, 2.5 s).
+- Kill-feed at the left (max 5 lines, 4 s): "{attacker} launched Bob into orbit", "{attacker}'s stone flattened a Cosy Cottage", "{victim}'s catapult was lost to the fire". Provide a few variants in lang files.
+- Pause menu (Esc): Resume, Restart (same seed), Quit to menu, Options.
+
+### 18.2 Camera controls
+- `AIMING`: as described. `Right mouse drag` orbit, mouse wheel zoom, `Shift+wheel` elevation.
+- `OVERVIEW` (V toggles at any time in own turn, and always available between turns): free camera: right drag orbit around focus, middle/`Shift+right` drag pan, wheel zoom; `WASD` pan; `Home` recenters; auto-returns after fire. **It must show the whole playfield**: focus on the map center, distance ≈ 1.9 × map radius at 58° pitch, zoom out up to 3.2 × map radius, and **the camera-arm collision shortening is never applied** in this mode (otherwise the camera is pulled into the ground). Left click sets the map marker (6.7).
+- Impact cam: at first collision of projectile: camera moves to hover 12 m from impact at 35° pitch, maintains for aftermath, blends smoothly (`lerp` with damping k=4). Slight screen shake (translate camera by noise, amplitude = min(1.5, blastDamage/900)).
+- The camera never enters terrain or goes below terrainHeight + 1.
+
+### 18.3 Accessibility/Settings
+Settings persisted via `ConfigFile` at `user://settings.cfg` (autoload `Settings`): language, volume, quality, shake, timer, weather, events, autoquality, fullscreen, vsync, window size, last used player list.
+
+---
+
+## 19. Localization (`scripts/autoload/i18n.gd`, `scripts/lang/en.gd`, `scripts/lang/de.gd`)
+
+- Language data are GDScript files: `const DATA := { "menu": { "start": "START BATTLE", ... }, "speech": { "panic": ["RUN!", ...] }, ... }` (nested dictionaries; keys are dotted paths like `menu.start`). Do NOT use `.po`/`.csv`/`TranslationServer`; own lookup keeps it simple and testable.
+- `I18n.t(key, params := {})` looks up nested keys, replaces `{name}` placeholders, falls back to English, then to the key itself. `I18n.tr_list(key) -> Array` returns arrays of random lines; pick with `Rng.pick`. (Do not name the method `tr` — it clashes with `Object.tr`.)
+- All UI, banners, kill feed, speech bubbles, comic text, titles, event names must be in both languages. Language switch applies instantly to the menu (rebuild labels through a `language_changed` signal); in-game text uses the current language at the time it is generated. Names of ammo/buildings in lang files under `ammo.<id>` and `building.<id>` using the names in sections 6.4 and 9.
+- Provide minimum keys: `menu.*`, `hud.*`, `placement.*`, `ammo.*`, `building.*`, `banner.*`, `speech.*`, `comic.*`, `event.*`, `title.*`, `loading.*`, `kill.*`, `stats.*`, `pause.*`.
+- A test (`tests/test_i18n.gd`) verifies both language files have identical key sets and no empty strings.
+
+---
+
+## 20. Module Contracts (key APIs)
+
+```gdscript
+# physics/world.gd  (class_name PhysWorld, static + a singleton Node "PhysRoot" created by main.gd)
+static func init_physics() -> void
+static func add_body(desc: Dictionary) -> int              # returns id; desc: shape(s), transform, mass, material, layer/mask, kind
+static func remove_body(id: int) -> void
+static func body_rid(id: int) -> RID
+static func for_each_awake(cb: Callable) -> void
+static func raycast(origin: Vector3, dir: Vector3, max_t: float) -> Dictionary   # {} or {point, normal, collider_id}
+static func overlap_sphere(center: Vector3, r: float, cb: Callable) -> void      # PhysicsDirectSpaceState3D.intersect_shape
+
+# systems/damage.gd
+static func apply_impact(part: Part, impulse: float, source: Dictionary) -> void
+static func damage_in_radius(center: Vector3, radius: float, max_damage: float, source: Dictionary) -> void
+
+# systems/fire.gd
+static func ignite(part: Part, amount: float, source: Dictionary) -> void
+static func extinguish_in_radius(center: Vector3, r: float) -> void
+static func update(dt: float) -> void
+
+# systems/explosion.gd
+static func explode(pos: Vector3, radius: float, max_damage: float, opts: Dictionary) -> void
+
+# systems/turn.gd
+static func start_battle(players: Array) -> void
+static func predict_trajectory(start_pos: Vector3, velocity: Vector3, ammo_id: String, wind: Vector2, max_t: float) -> Dictionary  # {points: PackedVector3Array, flight_time, landing: Vector3}
+static func current_player() -> PlayerData
+
+# entities/projectile.gd
+static func launch(ammo_id: String, muzzle_pos: Vector3, velocity: Vector3, owner_player_id: int) -> Projectile
+```
+
+`autoload/events.gd` declares these signals (systems emit, stats/killfeed/audio/UI connect; systems never call UI directly):
+`projectile_launch`, `projectile_impact`, `part_break`, `building_destroyed`, `settler_hit`, `settler_killed`, `catapult_destroyed`, `fire_started`, `fire_out`, `explosion`, `turn_start`, `turn_end`, `player_eliminated`, `game_over`, `weather_change`, `event_start`, `language_changed`, `quality_changed`.
+
+Data classes: `PlayerData`, `Part`, `Structure`, `AmmoDef`, `MaterialDef` are `RefCounted` classes with typed fields (no untyped dictionaries for core data). `source` dictionaries are `{player_id: int, ammo: String}`.
+
+---
+
+## 21. Implementation Phases and Acceptance Tests
+
+Implement strictly in order. After each phase the game must start (`godot --path . `) without errors or warnings in the output. Every phase adds headless tests under `tests/` where logic is testable without rendering; run them with:
+```
+godot --headless --path . --script res://tests/run_tests.gd
+```
+`run_tests.gd` (`extends SceneTree`) discovers `tests/test_*.gd`, runs every `func test_*()`, prints a summary and calls `quit(1)` on any failure. Rendering/feel checks are done by running the game (also allowed: a `--autotest` user arg that starts a scripted scenario, saves screenshots with `get_viewport().get_texture().get_image().save_png("user://shot_N.png")`, and exits).
+
+**Phase 1 — Foundation.** `project.godot`, autoloads (cfg, events, settings, i18n stub), main scene, toon + outline shaders, sky, seeded terrain (no villages) with `HeightMapShape3D`, free overview camera, debug overlay, quality tiers, window handling.
+*Accept:* terrain renders with hills/water at 60 FPS; debug key `B` spawns a ball that rolls on the terrain and splashes in water; same seed → identical heightmap hash (test).
+
+**Phase 2 — Destructibles.** materials, kit.gd, parts, dormant/awake structures, glue links + support check, debris cap; buildings: farmhouse, barn, watchtower, well; props: barrel, crate, haybale; one catapult with aiming (slingshot), Stone ammo, preview at 40%, wind; explosions/craters minimal (Stone impact damage only).
+*Accept:* firing a stone at a farmhouse damages and topples parts; a tower falls over as expected; sleeping bodies cost no CPU (body count vs. awake count in the debug overlay); support-check unit test (removing the foundation releases all parts).
+
+**Phase 3 — Game loop.** Menu, player setup, generation of villages (all mandatory buildings available so far, missing types substituted by farmhouse), placement UI, turn manager, settle detection, elimination, GAME_OVER screen, HUD, i18n skeleton (EN/DE for all UI), CPU "peasant" stub (random shot).
+*Accept:* a full game 2–8 players playable with human + peasant bots start to finish; elimination and winner work. **First playable milestone.**
+
+**Phase 4 — Content.** All 16 buildings, all props, animals, settlers with behaviors + ragdolls, speech bubbles, comic texts, kill feed.
+*Accept:* every building type builds and collapses without errors or NaNs (test builds each type, applies a big explosion, steps physics 300 ticks headless); settlers ragdoll properly when hit; ≤ 700 parts per village.
+
+**Phase 5 — Elements.** Fire, water, explosions, all ammo types, powder chain reactions, well/water tower rupture, craters, catapult destruction, steam/smoke.
+*Accept:* fire spreads across a thatch barn to adjacent buildings and burns down; powder store chain explosion works; all 9 ammo types work (earned weapons unlock by the rules of 6.4b); the flaming barrel rolls ≥ 5 s; palisade posts stack and fall together.
+
+**Phase 6 — AI.** Full cpu.gd per section 14; difficulty comparisons: Peasant misses > 80% at 60 m, King hits within 3 m on average when no wind noise applies (test on `predict_trajectory` without full physics).
+*Accept:* 4-bot game (Peasant, Squire, Knight, King) runs alone to completion (`--autotest` with a speed-up); King wins most.
+
+**Phase 7 — Extras.** Weather, random events, replay, statistics, titles, all audio, full localization check, pause menu, settings persistence.
+*Accept:* every event in 11.5 can be triggered via debug key `E` cycle; all sounds exist in the `Sfx` cache (test); both languages complete (i18n test passes, no key fallbacks visible).
+
+**Phase 8 — Polish, performance and packaging.** Auto quality, shadow optimization, pooled particles audit, allocation audit, bugs, README, **export builds for all three platforms (section 25)**.
+*Accept:* 4 players Medium ≥ 55 FPS average during a firefight; no memory growth beyond 50% in a 20 minute session (bodies, meshes, materials disposed; check `Performance.OBJECT_COUNT`, `OBJECT_ORPHAN_NODE_COUNT` = 0 after returning to the menu); exported macOS/Windows/Linux builds start by double-click.
+
+---
+
+## 22. Debug Keys (only when launched with user arg `--debug`, e.g. `godot --path . -- --debug`, or in editor/debug builds; release exports without the arg ignore them)
+`B` spawn test ball, `E` cycle random events, `W` cycle weather, `K` kill current player's selected catapult, `F` ignite the part under the cursor, `X` explode at the cursor point (radius 6), `C` toggle physics collider wireframes (`get_tree().debug_collisions_hint` / `RenderingServer` debug draw), `H` heal all catapults, `T` toggle slow motion 0.25×, `O` toggle outlines, `F3` debug overlay.
+
+---
+
+## 23. Edge Cases (must be handled)
+- Shot never lands (out of world): after 12 s, despawn; counts as miss.
+- Window loses focus / minimized mid-turn: pause simulation, resume without timer jump (use accumulated active time, not wall-clock).
+- Catapult fired while another projectile is alive: not possible (one projectile at a time; scatter pellets / cow chunks / red-barrel fragments do not count).
+- Player eliminated during AFTERMATH by fire after the turn ended: handled at the next `TURN_END` check (also verify at `GAME_OVER` check after each turn).
+- If a catapult is placed on a building that later collapses and it falls: catapult body is dynamic, so it falls; tipping rule applies.
+- Extremely long AFTERMATH: `SETTLE_MAX` forced end.
+- Bots when all enemies' catapults are somehow unreachable: fire at any building of the strongest enemy.
+- Heightfield rebuild after craters: throttled and batched (update `HeightMapShape3D.map_data` and the mesh region); ignore craters outside the map.
+- NaN guard: if any body's origin becomes NaN/inf or |y| > 500, remove it.
+- Seeds: same seed + same settings must produce the same map and same initial layout on all platforms (battle is not deterministic across frame rates; that's OK). Use only `Rng` (own mulberry32 + FNV-1a string hash), never `randf()`/`RandomNumberGenerator` default seeding for generation; do not use `String.hash()`.
+- Window resize / fullscreen toggle / HiDPI: 3D viewport and UI reflow (stretch mode `canvas_items`, `expand`); pull distance `DRAG_MAX_PX` scales with window height / 900.
+- Human tries to select an enemy catapult: ignore.
+- All players CPU: allowed (spectator mode with camera auto-follow, `Space` speeds up time ×3 as toggle).
+- Save/settings file missing or corrupt (`user://settings.cfg`): fall back to defaults silently.
+- Quit during any state (window close, Alt+F4/Cmd+Q): free everything cleanly, no errors on exit.
+
+---
+
+## 24. README.md (to be written in Phase 8)
+Contents: what the game is; how to run from source (`godot --path .` or `./run.sh`); how to build (`./export.sh`, section 25); controls table (mouse drag to aim, right-drag to orbit, V overview, 1–8 ammo, Tab cycle catapult, Space fire, Esc pause, F11 fullscreen); platform notes (macOS Gatekeeper: right-click → Open on first launch for the unsigned app; Linux: `chmod +x`); credits line "Made with Godot Engine". Note that no assets are external.
+
+---
+
+## 25. Packaging and Cross-Platform Builds
+
+Goal: a player downloads one file per platform, double-clicks it, and plays. No installer, no engine, no internet.
+
+### 25.1 Export presets (`export_presets.cfg`, committed)
+| preset | target | notes |
+|---|---|---|
+| `Windows` | Windows Desktop, x86_64 | output `build/windows/MedievalMadness.exe`; **embed PCK** on (single .exe); no code signing; icon from `icon.svg` if the toolchain allows, otherwise engine default |
+| `macOS` | macOS, **universal** (arm64 + x86_64) | output `build/macos/MedievalMadness.zip` containing `MedievalMadness.app`; bundle id `com.example.medievalmadness`; ad-hoc/no signing and no notarization (documented in README: right-click → Open); `application/min_macos_version` 12.0 |
+| `Linux` | Linux, x86_64 | output `build/linux/MedievalMadness.x86_64`; **embed PCK** on (single file); README notes `chmod +x` |
+
+Export runs headless with the matching export templates installed:
+```
+godot --headless --path . --export-release "Windows" build/windows/MedievalMadness.exe
+godot --headless --path . --export-release "macOS"   build/macos/MedievalMadness.zip
+godot --headless --path . --export-release "Linux"   build/linux/MedievalMadness.x86_64
+```
+`export.sh` / `export.bat` create the `build/*` directories, run all three exports, print sizes and fail loudly on error. `build/` is git-ignored (add `.gitignore`).
+
+### 25.2 Cross-platform rules (checklist the implementer must satisfy)
+- Only engine-provided APIs; no `OS.execute`, no shell, no file dialogs (none needed), no reads outside `res://` and `user://`.
+- All strings/paths use `/`; case-sensitive file names (Linux): the file name in code must match the file on disk exactly.
+- No reliance on system fonts being present: every `SystemFont` has a fallback chain and the UI must remain usable with the engine default font.
+- Vulkan 1.0-class feature set only (Mobile renderer). No compute-shader-dependent features, no `GPUParticles3D` features that require newer GPUs beyond the Mobile renderer's support; if `GPUParticles3D` misbehaves on a driver, `CPUParticles3D` with the same preset is an allowed drop-in (keep the preset API identical so switching is one flag: `Settings.cpu_particles`).
+- macOS: high-DPI support on (`display/window/dpi/allow_hidpi=true`), keyboard shortcuts must not require the Windows key; Cmd+Q quits.
+- Shader code must compile identically on Metal/Vulkan drivers: avoid undefined behavior (uninitialized variables, out-of-range array indices, division by zero).
+- File writes only to `user://` (settings); the game must run from a read-only location.
+- Frame pacing: vsync on by default; menu option `VSync`.
+- Test matrix to run at least once per platform available to the implementer: start game → menu → 2-player human vs. Peasant game to completion → quit; verify settings persist after restart.
+
+### 25.3 Optional (out of scope unless everything else is done)
+Web export, mobile, gamepad, online multiplayer, code signing/notarization, auto-updater, installers.

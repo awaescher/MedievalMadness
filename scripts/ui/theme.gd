@@ -1,0 +1,201 @@
+class_name UITheme
+extends RefCounted
+@warning_ignore_start("unsafe_cast", "unsafe_call_argument", "unsafe_method_access", "unsafe_property_access")
+## Chunky rounded parchment UI theme built once in code (spec 16.1): parchment panels, bright buttons,
+## hover wobble via Tween. Fonts are SystemFonts with fallback chains (no bundled fonts).
+
+const PARCH := Color("#f4e4bc")
+const PARCH_DARK := Color("#e6d0a0")
+const INK := Color("#3b2a1a")
+const RED := Color("#e74c3c")
+const YELLOW := Color("#f1c40f")
+const GREEN := Color("#2ecc71")
+const BLUE := Color("#3498db")
+
+static var _theme: Theme
+static var _font: SystemFont
+static var _font_bold: SystemFont
+
+static func font() -> SystemFont:
+	if _font == null:
+		_font = SystemFont.new()
+		_font.font_names = PackedStringArray(["Trebuchet MS", "Comic Sans MS", "Verdana", "DejaVu Sans", "Arial"])
+		_font.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+	return _font
+
+static func font_bold() -> SystemFont:
+	if _font_bold == null:
+		_font_bold = SystemFont.new()
+		_font_bold.font_names = PackedStringArray(["Trebuchet MS", "Comic Sans MS", "Verdana", "DejaVu Sans", "Arial"])
+		_font_bold.font_weight = 800
+		_font_bold.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+	return _font_bold
+
+static func box(bg: Color, border: Color = INK, bw: int = 3, radius: int = 14, shadow: int = 6) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = border
+	sb.set_border_width_all(bw)
+	sb.set_corner_radius_all(radius)
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_size = shadow
+	sb.shadow_offset = Vector2(0, 3)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	return sb
+
+static func _btn(theme: Theme, type: String, base: String, col: Color, txt: Color) -> void:
+	if type != base:
+		theme.add_type(type)
+		theme.set_type_variation(type, base)
+	var normal := box(col)
+	var hover := box(col.lightened(0.18))
+	var pressed := box(col.darkened(0.15))
+	pressed.shadow_size = 1
+	pressed.content_margin_top = 10
+	var disabled := box(col.darkened(0.4).lerp(Color(0.5, 0.5, 0.5), 0.5))
+	disabled.shadow_size = 0
+	theme.set_stylebox("normal", type, normal)
+	theme.set_stylebox("hover", type, hover)
+	theme.set_stylebox("pressed", type, pressed)
+	theme.set_stylebox("disabled", type, disabled)
+	theme.set_stylebox("focus", type, box(Color(0, 0, 0, 0), Color("#ffffff"), 2, 14, 0))
+	theme.set_color("font_color", type, txt)
+	theme.set_color("font_hover_color", type, txt)
+	theme.set_color("font_pressed_color", type, txt)
+	theme.set_color("font_disabled_color", type, Color(0.85, 0.85, 0.85))
+	theme.set_color("font_outline_color", type, Color(0.1, 0.05, 0.02))
+	theme.set_constant("outline_size", type, 0)
+
+static func build() -> Theme:
+	if _theme != null:
+		return _theme
+	var t := Theme.new()
+	t.default_font = font()
+	t.default_font_size = 17
+	# labels
+	t.set_color("font_color", "Label", INK)
+	t.set_color("font_outline_color", "Label", Color(1, 1, 1, 0.0))
+	# panels
+	t.set_stylebox("panel", "PanelContainer", box(PARCH))
+	t.set_stylebox("panel", "Panel", box(PARCH))
+	# buttons (default bright red variants, with title/gold variations)
+	t.set_stylebox("normal", "Button", box(YELLOW.darkened(0.05)))
+	_btn(t, "Button", "Button", Color("#f0b429"), INK)
+	_btn(t, "RedButton", "Button", RED, Color("#ffffff"))
+	_btn(t, "GreenButton", "Button", Color("#27ae60"), Color("#ffffff"))
+	_btn(t, "GoldButton", "Button", YELLOW, INK)
+	_btn(t, "ParchButton", "Button", PARCH_DARK, INK)
+	t.set_font("font", "RedButton", font_bold())
+	t.set_font("font", "GreenButton", font_bold())
+	# line edit / option button / check
+	var le := box(Color("#fff6da"), INK, 2, 8, 0)
+	le.content_margin_top = 4
+	le.content_margin_bottom = 4
+	t.set_stylebox("normal", "LineEdit", le)
+	t.set_stylebox("focus", "LineEdit", box(Color("#ffffff"), RED, 2, 8, 0))
+	t.set_color("font_color", "LineEdit", INK)
+	t.set_color("caret_color", "LineEdit", INK)
+	t.set_color("font_placeholder_color", "LineEdit", Color(0.4, 0.3, 0.2, 0.6))
+	var ob := box(Color("#fff6da"), INK, 2, 8, 0)
+	ob.content_margin_top = 4
+	ob.content_margin_bottom = 4
+	t.set_stylebox("normal", "OptionButton", ob)
+	t.set_stylebox("hover", "OptionButton", box(Color("#ffffff"), INK, 2, 8, 0))
+	t.set_stylebox("pressed", "OptionButton", box(Color("#ffe9a8"), INK, 2, 8, 0))
+	t.set_stylebox("focus", "OptionButton", box(Color(0, 0, 0, 0), RED, 2, 8, 0))
+	t.set_color("font_color", "OptionButton", INK)
+	t.set_color("font_hover_color", "OptionButton", INK)
+	t.set_color("font_pressed_color", "OptionButton", INK)
+	t.set_color("font_focus_color", "OptionButton", INK)
+	var pm := box(PARCH, INK, 2, 8, 6)
+	t.set_stylebox("panel", "PopupMenu", pm)
+	t.set_stylebox("hover", "PopupMenu", box(Color("#f0b429"), INK, 0, 6, 0))
+	t.set_color("font_color", "PopupMenu", INK)
+	t.set_color("font_hover_color", "PopupMenu", INK)
+	t.set_color("font_disabled_color", "PopupMenu", Color(0.5, 0.4, 0.3))
+	t.set_stylebox("panel", "PopupPanel", pm)
+	for st in ["normal", "hover", "pressed", "disabled", "hover_pressed"]:
+		var flat := StyleBoxFlat.new()
+		flat.bg_color = Color(1, 1, 1, 0.0 if st != "hover" else 0.25)
+		flat.set_corner_radius_all(8)
+		flat.content_margin_left = 6
+		flat.content_margin_top = 4
+		flat.content_margin_bottom = 4
+		t.set_stylebox(st, "CheckButton", flat)
+		t.set_stylebox(st, "CheckBox", flat)
+	t.set_color("font_color", "CheckButton", INK)
+	t.set_color("font_hover_color", "CheckButton", INK)
+	t.set_color("font_pressed_color", "CheckButton", INK)
+	t.set_color("font_focus_color", "CheckButton", INK)
+	t.set_color("font_hover_pressed_color", "CheckButton", INK)
+	t.set_color("font_color", "CheckBox", INK)
+	# sliders
+	var groove := StyleBoxFlat.new()
+	groove.bg_color = Color("#8a6d3b")
+	groove.set_corner_radius_all(6)
+	groove.content_margin_top = 5
+	groove.content_margin_bottom = 5
+	t.set_stylebox("slider", "HSlider", groove)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = RED
+	fill.set_corner_radius_all(6)
+	t.set_stylebox("grabber_area", "HSlider", fill)
+	t.set_stylebox("grabber_area_highlight", "HSlider", fill)
+	# scroll
+	t.set_stylebox("panel", "ScrollContainer", StyleBoxEmpty.new())
+	_theme = t
+	return t
+
+## Attach a hover wobble (scale/rotation) to any Control, plus click/hover sounds
+static func wobble(c: Control) -> void:
+	c.pivot_offset = c.size * 0.5
+	c.resized.connect(func() -> void: c.pivot_offset = c.size * 0.5)
+	c.mouse_entered.connect(func() -> void:
+		var tw: Tween = c.create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(c, "scale", Vector2(1.05, 1.05), 0.10).set_trans(Tween.TRANS_BACK)
+		tw.tween_property(c, "rotation", deg_to_rad(randf_range(-2.0, 2.0)), 0.10)
+		Sfx.play("ui_hover", Vector3.INF, 0.3, 0))
+	c.mouse_exited.connect(func() -> void:
+		var tw2: Tween = c.create_tween()
+		tw2.set_parallel(true)
+		tw2.tween_property(c, "scale", Vector2.ONE, 0.10)
+		tw2.tween_property(c, "rotation", 0.0, 0.10))
+	if c is BaseButton:
+		(c as BaseButton).pressed.connect(func() -> void: Sfx.play("ui_click", Vector3.INF, 0.6, 0))
+
+static func label(text: String, size: int = 17, color: Color = INK, bold: bool = false, outline: int = 0, outline_col: Color = Color(0.1, 0.05, 0.02)) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	if bold:
+		l.add_theme_font_override("font", font_bold())
+	if outline > 0:
+		l.add_theme_constant_override("outline_size", outline)
+		l.add_theme_color_override("font_outline_color", outline_col)
+	return l
+
+static func button(text: String, variation: String = "", min_size: Vector2 = Vector2(0, 0), font_size: int = 18) -> Button:
+	var b := Button.new()
+	b.text = text
+	if variation != "":
+		b.theme_type_variation = variation
+	b.custom_minimum_size = min_size
+	b.add_theme_font_size_override("font_size", font_size)
+	b.focus_mode = Control.FOCUS_NONE
+	wobble(b)
+	return b
+
+static func hspacer(w: float) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(w, 0)
+	return c
+
+static func vspacer(h: float) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(0, h)
+	return c

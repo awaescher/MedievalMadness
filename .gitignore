@@ -1,0 +1,10 @@
+# Godot
+.godot/
+*.translation
+.import/
+export.cfg
+export_credentials.cfg
+# build output
+build/
+# OS junk
+.DS_Store
