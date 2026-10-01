@@ -196,7 +196,10 @@ Players in order each place their catapults (`Game.catapults_per_player`, 1–5)
 - UI: second placement stage with its own title/hint (`placement.title_posts`, `placement.hint_posts`), a ghost of three cylinders (green/red), `Undo` (right-click / `Z`) removes the last step (a whole fence or a whole stacked row, `Breakable.remove_structure`), `Auto-place`, `Done`.
 - Posts are ordinary destructible structures: they burn, break, score as damage and can be destroyed by any weapon.
 
-### 2.4 BATTLE
+
+### 2.3c Quick start (placement)
+The placement bar has a **Quick start** button (`Placement._quick_start`): it places the catapults and the palisade fences of everybody automatically and starts the battle. Online only the seats of this machine are placed automatically (the other players place theirs).
+\n### 2.4 BATTLE
 Loop of turns. Each turn (`scripts/systems/turn.gd`), sub-phases:
 1. `TURN_START`: banner "PlayerName's turn". Skip eliminated players. Roll wind change (section 6.3). Apply weather tick. Camera flies to the current player's village.
 2. `SELECT_CATAPULT`: a human chooses which of their living catapults fires: click the catapult, press `Tab` / `Shift+Tab` to cycle (handled before GUI focus navigation), or click one of the numbered catapult buttons of the **catapult selector** (bottom right, shown when the player has more than one living catapult; the selected one has a red frame, destroyed ones are dark red). Default selected = last used still alive. CPU chooses by its own logic.
@@ -348,7 +351,7 @@ Each call records `source` ({playerId, projectileType}) so stats can attribute d
 - HUD: wind arrow + speed, plus flags and smoke in the world lean accordingly (flags on buildings: cloth part with sine deformation; simple).
 
 ### 6.4 Ammo (per player inventory)
-**In the catapult's bucket the ammo looks like what it is** (`Projectile.bucket_visual`: barrels lie across the arm, the log lies across, the cow, the chain, the boulder potato, four stones for the hail ...). Eleven weapons in this order: Stone, Stone Hail, Chain Shot, Boulder, Pointy Log, Flaming Barrel, Powder Keg, Buckshot, Cow, Black Powder Kegs, Meteor Marker. Selected with the keys `1`–`9`, `0` (slot 10) and `-` (slot 11, also `/` or `ß`) or by clicking. The beehive and its bees were removed. **Icons** are drawn by `AmmoSlot._draw_icon` with primitives (shaded balls with highlights, staved barrels with iron bands, flames, a cow in side view, a sack with pellets, a log with rings and rotation arcs, a marker orb with beam, ring and meteor); locked weapons are dimmed.
+**In the catapult's bucket the ammo looks like what it is** (`Projectile.bucket_visual`: barrels lie across the arm, the log lies across, the cow, the chain, the boulder potato, four stones for the hail ...). **Powder keg fuse**: while a powder keg flies its fuse hisses and crackles (looped sound `fuse`, attached to the keg with `Sfx.attach_loop`) and spits sparks from the fuse tip every 0.045 s. Eleven weapons in this order: Stone, Stone Hail, Chain Shot, Boulder, Pointy Log, Flaming Barrel, Powder Keg, Buckshot, Cow, Black Powder Kegs, Meteor Marker. Selected with the keys `1`–`9`, `0` (slot 10) and `-` (slot 11, also `/` or `ß`) or by clicking. The beehive and its bees were removed. **Icons** are drawn by `AmmoSlot._draw_icon` with primitives (shaded balls with highlights, staved barrels with iron bands, flames, a cow in side view, a sack with pellets, a log with rings and rotation arcs, a marker orb with beam, ring and meteor); locked weapons are dimmed.
 | # | id | EN name | DE name | start count | mass kg | radius m | windFactor | effect |
 |---|---|---|---|---|---|---|---|---|
 | 1 | stone | Boring Rock | Langweiliger Stein | ∞ (always) | 40 | 0.45 | 0.3 | Heavy impact. Direct damage. |

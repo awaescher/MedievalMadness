@@ -226,6 +226,24 @@ func _pick_3d(priority: int) -> int:
 			best = i
 	return best
 
+## A looping sound that follows a node (the sizzling fuse of a flying powder keg). Caller frees it with the node.
+func attach_loop(sname: String, parent: Node3D, volume: float = 1.0) -> AudioStreamPlayer3D:
+	if not is_ready or not enabled:
+		return null
+	var arr: Array = streams.get(sname, []) as Array
+	if arr.is_empty():
+		return null
+	var p3 := AudioStreamPlayer3D.new()
+	p3.stream = arr[0] as AudioStream
+	p3.unit_size = 14.0
+	p3.max_distance = 140.0
+	p3.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE
+	p3.volume_db = linear_to_db(clampf(volume, 0.0001, 4.0))
+	p3.bus = "Master"
+	parent.add_child(p3)
+	p3.play()
+	return p3
+
 func play_delayed(sname: String, delay: float, pos: Vector3 = Vector3.INF, volume: float = 1.0) -> void:
 	if delay <= 0.02:
 		play(sname, pos, volume, 3)

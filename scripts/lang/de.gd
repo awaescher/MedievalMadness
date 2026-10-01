@@ -219,6 +219,7 @@ const DATA := {
 	"placement": {
 		"title": "{name}: Platziere deine Katapulte",
 		"hint": "Klicke in deine Dorfzone, um ein Katapult zu platzieren ({n}/{max}). Q/E drehen. Rechtsklick oder Z entfernt das letzte.",
+		"quick": "Schnellstart (alles automatisch)",
 		"auto": "Automatisch platzieren",
 		"done": "Fertig",
 		"remove": "Letztes entfernen",

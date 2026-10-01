@@ -219,6 +219,7 @@ const DATA := {
 	"placement": {
 		"title": "{name}: place your catapults",
 		"hint": "Click inside your village zone to place a catapult ({n}/{max}). Q/E rotate. Right-click or Z removes the last one.",
+		"quick": "Quick start (auto-place all)",
 		"auto": "Auto-place",
 		"done": "Done",
 		"remove": "Remove last",

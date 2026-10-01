@@ -21,6 +21,8 @@ var title: Label
 var hint: Label
 var auto_btn: Button
 var done_btn: Button
+var quick_btn: Button
+var _quick_mine: bool = false          # online: keep placing my own seat automatically
 var remove_btn: Button
 var bar: PanelContainer
 var _cur_valid: bool = false
@@ -86,6 +88,9 @@ func _ready() -> void:
 	done_btn = UITheme.button("", "GreenButton", Vector2(160, 40), 18)
 	done_btn.pressed.connect(_done)
 	h.add_child(done_btn)
+	quick_btn = UITheme.button("", "RedButton", Vector2(190, 40), 17)
+	quick_btn.pressed.connect(_quick_start)
+	h.add_child(quick_btn)
 	Events.language_changed.connect(_refresh)
 
 func start(w: GameWorld, camera: CameraRig) -> void:
@@ -93,6 +98,7 @@ func start(w: GameWorld, camera: CameraRig) -> void:
 	cam = camera
 	player_idx = -1
 	round_no = 0
+	_quick_mine = false
 	_active = true
 	visible = true
 	if ghost == null:
@@ -142,6 +148,8 @@ func _refresh() -> void:
 	var p: PlayerData = Game.players[player_idx]
 	remove_btn.text = I18n.t("placement.remove")
 	auto_btn.text = I18n.t("placement.auto")
+	quick_btn.text = I18n.t("placement.quick")
+	quick_btn.disabled = false
 	if stage == 0:
 		title.text = I18n.t("placement.title", {"name": p.name})
 		hint.text = I18n.t("placement.hint", {"n": p.catapults.size(), "max": Game.catapults_per_player})
@@ -183,7 +191,7 @@ func _next_player() -> void:
 	if p.is_cpu() or p.is_remote():
 		title.text = I18n.t("placement.cpu_placing", {"name": p.name})
 		hint.text = ""
-		for b in [remove_btn, auto_btn, done_btn]:
+		for b in [remove_btn, auto_btn, done_btn, quick_btn]:
 			(b as Button).disabled = true
 		ghost.visible = false
 		_cpu_timer = 0.45
@@ -194,6 +202,33 @@ func _next_player() -> void:
 				net_placed(pd)
 	else:
 		_refresh()
+		if _quick_mine:
+			_auto_place.call_deferred()
+			_done.call_deferred()
+
+## Quick start: everybody's catapults and palisades are placed automatically and the battle begins.
+## Online only the seats of this machine are placed (the others place theirs themselves).
+func _quick_start() -> void:
+	if not _active or player_idx < 0 or player_idx >= Game.players.size():
+		return
+	Sfx.play("ui_click", Vector3.INF, 0.8, 0)
+	if Net.active:
+		var me: PlayerData = _cur()
+		if not me.is_human():
+			return
+		_quick_mine = true
+		_auto_place()
+		_done()
+		return
+	var guard: int = 0
+	while _active and guard < 64:
+		guard += 1
+		var p: PlayerData = _cur()
+		if round_no == 0:
+			auto_place(p, world, p.type if p.is_cpu() else "squire", _rng)
+		else:
+			Posts.auto_place(p, _rng)
+		_next_player()
 
 ## Online: another seat finished its placement (message from its author)
 func net_placed(d: Dictionary) -> void:

@@ -592,6 +592,18 @@ static func run(main: Node, name: String) -> void:
 			say("joined=%s as %d, roster %s" % [str(Net.active), Net.my_id, str(Net.roster)])
 			await net_play(int(uarg("turns", "6")), 400.0)
 			await seconds(1.0)
+		"quickstart":
+			await wait_loaded()
+			Settings.palisade_count = 2
+			await start_match(str(m.get("_autotest_seed")), ["human", "human", "squire"])
+			await frames(30)
+			(m.get("placement") as Node).call("_quick_start")
+			await frames(10)
+			var ok: bool = true
+			for qp in Game.players:
+				say("%s: catapults %d, posts %d" % [qp.name, qp.catapults.size(), Posts.count(qp)])
+				ok = ok and qp.catapults.size() == Game.catapults_per_player and Posts.count(qp) > 0
+			say("QUICKSTART ok=%s state=%d" % [str(ok), Game.state])
 		"bucket":
 			await wait_loaded()
 			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
