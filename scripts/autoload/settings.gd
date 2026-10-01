@@ -9,6 +9,8 @@ const LIGHTING_MODES: Array[String] = ["basic", "enhanced", "rt"]
 var language: String = "en"
 var volume: float = 0.8
 var quality: String = "medium"
+var relay_url: String = ""             # online play: wss://<your worker>.workers.dev (see relay/README.md)
+var net_name: String = ""
 var lighting: String = "enhanced"      # basic | enhanced | rt (needs the Forward+ renderer)
 var shake: bool = true
 var timer: int = 30
@@ -47,6 +49,8 @@ func load_settings() -> void:
 	lighting = str(cf.get_value("main", "lighting", lighting))
 	if not LIGHTING_MODES.has(lighting):
 		lighting = "enhanced"
+	relay_url = str(cf.get_value("main", "relay_url", relay_url))
+	net_name = str(cf.get_value("main", "net_name", net_name))
 	shake = bool(cf.get_value("main", "shake", shake))
 	timer = int(cf.get_value("main", "timer", timer))
 	if not [0, 20, 30, 45, 60].has(timer):
@@ -80,6 +84,8 @@ func save_settings() -> void:
 	cf.set_value("main", "volume", volume)
 	cf.set_value("main", "quality", quality)
 	cf.set_value("main", "lighting", lighting)
+	cf.set_value("main", "relay_url", relay_url)
+	cf.set_value("main", "net_name", net_name)
 	cf.set_value("main", "shake", shake)
 	cf.set_value("main", "timer", timer)
 	cf.set_value("main", "weather_on", weather_on)

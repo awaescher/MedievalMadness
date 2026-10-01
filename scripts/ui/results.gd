@@ -111,9 +111,11 @@ func show_results(winner: int, replay_available: bool) -> void:
 	v.add_child(h)
 	var b1: Button = UITheme.button(I18n.t("stats.rematch"), "GreenButton", Vector2(230, 46), 16)
 	b1.pressed.connect(func() -> void: rematch.emit())
+	b1.visible = not Net.active
 	h.add_child(b1)
 	var b2: Button = UITheme.button(I18n.t("stats.same_map"), "RedButton", Vector2(230, 46), 16)
 	b2.pressed.connect(func() -> void: same_map.emit())
+	b2.visible = not Net.active
 	h.add_child(b2)
 	var b3: Button = UITheme.button(I18n.t("stats.main_menu"), "ParchButton", Vector2(180, 46), 16)
 	b3.pressed.connect(func() -> void: main_menu.emit())

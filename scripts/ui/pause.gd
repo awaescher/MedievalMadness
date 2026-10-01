@@ -62,6 +62,7 @@ func _build() -> void:
 		v.add_child(b2)
 		var b3: Button = UITheme.button(I18n.t("pause.restart"), "ParchButton", Vector2(0, 46), 18)
 		b3.pressed.connect(func() -> void: restart.emit())
+		b3.visible = not Net.active
 		v.add_child(b3)
 		var b4: Button = UITheme.button(I18n.t("pause.quit"), "RedButton", Vector2(0, 46), 18)
 		b4.pressed.connect(func() -> void: quit_to_menu.emit())

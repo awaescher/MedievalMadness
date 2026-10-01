@@ -149,3 +149,7 @@ Made with Godot Engine. Everything (code, look, sounds, jokes) is original; no e
 The project is versioned with git (repository root: the folder above this one, which also holds `SPEC.md`). The version number lives
 in the `VERSION` file, is shown in the main menu (`v1.2.3`) and in the macOS bundle. `tools/release.sh 1.2.3 "note"` bumps it, commits
 everything and creates the tag `v1.2.3`; `git log --oneline` / `git tag` list the releases.
+
+## Online play
+
+Up to 8 players over the internet, no server of your own to run (a free Cloudflare worker as relay, or any machine with Godot). Setup and rules: [relay/README.md](relay/README.md).

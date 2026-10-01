@@ -103,6 +103,7 @@ static func create(kind: String, owner_id: int, br: BuildResult, base: Transform
 		p.structure = s
 		var col: Color = d.color if d.color.r >= 0.0 else Kit.pick_color(d.material, null)
 		p.setup(d.material, d.shape, d.size, base * d.xf(), col, d)
+		p.xf0 = p.xf
 		p.segs = d.segs
 		p.glow = d.glow
 		p.anchor = d.anchor
@@ -433,6 +434,26 @@ static func discard_part(p: Part) -> void:
 	if PhysWorld.bodies.has(p.body_id):
 		PhysWorld.remove_body(p.body_id)
 	p.mesh = null
+
+## Online play: put back a part that fell on this machine but still stands on the host
+static func revive_part(p: Part) -> void:
+	if p.state != Part.State.DEAD or p.structure == null:
+		return
+	var s: Structure = p.structure
+	if not s.awake:
+		awaken(s)
+	p.xf = p.xf0
+	p.hp = p.max_hp
+	p.burning = 0.0
+	p.on_fire = false
+	p.state = Part.State.FROZEN
+	s.live_count += 1
+	var bb: AABB = p.world_aabb().grow(0.05)
+	for q in s.parts:
+		if q != p and (q.state == Part.State.FROZEN or q.state == Part.State.DORMANT) and bb.intersects(q.world_aabb().grow(0.05)):
+			p.links.append(q)
+			q.links.append(p)
+	_make_part_body(p, "static")
 
 static func break_part(p: Part, source: Dictionary = {}, dir: Vector3 = Vector3.ZERO, silent: bool = false) -> void:
 	if p.state == Part.State.DEAD:

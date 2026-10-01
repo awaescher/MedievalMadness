@@ -16,6 +16,7 @@ var aiming: Aiming
 var placement: Placement
 var results: Results
 var pause_menu: PauseMenu
+var lobby: Lobby
 var debug_overlay: DebugOverlay
 var marker: MapMarker
 var loading: Control
@@ -121,6 +122,8 @@ func _ready() -> void:
 	Sfx.begin_synthesis()
 	_build_ui()
 	_connect_events()
+	NetGame.setup(self)
+	Net.closed.connect(_on_net_closed)
 	if "--debug" in _args:
 		Settings.debug = true
 	await _show_menu(true)
@@ -176,6 +179,9 @@ func _build_ui() -> void:
 	results = Results.new()
 	results.name = "Results"
 	ui_root.add_child(results)
+	lobby = Lobby.new()
+	lobby.name = "Lobby"
+	ui_root.add_child(lobby)
 	pause_menu = PauseMenu.new()
 	pause_menu.name = "Pause"
 	ui_root.add_child(pause_menu)
@@ -185,6 +191,7 @@ func _build_ui() -> void:
 	_build_loading()
 	# signals
 	menu.start_requested.connect(_on_start_requested)
+	menu.online_requested.connect(func() -> void: lobby.open())
 	hud.overview_pressed.connect(_toggle_overview)
 	hud.fast_pressed.connect(_toggle_fast)
 	hud.pause_pressed.connect(_open_pause)
@@ -193,16 +200,19 @@ func _build_ui() -> void:
 	pause_menu.resume.connect(_close_pause)
 	pause_menu.restart.connect(func() -> void:
 		_close_pause()
-		_restart_game(_last_seed, true))
+		if not Net.active:
+			_restart_game(_last_seed, true))
 	pause_menu.quit_to_menu.connect(func() -> void:
 		_close_pause()
 		_show_menu(false))
 	results.rematch.connect(func() -> void:
 		results.hide_results()
-		_restart_game(menu._random_seed()))
+		if not Net.active:
+			_restart_game(menu._random_seed()))
 	results.same_map.connect(func() -> void:
 		results.hide_results()
-		_restart_game(_last_seed, true))
+		if not Net.active:
+			_restart_game(_last_seed, true))
 	results.main_menu.connect(func() -> void:
 		results.hide_results()
 		_show_menu(false))
@@ -341,7 +351,17 @@ func _clear_match() -> void:
 	_fast_forward = false
 	Game.wind = Vector2.ZERO
 
+## The relay connection ended (host left, network lost, wrong code ...)
+func _on_net_closed(reason: String) -> void:
+	NetGame.reset()
+	Events.toast.emit(I18n.t("net.err_" + reason) if I18n.t("net.err_" + reason) != "net.err_" + reason else I18n.t("net.err_closed"))
+	if Game.state != Game.State.MENU:
+		_show_menu(false)
+
 func _show_menu(first: bool) -> void:
+	if not first:
+		Net.leave()
+		NetGame.reset()
 	_attract = true
 	Game.set_state(Game.State.MENU)
 	results.hide_results()
@@ -388,7 +408,19 @@ func _on_progress(p: float, msg_idx: int) -> void:
 		loading_label.text = str(lines[msg_idx % lines.size()])
 
 func _on_start_requested() -> void:
+	if Net.is_client():
+		return
+	if Net.active and Net.is_host:
+		# online: everybody starts the same match
+		var cfg: Dictionary = NetGame.make_cfg(menu.players_config(), menu.count)
+		NetGame.host_start(cfg)
+		return
 	_start_game(Settings.seed_text)
+
+## Online: start the match the host described (same seed, nonce, players and options everywhere)
+func net_start(cfg: Dictionary) -> void:
+	Settings.seed_text = str(cfg["seed"])
+	_start_game(str(cfg["seed"]), true, cfg)
 
 func _build_players(cfg: Array) -> Array[PlayerData]:
 	var out: Array[PlayerData] = []
@@ -411,9 +443,32 @@ func _build_players(cfg: Array) -> Array[PlayerData]:
 		out.append(p)
 	return out
 
-func _start_game(seed_text: String, keep_layout: bool = false) -> void:
+func _build_net_players(cfg: Dictionary) -> Array[PlayerData]:
+	var out: Array[PlayerData] = []
+	var used: Array = []
+	var name_rng := Rng.from_string(str(cfg["seed"]) + "-cpu")
+	var plist: Array = cfg["players"] as Array
+	for i in plist.size():
+		var c: Dictionary = plist[i] as Dictionary
+		var p := PlayerData.new()
+		p.id = i
+		p.type = str(c["type"])
+		p.net_peer = int(c["net_peer"])
+		p.color = Game.color_of(int(c["color"]))
+		var nm: String = str(c["name"]).strip_edges()
+		if p.type != "human" and (Game.HUMAN_NAMES.has(nm) or nm == ""):
+			nm = Game.cpu_name(p.type, used, name_rng)
+		used.append(nm)
+		p.name = nm
+		p.reset_ammo(Game.arsenal)
+		out.append(p)
+	return out
+
+func _start_game(seed_text: String, keep_layout: bool = false, net_cfg: Dictionary = {}) -> void:
 	if _generating:
 		return
+	if not net_cfg.is_empty():
+		Game.layout_nonce = str(net_cfg["nonce"])
 	# the seed decides the terrain; the village layout gets a fresh nonce for every new match (kept for "same map")
 	if not keep_layout:
 		Game.layout_nonce = "" if _autotest != "" else str(randi())
@@ -431,7 +486,20 @@ func _start_game(seed_text: String, keep_layout: bool = false) -> void:
 	Game.arsenal = Settings.arsenal.duplicate()
 	Game.weather_on = Settings.weather_on
 	Game.events_on = Settings.events_on
-	Game.players = _build_players(_last_config)
+	if net_cfg.is_empty():
+		Game.players = _build_players(_last_config)
+	else:
+		# online: everything comes from the host (no weather / random events online)
+		Game.turn_timer = int(net_cfg["timer"])
+		Game.catapults_per_player = int(net_cfg["cats"])
+		Game.palisades_per_player = int(net_cfg["posts"])
+		Game.terrain_hills = int(net_cfg["hills"])
+		Game.arsenal = (net_cfg["arsenal"] as Dictionary).duplicate()
+		Game.weather_on = false
+		Game.events_on = false
+		Game.players = _build_net_players(net_cfg)
+		NetGame.reset()
+		NetGame.in_game = true
 	Game.set_state(Game.State.GENERATING)
 	cam_rig.shake_enabled = Settings.shake
 	loading.visible = true
@@ -469,12 +537,18 @@ func _on_placement_done() -> void:
 func _open_pause() -> void:
 	if Game.state != Game.State.BATTLE and Game.state != Game.State.PLACEMENT:
 		return
+	if Net.active:
+		pause_menu.open()          # online the world keeps running behind the menu
+		return
 	_paused = true
 	get_tree().paused = true
 	PhysicsServer3D.set_active(false)
 	pause_menu.open()
 
 func _close_pause() -> void:
+	if Net.active:
+		pause_menu.close()
+		return
 	_paused = false
 	get_tree().paused = false
 	PhysicsServer3D.set_active(true)
@@ -892,7 +966,7 @@ func _notification(what: int) -> void:
 		Settings.save_settings()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		# pause during a human turn without a timer jump
-		if Game.state == Game.State.BATTLE and Game.cur() != null and Game.cur().is_human() and not _paused and _autotest == "":
+		if Game.state == Game.State.BATTLE and not Net.active and Game.cur() != null and Game.cur().is_human() and not _paused and _autotest == "":
 			_open_pause()
 			Events.toast.emit(I18n.t("hud.paused_focus"))
 
