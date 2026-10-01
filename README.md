@@ -153,3 +153,11 @@ everything and creates the tag `v1.2.3`; `git log --oneline` / `git tag` list th
 ## Online play
 
 Up to 8 players over the internet, no server of your own to run (a free Cloudflare worker as relay, or any machine with Godot). Setup and rules: [relay/README.md](relay/README.md).
+
+## Phones and tablets
+
+The game uses the **Mobile renderer** on iOS and Android (no cuts: the same toon look, shadows, physics and online play). Touch controls: one finger aims and fires like the mouse (drag, release), **two fingers** pinch to zoom and drag to orbit the camera; every button of the HUD is tappable.
+
+* **iOS**: `IOS=1 ./export.sh` writes the Xcode project to `build/ios/MedievalMadness.xcodeproj`. Open it in Xcode, choose your team under *Signing & Capabilities*, pick your device and run (needs the iOS platform from Xcode > Settings > Components). Replace the placeholder team id in `export_presets.cfg` (`application/app_store_team_id`) with yours to export an .ipa directly.
+* **Android**: install the Android SDK + JDK 17 and set them in the Godot editor settings (*Export > Android*), create a debug keystore, then `godot --headless --path . --export-debug Android build/android/MedievalMadness.apk`. The preset is in `export_presets.cfg`.
+* **Web** is not offered: browsers only allow the Compatibility renderer, which caps the per-instance colour system this game uses (4096 instances), so the village colours break.

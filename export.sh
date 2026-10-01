@@ -32,6 +32,13 @@ export_one "Windows" "build/windows/MedievalMadness.exe"
 export_one "macOS" "build/macos/MedievalMadness.zip"
 export_one "Linux" "build/linux/MedievalMadness.x86_64"
 
+# optional: Xcode project for iOS (IOS=1 ./export.sh); the .ipa step of Godot needs the iOS platform component of Xcode
+if [ "${IOS:-0}" = "1" ]; then
+  mkdir -p build/ios
+  echo "==> exporting iOS Xcode project -> build/ios"
+  "$GODOT" --headless --path . --export-debug "iOS" build/ios/MedievalMadness.ipa || echo "(the Xcode project in build/ios is still usable; open MedievalMadness.xcodeproj)"
+fi
+
 # unpack the macOS app next to the zip so it can be started directly
 if [ -f build/macos/MedievalMadness.zip ]; then
   rm -rf "build/macos/Medieval Madness.app"

@@ -1156,3 +1156,6 @@ Web export, mobile, gamepad, online multiplayer, code signing/notarization, auto
 - Seats: `PlayerData.net_peer`; `is_human()` means "a human on THIS machine", `is_remote()` a human elsewhere.
 
 **Tests**: `--autotest=nethost` / `--autotest=netjoin` (see `relay/README.md`) play a whole match with several headless processes; their `NETLOG` lines must agree.
+
+## 20. Mobile (iOS / Android)
+Both use the **Mobile renderer** (`renderer/rendering_method.mobile`); the desktop default is Forward+. Landscape only (`display/window/handheld/orientation=6`). Touch: one finger = mouse (aim by dragging, release fires, tap selects), **two fingers** = pinch zoom + drag orbit (`Aiming._touch_input`; a running gesture suppresses the emulated mouse of the first finger). Export presets `iOS` (Xcode project via `IOS=1 ./export.sh`, placeholder team id) and `Android` (needs the Android SDK, see README) exist; Web is not supported because the Compatibility renderer limits shader instance uniforms (tint / glow / wet per mesh) to 4096 instances.

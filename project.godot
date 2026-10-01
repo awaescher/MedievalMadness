@@ -37,6 +37,7 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/dpi/allow_hidpi=true
 window/vsync/vsync_mode=1
+window/handheld/orientation=6
 
 [physics]
 
