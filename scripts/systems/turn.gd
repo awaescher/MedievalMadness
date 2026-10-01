@@ -371,7 +371,7 @@ static func _update_aftermath(dt: float) -> void:
 	# a really good hit is shown in bullet time (once per turn)
 	if shot_ammo == "meteor" or Meteor.active():
 		Meteor.camera(cam, dt)
-	elif not _epic_done and aftermath_time < 2.5 and Scoring.current_shot_score() >= 600.0:
+	elif not _epic_done and shot_ammo != "boulder" and aftermath_time < 2.5 and Scoring.current_shot_score() >= 600.0:
 		_epic_done = true
 		Events.slowmo.emit(0.25, 1.6)
 	# a rolling fire barrel is followed by the impact camera while it burns its way through the village
