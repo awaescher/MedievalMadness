@@ -173,6 +173,66 @@ static func run(main: Node, name: String) -> void:
 			await shot("cpugame_end")
 			await seconds(3.5)
 			await shot("cpugame_results")
+		"perf":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["squire", "squire", "squire"])
+			await auto_place_all()
+			if OS.get_environment("MM_PERF_W") != "":
+				DisplayServer.window_set_size(Vector2i(int(OS.get_environment("MM_PERF_W")), int(OS.get_environment("MM_PERF_H"))))
+			if OS.get_environment("MM_PERF_Q") != "":
+				Events.quality_changed.emit(OS.get_environment("MM_PERF_Q"))
+			if OS.get_environment("MM_PERF_L") != "":
+				Settings.lighting = OS.get_environment("MM_PERF_L")
+				Events.quality_changed.emit(Settings.quality)
+				await frames(240)
+				await shot("light_" + Settings.lighting)
+				await frames(600)
+				await shot("light_" + Settings.lighting + "_b")
+			var census: Dictionary = {}
+			var verts: int = 0
+			var stack: Array = [tree.root]
+			while not stack.is_empty():
+				var nd: Node = stack.pop_back() as Node
+				stack.append_array(nd.get_children())
+				census[nd.get_class()] = int(census.get(nd.get_class(), 0)) + 1
+				if nd is MeshInstance3D and (nd as MeshInstance3D).mesh != null:
+					var mesh: Mesh = (nd as MeshInstance3D).mesh
+					for si in mesh.get_surface_count():
+						var arr: Array = mesh.surface_get_arrays(si)
+						if arr.size() > 0 and arr[0] != null:
+							verts += (arr[0] as PackedVector3Array).size()
+			say("nodes: %s" % str(census))
+			say("mesh vertices total: %d" % verts)
+			var vp_rid: RID = tree.root.get_viewport_rid()
+			RenderingServer.viewport_set_measure_render_time(vp_rid, true)
+			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+			Engine.max_fps = 0
+			var t_end: float = Time.get_ticks_msec() * 0.001 + float(OS.get_environment("MM_PERF_SECS") if OS.get_environment("MM_PERF_SECS") != "" else "40")
+			var n: int = 0
+			var sp: float = 0.0
+			var sf: float = 0.0
+			var worst: float = 0.0
+			var last_us: int = Time.get_ticks_usec()
+			var spikes: Array = []
+			while Time.get_ticks_msec() * 0.001 < t_end:
+				await tree.process_frame
+				var nowu: int = Time.get_ticks_usec()
+				var ft: float = float(nowu - last_us) / 1000.0
+				last_us = nowu
+				if ft > 20.0 and n > 300:
+					spikes.append([snappedf(ft, 0.1), "turn%d ph%d" % [Game.turn_number, Turn.phase]])
+				var tp: float = Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+				var tf: float = Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
+				sp += tp
+				sf += tf
+				worst = maxf(worst, tp + tf)
+				n += 1
+				if n % 120 == 0:
+					say("render: fps=%d gpu=%.2f ms cpu=%.2f ms draws=%d prims=%d objs=%d win=%s q=%s" % [int(Engine.get_frames_per_second()), RenderingServer.viewport_get_measured_render_time_gpu(vp_rid), RenderingServer.viewport_get_measured_render_time_cpu(vp_rid), int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)), int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)), int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)), str(DisplayServer.window_get_size()), Quality.current_id])
+					say("frames=%d avg process=%.2f ms physics=%.2f ms worst=%.1f objs=%d" % [n, sp / n, sf / n, worst, int(Performance.get_monitor(Performance.OBJECT_COUNT))])
+			say("SPIKES(>20ms) n=%d: %s" % [spikes.size(), str(spikes.slice(0, 40))])
+			say("PROF us/total %s" % str(GameWorld.prof))
+			say("PERF avg process=%.2f ms avg physics=%.2f ms worst=%.1f ms frames=%d" % [sp / n, sf / n, worst, n])
 		"physics":
 			await wait_loaded()
 			await start_match("autotest-a", ["human", "peasant"])

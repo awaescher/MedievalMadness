@@ -48,13 +48,20 @@ class PBody extends RefCounted:
 	var last_active: int = 0
 	var freed: bool = false
 	var contacts: int = 0
-	var buoy: float = 0.0          # water density / body density (0 = ignore water)
+	var buoy: float = 0.0:         # water density / body density (0 = ignore water)
+		set(v):
+			buoy = v
+			if v > 0.0:
+				PhysWorld.buoyant[id] = self
+			else:
+				PhysWorld.buoyant.erase(id)
 	var radius: float = 0.5        # approx radius for buoyancy
 	var under: bool = false
 
 static var root: PhysWorld
 static var space: RID
 static var bodies: Dictionary = {}          # id -> PBody
+static var buoyant: Dictionary = {}         # id -> PBody for bodies that float (WaterSys iterates only these)
 static var rid_map: Dictionary = {}         # rid id (int) -> PBody
 static var _next_id: int = 1
 static var _kill_queue: Array[int] = []
@@ -215,6 +222,7 @@ static func remove_body(id: int) -> void:
 		return
 	var pb: PBody = bodies[id] as PBody
 	bodies.erase(id)
+	buoyant.erase(id)
 	rid_map.erase(pb.rid.get_id())
 	pb.freed = true
 	if PhysicsServer3D.body_get_mode(pb.rid) == PhysicsServer3D.BODY_MODE_RIGID:
@@ -249,6 +257,7 @@ static func clear_all() -> void:
 	for id in bodies.keys():
 		remove_body(int(id))
 	bodies.clear()
+	buoyant.clear()
 	rid_map.clear()
 	_kill_queue.clear()
 	dynamic_count = 0

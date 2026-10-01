@@ -306,6 +306,14 @@ func _options_panel() -> Control:
 		Settings.quality = Settings.QUALITY_TIERS[idx]
 		Events.quality_changed.emit(Settings.quality))
 	vb.add_child(_opt_row(I18n.t("menu.quality"), ql))
+	var lt := OptionButton.new()
+	for lm in Settings.LIGHTING_MODES:
+		lt.add_item(I18n.t("menu.l_" + lm))
+	lt.select(Settings.LIGHTING_MODES.find(Settings.lighting))
+	lt.item_selected.connect(func(idx: int) -> void:
+		Settings.lighting = Settings.LIGHTING_MODES[idx]
+		Events.quality_changed.emit(Settings.quality))
+	vb.add_child(_opt_row(I18n.t("menu.lighting"), lt))
 	vb.add_child(_check(I18n.t("menu.weather"), Settings.weather_on, func(v: bool) -> void: Settings.weather_on = v))
 	vb.add_child(_check(I18n.t("menu.events"), Settings.events_on, func(v: bool) -> void: Settings.events_on = v))
 	vb.add_child(_check(I18n.t("menu.shake"), Settings.shake, func(v: bool) -> void: Settings.shake = v))

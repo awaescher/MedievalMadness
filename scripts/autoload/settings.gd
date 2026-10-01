@@ -4,10 +4,12 @@ extends Node
 
 const PATH := "user://settings.cfg"
 const QUALITY_TIERS: Array[String] = ["low", "medium", "high", "ultra"]
+const LIGHTING_MODES: Array[String] = ["basic", "enhanced", "rt"]
 
 var language: String = "en"
 var volume: float = 0.8
 var quality: String = "medium"
+var lighting: String = "enhanced"      # basic | enhanced | rt (needs the Forward+ renderer)
 var shake: bool = true
 var timer: int = 30
 var weather_on: bool = true
@@ -42,6 +44,9 @@ func load_settings() -> void:
 	quality = str(cf.get_value("main", "quality", quality))
 	if not QUALITY_TIERS.has(quality):
 		quality = "medium"
+	lighting = str(cf.get_value("main", "lighting", lighting))
+	if not LIGHTING_MODES.has(lighting):
+		lighting = "enhanced"
 	shake = bool(cf.get_value("main", "shake", shake))
 	timer = int(cf.get_value("main", "timer", timer))
 	if not [0, 20, 30, 45, 60].has(timer):
@@ -74,6 +79,7 @@ func save_settings() -> void:
 	cf.set_value("main", "language", language)
 	cf.set_value("main", "volume", volume)
 	cf.set_value("main", "quality", quality)
+	cf.set_value("main", "lighting", lighting)
 	cf.set_value("main", "shake", shake)
 	cf.set_value("main", "timer", timer)
 	cf.set_value("main", "weather_on", weather_on)

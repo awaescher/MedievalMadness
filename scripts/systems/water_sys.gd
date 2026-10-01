@@ -34,12 +34,14 @@ static func depth_at(x: float, z: float) -> float:
 static func tick(dt: float) -> void:
 	var wy: float = water_y()
 	_splash_cool -= dt
-	for id in PhysWorld.bodies:
-		var pb: PhysWorld.PBody = PhysWorld.bodies[id] as PhysWorld.PBody
+	for id in PhysWorld.buoyant:
+		var pb: PhysWorld.PBody = PhysWorld.buoyant[id] as PhysWorld.PBody
 		if pb.buoy <= 0.0 or pb.mass <= 0.0:
 			continue
 		var y: float = pb.xform.origin.y
 		var r: float = pb.radius
+		if y - r > wy and not pb.under:
+			continue
 		var frac: float = clampf((wy - (y - r)) / (2.0 * r), 0.0, 1.0)
 		var now_under: bool = frac > 0.0
 		if now_under != pb.under:

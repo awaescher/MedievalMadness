@@ -347,20 +347,48 @@ func place_catapult(p: PlayerData, pos: Vector3, yaw: float) -> Catapult:
 	return c
 
 # ------------------------------------------------------------------ per-tick update (fixed 60 Hz)
+static var prof: Dictionary = {}
 func physics_tick(dt: float, cam_pos: Vector3) -> void:
+	var _t0: int = 0
+	_t0 = Time.get_ticks_usec()
 	Breakable.tick(dt)
+	prof["Breakable"] = int(prof.get("Breakable", 0)) + Time.get_ticks_usec() - _t0
+	_t0 = Time.get_ticks_usec()
 	Debris.tick(dt)
+	prof["Debris"] = int(prof.get("Debris", 0)) + Time.get_ticks_usec() - _t0
+	_t0 = Time.get_ticks_usec()
 	Projectile.tick_all(dt)
+	prof["Projectile"] = int(prof.get("Projectile", 0)) + Time.get_ticks_usec() - _t0
+	_t0 = Time.get_ticks_usec()
 	Explosion.tick(dt)
+	prof["Explosion"] = int(prof.get("Explosion", 0)) + Time.get_ticks_usec() - _t0
+	_t0 = Time.get_ticks_usec()
 	Landslide.tick(dt)
+	prof["Landslide"] = int(prof.get("Landslide", 0)) + Time.get_ticks_usec() - _t0
+	_t0 = Time.get_ticks_usec()
 	Powder.tick(dt)
+	prof["Powder"] = int(prof.get("Powder", 0)) + Time.get_ticks_usec() - _t0
+	_t0 = Time.get_ticks_usec()
 	Fire.update(dt)
+	prof["Fire"] = int(prof.get("Fire", 0)) + Time.get_ticks_usec() - _t0
+	_t0 = Time.get_ticks_usec()
 	WaterSys.tick(dt)
+	prof["WaterSys"] = int(prof.get("WaterSys", 0)) + Time.get_ticks_usec() - _t0
+	_t0 = Time.get_ticks_usec()
 	Settler.update_all(dt, cam_pos)
+	prof["Settler"] = int(prof.get("Settler", 0)) + Time.get_ticks_usec() - _t0
+	_t0 = Time.get_ticks_usec()
 	Animal.update_all(dt)
+	prof["Animal"] = int(prof.get("Animal", 0)) + Time.get_ticks_usec() - _t0
+	_t0 = Time.get_ticks_usec()
 	Bees.tick(dt)
+	prof["Bees"] = int(prof.get("Bees", 0)) + Time.get_ticks_usec() - _t0
+	_t0 = Time.get_ticks_usec()
 	Stink.tick(dt)
+	prof["Stink"] = int(prof.get("Stink", 0)) + Time.get_ticks_usec() - _t0
+	_t0 = Time.get_ticks_usec()
 	Brigade.tick_all(dt)
+	prof["Brigade"] = int(prof.get("Brigade", 0)) + Time.get_ticks_usec() - _t0
 	for p in Game.players:
 		for c in p.catapults:
 			if is_instance_valid(c):
