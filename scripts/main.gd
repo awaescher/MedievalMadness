@@ -16,7 +16,6 @@ var aiming: Aiming
 var placement: Placement
 var results: Results
 var pause_menu: PauseMenu
-var replay_ui: ReplayUI
 var debug_overlay: DebugOverlay
 var marker: MapMarker
 var loading: Control
@@ -123,7 +122,6 @@ func _ready() -> void:
 	_connect_events()
 	if "--debug" in _args:
 		Settings.debug = true
-	ReplayUI.auto_skip = _autotest != "" and _autotest != "replay"
 	await _show_menu(true)
 	if _autotest != "":
 		_run_autotest()
@@ -159,10 +157,6 @@ func _build_ui() -> void:
 	placement = Placement.new()
 	placement.name = "Placement"
 	ui_root.add_child(placement)
-	replay_ui = ReplayUI.new()
-	replay_ui.name = "ReplayUI"
-	ui_root.add_child(replay_ui)
-	Turn.replay_ui = replay_ui
 	menu = Menu.new()
 	menu.name = "Menu"
 	ui_root.add_child(menu)
@@ -199,7 +193,6 @@ func _build_ui() -> void:
 	results.main_menu.connect(func() -> void:
 		results.hide_results()
 		_show_menu(false))
-	results.watch_replay.connect(func() -> void: pass)
 	placement.finished.connect(_on_placement_done)
 
 func _build_loading() -> void:
@@ -289,6 +282,8 @@ func _on_building_destroyed(kind: String, owner_id: int, source: Dictionary) -> 
 	Events.kill_feed.emit(I18n.pick("kill.flattened", Game.rng_battle, {"attacker": _name_of(int(source["player_id"])), "ammo": ammo, "building": b}))
 
 func _on_catapult_destroyed(owner_id: int, source: Dictionary, reason: String) -> void:
+	if reason != "fire" and not source.is_empty() and int(source.get("player_id", owner_id)) != owner_id:
+		Events.slowmo.emit(0.2, 1.8)
 	Unlocks.on_catapult_destroyed(owner_id, source, reason)
 	var victim: String = _name_of(owner_id)
 	if reason == "fire":
@@ -302,8 +297,11 @@ func _on_catapult_destroyed(owner_id: int, source: Dictionary, reason: String) -
 		Events.kill_feed.emit(I18n.pick("kill.catapult", Game.rng_battle, {"attacker": _name_of(int(source["player_id"])), "victim": victim}))
 
 func _on_slowmo(scale_value: float, duration: float) -> void:
+	var now_t: float = Time.get_ticks_msec() * 0.001
+	if now_t < _slowmo_until and scale_value > _slowmo_scale:
+		return          # a deeper bullet time is already running
 	_slowmo_scale = scale_value
-	_slowmo_until = Time.get_ticks_msec() * 0.001 + duration
+	_slowmo_until = now_t + duration
 
 func _on_game_over(winner: int) -> void:
 	await get_tree().create_timer(2.8, true, false, true).timeout
@@ -322,7 +320,6 @@ func _clear_match() -> void:
 	_overview = false
 	_occluded.clear()
 	Turn.phase = Turn.Phase.NONE
-	Turn.last_replay_turn = -10
 	Turn.turn_count = 0
 	Engine.time_scale = 1.0
 	Engine.physics_ticks_per_second = 60
@@ -526,11 +523,6 @@ func _physics_process(dt: float) -> void:
 	if world == null or world.map == null:
 		return
 	var st: int = Game.state
-	# during a replay the physics server is frozen (like in the pause menu): nothing may add or remove bodies meanwhile
-	if ReplayUI.playing:
-		if st == Game.State.BATTLE:
-			Turn.update(dt)
-		return
 	if st == Game.State.MENU or st == Game.State.PLACEMENT or st == Game.State.BATTLE or st == Game.State.GAME_OVER:
 		world.physics_tick(dt, cam_rig.camera_position())
 		if st != Game.State.MENU:
@@ -558,6 +550,8 @@ func _process(delta: float) -> void:
 	hud.fast_on = _fast_forward
 	if not _paused:
 		_apply_speed(target_scale, delta)
+		# bullet time stretches the sound as well (pitch and speed follow the time scale)
+		AudioServer.playback_speed_scale = clampf(Engine.time_scale, 0.1, 1.0)
 	if world == null or world.map == null:
 		return
 	sky.high_view = _overview and Game.state == Game.State.BATTLE
@@ -569,7 +563,7 @@ func _process(delta: float) -> void:
 		cam_rig.update(delta)
 		_update_occluders()
 		_auto_quality(delta)
-	hud.visible = Game.state == Game.State.BATTLE and not results.visible and not ReplayUI.playing
+	hud.visible = Game.state == Game.State.BATTLE and not results.visible
 	vignette.visible = Game.state != Game.State.MENU
 
 ## Slow motion scales time down (small physics steps). Fast-forward raises the tick rate instead of the step
@@ -673,6 +667,17 @@ func _auto_quality(delta: float) -> void:
 
 # ------------------------------------------------------------------ input
 func _unhandled_input(event: InputEvent) -> void:
+	# a click, Space or Esc ends bullet time first (and does nothing else)
+	if Time.get_ticks_msec() * 0.001 < _slowmo_until and _slowmo_scale < 0.5 and Game.state == Game.State.BATTLE:
+		var cancel: bool = false
+		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			cancel = true
+		elif event is InputEventKey and (event as InputEventKey).pressed and not (event as InputEventKey).echo and ((event as InputEventKey).keycode == KEY_SPACE or (event as InputEventKey).keycode == KEY_ESCAPE):
+			cancel = true
+		if cancel:
+			_slowmo_until = 0.0
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k: InputEventKey = event
 		match k.keycode:
@@ -697,7 +702,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_F:
 				_toggle_fast()
 			KEY_SPACE:
-				if Game.state == Game.State.BATTLE and not ReplayUI.playing:
+				if Game.state == Game.State.BATTLE:
 					if Turn.phase == Turn.Phase.AFTERMATH and not _overview:
 						Turn.skip_aftermath()
 					elif _can_fast() or _fast_forward:
@@ -714,7 +719,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				cam_rig.pan(mm.relative.x, mm.relative.y)
 	if event is InputEventMouseButton and event.pressed:
 		var mb: InputEventMouseButton = event
-		if mb.button_index == MOUSE_BUTTON_LEFT and Game.state == Game.State.BATTLE and Turn.phase == Turn.Phase.AFTERMATH and not _overview and not ReplayUI.playing:
+		if mb.button_index == MOUSE_BUTTON_LEFT and Game.state == Game.State.BATTLE and Turn.phase == Turn.Phase.AFTERMATH and not _overview:
 			Turn.skip_aftermath()
 			get_viewport().set_input_as_handled()
 			return
@@ -856,7 +861,6 @@ func _release_statics() -> void:
 	RandomEvents.fx_root = null
 	Turn.world = null
 	Turn.cam = null
-	Turn.replay_ui = null
 	Turn.sel = null
 	Game.world = null
 	Game.players.clear()

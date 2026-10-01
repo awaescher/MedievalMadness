@@ -4,7 +4,7 @@ extends RefCounted
 ## Turn manager (spec 2.4-2.5, 6.5) as a static state machine: TURN_START -> SELECT -> AIMING -> FIRING ->
 ## FLIGHT -> AFTERMATH -> TURN_END. Also hosts predict_trajectory() used by the preview and the CPU.
 
-enum Phase { NONE, PLACEMENT, TURN_START, AIMING, FIRING, FLIGHT, AFTERMATH, TURN_END, GAME_OVER, REPLAY }
+enum Phase { NONE, PLACEMENT, TURN_START, AIMING, FIRING, FLIGHT, AFTERMATH, TURN_END, GAME_OVER }
 
 static var phase: int = Phase.NONE
 static var phase_time: float = 0.0
@@ -36,10 +36,8 @@ static var _lightning_done: bool = false
 static var _event_pending: bool = false
 static var paused_by_focus: bool = false
 static var _frozen_time: float = 0.0
-static var replay_request: bool = false
-static var replay_ui: ReplayUI = null
-static var last_replay_turn: int = -10
 static var _end_hold: float = 0.6
+static var _epic_done: bool = false
 
 # ------------------------------------------------------------------ ballistic prediction (also used by the CPU)
 static func launch_velocity(yaw: float, elev_deg: float, power: float) -> Vector3:
@@ -133,6 +131,9 @@ static func select_catapult(c: Catapult) -> void:
 		sel.rest_arm()
 		sel.hide_ammo_visual()
 	sel = c
+	if not c.ensure_grounded():
+		sel = null
+		return
 	c.set_selected(true)
 	Game.cur().last_catapult = c.index
 	aim_yaw = c.yaw
@@ -183,6 +184,8 @@ static func current_velocity() -> Vector3:
 static func fire() -> void:
 	if phase != Phase.AIMING or sel == null or sel.destroyed:
 		return
+	if not sel.ensure_grounded():
+		return
 	var p: PlayerData = Game.cur()
 	if not p.has_ammo(aim_ammo):
 		aim_ammo = "stone"
@@ -195,8 +198,8 @@ static func fire() -> void:
 	p.use_ammo(shot_ammo)
 	Events.ammo_changed.emit(p.id)
 	shots_this_turn += 1
+	_epic_done = false
 	timer_on = false
-	ReplayRec.begin()
 	if not sel.released.is_connected(_on_released):
 		sel.released.connect(_on_released, CONNECT_ONE_SHOT)
 	sel.set_selected(false)
@@ -253,10 +256,6 @@ static func update(dt: float) -> void:
 			_update_flight()
 		Phase.AFTERMATH:
 			_update_aftermath(dt)
-		Phase.REPLAY:
-			if not ReplayUI.playing:
-				_set_phase(Phase.TURN_END)
-				_end_of_turn_checks()
 		Phase.TURN_END:
 			if phase_time > _end_hold:
 				_next_turn()
@@ -309,7 +308,7 @@ static func _update_flight() -> void:
 			if cpu_active:
 				CpuAI.record_result(pr.first_impact_pos)
 			if cam != null:
-				cam.impact_cam(pr.first_impact_pos)
+				cam.impact_cam(_impact_focus(pr.first_impact_pos), _launch_dir)
 			aftermath_time = 0.0
 			settle_acc = 0.0
 			_set_phase(Phase.AFTERMATH)
@@ -327,6 +326,13 @@ static func _update_flight() -> void:
 		# projectile already gone (water, timeout, detonated same tick)
 		_enter_aftermath_from_gone()
 
+## The village around an impact must stay in view: the camera aims a little towards the village centre
+static func _impact_focus(pos: Vector3) -> Vector3:
+	for pl in Game.players:
+		if Util.dist_xz(pl.village_center, pos) < 34.0:
+			return pos.lerp(pl.village_center, 0.3)
+	return pos
+
 static func _enter_aftermath_from_gone() -> void:
 	var pr_last: Vector3 = Vector3.INF
 	# the projectile may have detonated in the same tick (keg, cheese, hive, water): use its recorded impact
@@ -339,7 +345,7 @@ static func _enter_aftermath_from_gone() -> void:
 	if pr_last == Vector3.INF and sel != null:
 		pr_last = sel.global_pos() + _launch_dir * 40.0
 	if pr_last != Vector3.INF and cam != null:
-		cam.impact_cam(pr_last)
+		cam.impact_cam(_impact_focus(pr_last), _launch_dir)
 	aftermath_time = 0.0
 	settle_acc = 0.0
 	_set_phase(Phase.AFTERMATH)
@@ -362,6 +368,10 @@ static func skip_aftermath() -> bool:
 
 static func _update_aftermath(dt: float) -> void:
 	aftermath_time += dt
+	# a really good hit is shown in bullet time (once per turn)
+	if not _epic_done and aftermath_time < 2.5 and Scoring.current_shot_score() >= 600.0:
+		_epic_done = true
+		Events.slowmo.emit(0.25, 1.6)
 	# a rolling fire barrel is followed by the impact camera while it burns its way through the village
 	if (shot_ammo == "firebarrel" or shot_ammo == "boulder" or shot_ammo == "powdertrail") and Projectile.primary != null and Projectile.primary.alive and cam != null:
 		var bp: Vector3 = Projectile.primary.position()
@@ -432,15 +442,6 @@ static func _finish_turn() -> void:
 				Events.banner.emit(I18n.pick("banner.miss", r), "miss")
 	if sel != null:
 		sel.set_selected(false)
-	ReplayRec.stop()
-	# spectacular shot: replay (score > 600, at most once every 3 turns, never in the last moment of the game)
-	if shots_this_turn > 0 and last_shot_score > 600.0 and turn_count - last_replay_turn >= 3 and replay_ui != null and cam != null and Game.living_players().size() > 1:
-		var focus: Vector3 = impact_points[0] if not impact_points.is_empty() else (sel.global_pos() if sel != null else Vector3.ZERO)
-		if replay_ui.start(cam, focus):
-			last_replay_turn = turn_count
-			_end_hold = 0.8
-			_set_phase(Phase.REPLAY)
-			return
 	_end_hold = 1.5 if (shots_this_turn > 0 and shot_relevant()) else 0.35
 	_set_phase(Phase.TURN_END)
 	_end_of_turn_checks()

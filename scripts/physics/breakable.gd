@@ -424,7 +424,6 @@ static func discard_part(p: Part) -> void:
 	## Silent removal (debris cap): no shards, no events
 	if p.state == Part.State.DEAD:
 		return
-	ReplayRec.on_part_dead(p)
 	p.state = Part.State.DEAD
 	p.structure.live_count -= 1
 	for q in p.links:
@@ -443,7 +442,6 @@ static func break_part(p: Part, source: Dictionary = {}, dir: Vector3 = Vector3.
 		awaken(s)
 	var pos: Vector3 = p.xf.origin
 	var was_state: int = p.state
-	ReplayRec.on_part_dead(p)
 	p.state = Part.State.DEAD
 	s.live_count -= 1
 	for q in p.links:

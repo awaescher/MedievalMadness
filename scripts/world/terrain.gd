@@ -16,6 +16,9 @@ static var current: Terrain
 var data: MapData
 ## Set by the game world: called with an AABB whenever the ground under buildings may have changed (keeps Terrain free of game dependencies)
 static var ground_hook: Callable = Callable()
+static var wake_hook: Callable = Callable()          # called with an AABB after the collider changed: wake what lies there
+var _wake_box: AABB = AABB()
+var _wake_has: bool = false
 var dirt: PackedFloat32Array = PackedFloat32Array()
 var scorch: PackedFloat32Array = PackedFloat32Array()
 var chunks: Dictionary = {}          # Vector2i -> MeshInstance3D
@@ -318,6 +321,11 @@ func mark_dirty(ix0: int, iz0: int, ix1: int, iz1: int) -> void:
 		for cx in range(cx0, cx1 + 1):
 			_dirty_chunks[Vector2i(cx, cz)] = true
 	_collider_dirty = true
+	var wx0: int = clampi(ix0, 0, n - 1)
+	var wz0: int = clampi(iz0, 0, n - 1)
+	var bx := AABB(Vector3(data.origin + float(wx0) * data.cell, -100.0, data.origin + float(wz0) * data.cell), Vector3(float(clampi(ix1, 0, n - 1) - wx0 + 1) * data.cell, 400.0, float(clampi(iz1, 0, n - 1) - wz0 + 1) * data.cell))
+	_wake_box = bx if not _wake_has else _wake_box.merge(bx)
+	_wake_has = true
 
 ## Paint scorch/dirt without changing shape (fire ground marks, footpaths).
 func paint(center: Vector3, radius: float, dirt_amt: float, scorch_amt: float) -> void:
@@ -369,3 +377,7 @@ func flush() -> void:
 	if _collider_dirty:
 		_shape.map_data = data.heights
 		_collider_dirty = false
+		# the new ground does not wake sleeping debris by itself: without this it would hang in the air over craters
+		if _wake_has and wake_hook.is_valid():
+			wake_hook.call(_wake_box)
+		_wake_has = false

@@ -37,7 +37,7 @@ static func _ensure() -> void:
 	# stone + fire barrel are always there; everything else has to be earned (see Unlocks) or pre-granted in the menu
 	_mk("stone", 1, -1, 40.0, 0.45, 0.30, 0.010, "#9a9aa2", "ST")
 	_mk("firebarrel", 2, 2, 60.0, 0.50, 0.25, 0.012, "#ff7a1a", "FB")
-	_mk("boulder", 3, 0, 4000.0, 0.9, 0.12, 0.012, "#7d7d86", "BO")
+	_mk("boulder", 3, 0, 12000.0, 0.9, 0.12, 0.012, "#7d7d86", "BO")
 	_mk("powderkeg", 4, 0, 35.0, 0.50, 0.40, 0.020, "#3a3a44", "PK")
 	_mk("scatter", 5, 0, 30.0, 0.40, 0.35, 0.020, "#c9a15a", "SG")
 	_mk("cow", 6, 0, 250.0, 0.90, 0.15, 0.030, "#f2f2f2", "MU")

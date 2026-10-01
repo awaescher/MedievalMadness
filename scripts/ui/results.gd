@@ -6,10 +6,8 @@ extends Control
 signal rematch
 signal same_map
 signal main_menu
-signal watch_replay
 
 var panel: PanelContainer
-var replay_btn: Button
 var _confetti_timer: float = 0.0
 var _winner: int = -1
 var has_replay: bool = false
@@ -111,10 +109,6 @@ func show_results(winner: int, replay_available: bool) -> void:
 	h.add_theme_constant_override("separation", 12)
 	v.add_child(UITheme.vspacer(6))
 	v.add_child(h)
-	replay_btn = UITheme.button(I18n.t("stats.best_hit"), "GoldButton", Vector2(230, 46), 16)
-	replay_btn.visible = replay_available
-	replay_btn.pressed.connect(func() -> void: watch_replay.emit())
-	h.add_child(replay_btn)
 	var b1: Button = UITheme.button(I18n.t("stats.rematch"), "GreenButton", Vector2(230, 46), 16)
 	b1.pressed.connect(func() -> void: rematch.emit())
 	h.add_child(b1)

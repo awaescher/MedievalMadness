@@ -64,7 +64,7 @@ The HUD shows power / elevation / azimuth and the distance to the predicted land
   Moo-nition (a cow), Angry Beehive and the Holy Cheese (one per player).
 * A catapult dies at 0 hp, when it tips over for 3 s, or when it sinks in deep water. Eliminations are checked at the end of
   each turn.
-* After a spectacular shot (score > 600) you get a slow-motion replay (click / `Space` to skip).
+* Spectacular hits (direct catapult hits, the red barrel) play in cancelable bullet time; the camera always stays on the impacted village.
 
 ## Debug keys (only with `-- --debug`, or in debug builds)
 
@@ -95,10 +95,10 @@ scripts/world/          seeded map generation, chunked terrain with craters, vil
 scripts/buildings/      16 building blueprints + trees + ruin, built from a small "kit" of wall/roof helpers
 scripts/props/          barrels, crates, carts (hinge joints), lanterns, banners, tents, rubber duck ...
 scripts/entities/       catapult, projectile (8 ammo types), settlers (ragdolls, bucket brigade), animals, bees
-scripts/systems/        damage, fire, explosion, water, weather, random events, turn manager, scoring, replay
+scripts/systems/        damage, fire, explosion, water, weather, random events, turn manager, scoring
 scripts/fx/             pooled particles, comic text, speech bubbles, trails, flags
 scripts/ai/             CPU bots (Peasant / Squire / Knight / King)
-scripts/ui/             parchment theme, menu, HUD, aiming, placement, results, pause, replay
+scripts/ui/             parchment theme, menu, HUD, aiming, placement, results, pause
 scripts/lang/           en.gd / de.gd (English + German)
 tests/                  headless tests + in-scene unit scenarios
 ```

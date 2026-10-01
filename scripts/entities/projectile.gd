@@ -516,7 +516,6 @@ func _handle_impact(info: Dictionary) -> void:
 		first_impact_pos = pos
 		if not is_sub and last_impact_pos == Vector3.INF:
 			last_impact_pos = pos
-		ReplayRec.mark_impact()
 		Events.projectile_impact.emit(player_id, ammo.id, pos, speed)
 		# hits on the ground end quickly; hits on buildings may roll / plough on a few meters; the fire barrel keeps rolling
 		if not is_sub:
@@ -540,6 +539,8 @@ func _handle_impact(info: Dictionary) -> void:
 	# direct catapult hit: impulse / 40 (spec 6.6)
 	if target is Catapult:
 		Damage.damage_catapult(target as Catapult, energy / 22.0, source, "projectile")
+		if not is_sub and target != launch_catapult:
+			Events.slowmo.emit(0.22, 1.5)         # a direct hit on a catapult
 	match ammo.id:
 		"stone":
 			var broken: int = _kinetic(pos, energy, dir, 1.6 + clampf(speed / 40.0, 0.0, 2.6))
@@ -704,7 +705,6 @@ func _pellet_hit(info: Dictionary) -> void:
 	var pos: Vector3 = info["pos"] as Vector3
 	if last_impact_pos == Vector3.INF:
 		last_impact_pos = pos
-		ReplayRec.mark_impact()
 	var vel: Vector3 = info["vel"] as Vector3
 	var target: Object = PhysWorld.owner_of(info["rid"] as RID)
 	Damage.impact_at(pos, 1.3, pellet_energy * 9.0, vel.normalized(), source)
@@ -849,11 +849,11 @@ func _tick_sub(dt: float) -> void:
 func _tick_firebarrel(dt: float, pos: Vector3, vel: Vector3) -> void:
 	_fb_acc += dt
 	var powder: bool = ammo.id == "powdertrail"
-	if _fb_acc >= (0.09 if powder else 0.12):
+	if _fb_acc >= (0.06 if powder else 0.12):
 		_fb_acc = 0.0
 		if powder:
 			# irregular heaps of black powder where the keg rolls
-			if impact_time >= 0.0 and rng.chance(0.85):
+			if impact_time >= 0.0 and rng.chance(0.9):
 				Powder.drop(pos + Vector3(rng.range_f(-1.0, 1.0), 0, rng.range_f(-1.0, 1.0)), source, rng.range_f(0.6, 1.5))
 				if rng.chance(0.3):
 					Fx.burst("dust", pos, Color("#2a2a2e"), 0.25, Vector3.UP)
@@ -877,11 +877,14 @@ func _tick_firebarrel(dt: float, pos: Vector3, vel: Vector3) -> void:
 	if roll_age >= (7.5 if powder else 5.5) or (roll_age > (4.0 if powder else 3.0) and sp < 0.5):
 		if powder:
 			# the keg bursts: a last big heap
-			for k in 5:
-				Powder.drop(pos + Vector3(rng.range_f(-1.6, 1.6), 0, rng.range_f(-1.6, 1.6)), source, 1.3)
-			Powder.stain(pos, 1.8, source)
-			Fx.burst("dust", pos, Color("#2a2a2e"), 0.7, Vector3.UP)
-			Sfx.play("splat", pos, 0.6, 2)
+			# the keg the camera follows bursts for good: several blobs within about a catapult's size around it
+			var blobs: int = 4 if is_extra else 9
+			var spread: float = 1.5 if is_extra else 2.3
+			for k in blobs:
+				Powder.drop(pos + Vector3(rng.range_f(-spread, spread), 0, rng.range_f(-spread, spread)), source, rng.range_f(1.0, 1.8))
+			Powder.stain(pos, spread + 0.5, source)
+			Fx.burst("dust", pos, Color("#2a2a2e"), 1.0 if not is_extra else 0.6, Vector3.UP)
+			Sfx.play("splat", pos, 0.7, 2)
 		else:
 			Fire.ignite_in_radius(pos, 3.5, 1.0, source)
 			Fx.burst("flame", pos, Color(0, 0, 0, -1), 1.0)

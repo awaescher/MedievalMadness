@@ -287,8 +287,8 @@ func _build() -> void:
 	turn_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	turn_panel.anchor_left = 0.5
 	turn_panel.anchor_right = 0.5
-	turn_panel.offset_left = -215
-	turn_panel.offset_right = 215
+	turn_panel.offset_left = -270
+	turn_panel.offset_right = 270
 	turn_panel.offset_top = 10
 	turn_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	add_child(turn_panel)
@@ -299,10 +299,9 @@ func _build() -> void:
 	turn_chip = ColorRect.new()
 	turn_chip.custom_minimum_size = Vector2(22, 34)
 	th.add_child(turn_chip)
-	turn_name = UITheme.label("", 22, UITheme.INK, true)
-	turn_name.custom_minimum_size = Vector2(300, 0)
+	turn_name = UITheme.label("", 26, UITheme.INK, true)
+	turn_name.custom_minimum_size = Vector2(420, 0)
 	turn_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	turn_name.clip_text = true
 	th.add_child(turn_name)
 	timer_ring = TimerRing.new()
 	th.add_child(timer_ring)
@@ -440,12 +439,15 @@ func _build() -> void:
 	banner_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	banner_panel.anchor_left = 0.5
 	banner_panel.anchor_right = 0.5
-	banner_panel.offset_top = 92
+	banner_panel.offset_top = 128
+	banner_panel.z_index = 20
 	banner_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	banner_panel.visible = false
 	banner_panel.add_theme_stylebox_override("panel", UITheme.box(Color("#3b2a1a"), Color("#ffd400"), 3, 16, 8))
 	add_child(banner_panel)
-	banner = UITheme.label("", 30, Color("#ffd400"), true, 8)
+	banner = UITheme.label("", 44, Color("#ffd400"), true, 10)
+	banner.custom_minimum_size = Vector2(900, 0)
+	banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	banner.add_theme_font_override("font", ComicText.comic_font())
 	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner_panel.add_child(banner)

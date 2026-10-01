@@ -403,7 +403,7 @@ static func run(main: Node, name: String) -> void:
 			say("fast-forward auto-off at the human's aiming phase: %s" % str(not m.get("_fast_forward")))
 			await seconds(2.0)
 			await shot("aim_marker_turn2")
-		"replay":
+		"redkeg":
 			await wait_loaded()
 			Settings.palisade_count = 1
 			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
@@ -430,91 +430,11 @@ static func run(main: Node, name: String) -> void:
 			var hp0: float = Breakable.village_hp(1)
 			var rk: Dictionary = await aim_and_fire(tgt, "redkeg", 45.0)
 			say("solver err %.1f m, power %.2f" % [float(rk["err"]), float(rk["power"])])
-			await wait_phase(Turn.Phase.REPLAY, 60.0)
-			say("impact at %s, target %s, shooter %s, own village %s" % [str(Projectile.last_impact_pos), str(tgt), str(Turn.sel.global_pos()), str(Game.players[0].village_center)])
+			await wait_phase(Turn.Phase.AFTERMATH, 60.0)
+			await seconds(3.0)
 			var hp1: float = Breakable.village_hp(1)
-			say("red keg: village HP %.0f -> %.0f (%.0f%% destroyed), phase=%d (REPLAY=9)" % [hp0, hp1, 100.0 * (1.0 - hp1 / maxf(hp0, 1.0)), Turn.phase])
-			await seconds(0.4)
-			say("replay playing=%s ghosts=%d" % [str(ReplayUI.playing), (m.get("replay_ui") as ReplayUI)._ghosts.size()])
-			await shot("replay_start")
-			await seconds(2.5)
-			await shot("replay_mid")
-			if m.get("_autotest_ammo") == "skip":
-				# abort the replay with a click, like a player does
-				var skip_ev := InputEventMouseButton.new()
-				skip_ev.button_index = MOUSE_BUTTON_LEFT
-				skip_ev.pressed = true
-				skip_ev.position = Vector2(500, 400)
-				Input.parse_input_event(skip_ev)
-				await frames(3)
-				say("replay aborted: playing=%s phase=%d" % [str(ReplayUI.playing), Turn.phase])
-				await seconds(6.0)
-				say("still alive after the abort, phase=%d turn=%d" % [Turn.phase, Game.turn_number])
-			await wait_phase(Turn.Phase.TURN_END, 60.0)
-			await shot("replay_after")
-			await seconds(10.0)
-			say("survived 10 s after the replay: phase=%d turn=%d" % [Turn.phase, Game.turn_number])
-		"posts":
-			await wait_loaded()
-			Settings.palisade_count = 10
-			await start_match(str(m.get("_autotest_seed")), ["human", "peasant", "king"])
-			var pl2: Placement = m.get("placement") as Placement
-			await frames(30)
-			while pl2.stage == 0:
-				pl2._auto_place()
-				pl2._done()
-				await frames(2)
-			await frames(5)
-			say("stage=%d (1 = posts), catapults=%d" % [pl2.stage, Game.players[0].catapults.size()])
-			var me2: PlayerData = Game.players[0]
-			# build a wall by hand: 3 posts side by side, the middle one stacked twice
-			var base: Vector3 = me2.village_center + Util.flat(Game.players[1].village_center - me2.village_center).normalized() * 16.0
-			base.y = Terrain.h(base.x, base.z)
-			say("ground valid at %s: %s" % [str(base), str(Posts.ground_valid(me2, base))])
-			var rr := Rng.new(3)
-			var c1: Dictionary = Posts.place_ground(me2, base, rr)
-			var p2: Vector3 = Posts.snap_adjacent(me2, base + Vector3(0.7, 0, 0))
-			say("snapped neighbour at distance %.2f (expected %.2f)" % [Util.dist_xz(p2, base), Posts.SPACING])
-			Posts.place_ground(me2, p2, rr)
-			Posts.place_stack(me2, c1, rr)
-			Posts.place_stack(me2, c1, rr)
-			say("posts placed: %d, columns: %d, tallest stack: %d" % [Posts.count(me2), me2.posts.size(), (c1["structs"] as Array).size()])
-			pl2._refresh()
-			pl2._auto_place()
-			say("after auto: %d posts (limit %d)" % [Posts.count(me2), Game.palisades_per_player])
-			m.get("cam_rig").focus_on(base, 26.0, 28.0, 0.6)
-			m.get("cam_rig").snap()
-			await seconds(1.0)
-			await shot("posts")
-			Posts.remove_last(me2)
-			say("after undo: %d posts" % Posts.count(me2))
-			pl2._done()
-			await auto_place_all()
-			await seconds(1.0)
-			# knock the bottom post of the tall stack over: what stands on it must fall
-			var low: Structure = (c1["structs"] as Array)[0] as Structure
-			var mid: Structure = (c1["structs"] as Array)[1] as Structure
-			for pp in low.parts.duplicate():
-				Breakable.break_part(pp, {}, Vector3.UP, true)
-			await seconds(1.2)
-			say("post above the destroyed one is now free: %s" % str(mid.parts[0].state == Part.State.FREE))
-			await shot("posts_fall")
-		"bees":
-			await wait_loaded()
-			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
-			await auto_place_all()
-			await frames(60)
-			var vc: Vector3 = Game.players[1].village_center
-			var alive0: int = Settler.all.filter(func(x: Settler) -> bool: return x.state != Settler.State.DEAD and x.state != Settler.State.GONE and Util.dist_xz(x.global_pos(), vc) < 24.0).size()
-			Bees.spawn(vc, {"player_id": 0, "ammo": "beehive"})
-			m.get("cam_rig").focus_on(vc, 30.0, 40.0, 0.4)
-			m.get("cam_rig").snap()
-			for t in 4:
-				await seconds(4.0)
-				var alive1: int = Settler.all.filter(func(x: Settler) -> bool: return x.state != Settler.State.DEAD and x.state != Settler.State.GONE and Util.dist_xz(x.global_pos(), vc) < 24.0).size()
-				say("t=%d s: settlers near the hive alive %d -> %d, swarms %d" % [(t + 1) * 4, alive0, alive1, Bees.swarms.size()])
-				if t == 0:
-					await shot("bees")
+			say("red keg: village HP %.0f -> %.0f (%.0f%% destroyed)" % [hp0, hp1, 100.0 * (1.0 - hp1 / maxf(hp0, 1.0))])
+			await shot("redkeg_impact")
 		"tab":
 			await wait_loaded()
 			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])

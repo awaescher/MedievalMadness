@@ -7,7 +7,7 @@ extends RefCounted
 ## along the trail in a blink and burn black marks into the ground.
 
 const CELL := 3.0
-const MAX_DUST := 520
+const MAX_DUST := 900
 const FLASH_DAMAGE := 150.0        # area damage of one flash (normal fire: ~15 hp/s on a wood part)
 
 class Dust extends RefCounted:
