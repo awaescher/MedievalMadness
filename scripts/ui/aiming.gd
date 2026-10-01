@@ -149,9 +149,46 @@ func _face_marker() -> void:
 	Events.toast.emit(I18n.t("marker.faced"))
 
 # ------------------------------------------------------------------ input
+## Touch (phones / tablets): one finger aims like the mouse, TWO fingers pinch to zoom and drag to orbit the camera.
+var _touches: Dictionary = {}
+var _gesture: bool = false
+
+func _touch_input(event: InputEvent) -> bool:
+	if event is InputEventScreenTouch:
+		var st: InputEventScreenTouch = event
+		if st.pressed:
+			_touches[st.index] = st.position
+		else:
+			_touches.erase(st.index)
+		if _touches.size() >= 2:
+			_gesture = true
+			cancel_drag()
+		elif _touches.is_empty():
+			_gesture = false
+		return false
+	if event is InputEventScreenDrag:
+		var sd: InputEventScreenDrag = event
+		if _touches.size() >= 2:
+			var old_d: float = 0.0
+			var keys: Array = _touches.keys()
+			old_d = (_touches[keys[0]] as Vector2).distance_to(_touches[keys[1]] as Vector2)
+			_touches[sd.index] = sd.position
+			var new_d: float = (_touches[keys[0]] as Vector2).distance_to(_touches[keys[1]] as Vector2)
+			cam.zoom((new_d - old_d) / 40.0)
+			cam.orbit_drag(sd.relative.x * 0.5, sd.relative.y * 0.5)
+			return true
+		_touches[sd.index] = sd.position
+	return false
+
 func _unhandled_input(event: InputEvent) -> void:
 	if Game.state != Game.State.BATTLE:
 		return
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		if _touch_input(event):
+			accept_event()
+		return
+	if _gesture and (event is InputEventMouseButton or event is InputEventMouseMotion):
+		return          # a two finger gesture is running: the emulated mouse of the first finger must not aim
 	# camera orbit + zoom work in every phase of the own turn (right drag / wheel)
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event
