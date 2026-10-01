@@ -33,6 +33,7 @@ static func setup(main_node: Node) -> void:
 	Net.on("turn_end", _on_turn_end)
 	Net.on("cat_dead", _on_cat_dead)
 	Net.on("grant", _on_grant)
+	Net.on("pts", _on_pts)
 	Net.on("drop", _on_drop)
 	Net.on("over", _on_over)
 	Net.on("peer", _on_peer)
@@ -324,7 +325,7 @@ static func snapshot() -> Dictionary:
 				var cat: Catapult = c as Catapult
 				var o: Vector3 = cat.global_pos() if not cat.destroyed else Vector3.ZERO
 				cats.append([cat.index, cat.hp, cat.destroyed, o.x, o.y, o.z])
-		pl.append({"ammo": p.ammo.duplicate(), "hits": p.hits_taken, "ldb": p.last_damaged_by, "cats": cats, "st": [st.shots, st.hits, st.damage_dealt, st.settlers_launched, st.settlers_killed, st.catapults_destroyed, st.buildings_destroyed, st.fires_started, st.fires_extinguished, st.cows_fired, st.cheese_used, st.self_damage, st.water_misses, st.longest_shot, st.turns_survived]})
+		pl.append({"pts": p.points, "ammo": p.ammo.duplicate(), "hits": p.hits_taken, "ldb": p.last_damaged_by, "cats": cats, "st": [st.shots, st.hits, st.damage_dealt, st.settlers_launched, st.settlers_killed, st.catapults_destroyed, st.buildings_destroyed, st.fires_started, st.fires_extinguished, st.cows_fired, st.cheese_used, st.self_damage, st.water_misses, st.longest_shot, st.turns_survived]})
 	return {"pl": pl, "hash": live_hash(), "sc": struct_changes()}
 
 static func apply_snapshot(s: Dictionary) -> void:
@@ -334,6 +335,7 @@ static func apply_snapshot(s: Dictionary) -> void:
 		var p: PlayerData = Game.players[i]
 		for k in (d["ammo"] as Dictionary):
 			p.ammo[str(k)] = int((d["ammo"] as Dictionary)[k])
+		p.points = int(d["pts"])
 		p.hits_taken = int(d["hits"])
 		p.last_damaged_by = int(d["ldb"])
 		var sa: Array = d["st"] as Array
@@ -404,6 +406,13 @@ static func _on_cat_dead(_from: int, d: Dictionary) -> void:
 	for c in p.catapults:
 		if is_instance_valid(c) and (c as Catapult).index == int(d["idx"]):
 			(c as Catapult).destroy(str(d["reason"]), true)
+
+static func send_pts(pid: int, pts: int, key: String, quiet: bool) -> void:
+	Net.send_all({"k": "pts", "pid": pid, "n": pts, "why": key, "q": quiet})
+
+static func _on_pts(_from: int, d: Dictionary) -> void:
+	if not Net.is_host:
+		Scoring.net_award(int(d["pid"]), int(d["n"]), str(d["why"]), bool(d["q"]))
 
 static func send_grant(pid: int, ammo_id: String, n: int, why: String) -> void:
 	Net.send_all({"k": "grant", "pid": pid, "ammo": ammo_id, "n": n, "why": why})

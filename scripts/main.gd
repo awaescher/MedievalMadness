@@ -33,6 +33,8 @@ var _slowmo_until: float = 0.0
 var _slowmo_scale: float = 1.0
 var _fps_acc: float = 0.0
 var _fps_label: Label
+var _flash_rect: ColorRect
+var _flash: float = 0.0
 var _fps_time: float = 0.0
 var _fps_low_time: float = 0.0
 var _generating: bool = false
@@ -140,6 +142,13 @@ func _build_ui() -> void:
 	ui_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_root.theme = UITheme.build()
 	ui_layer.add_child(ui_root)
+	# white screen flash (meteor impact, lightning)
+	_flash_rect = ColorRect.new()
+	_flash_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_flash_rect.color = Color(1, 0.95, 0.85, 0.0)
+	_flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui_layer.add_child(_flash_rect)
+	Events.screen_flash.connect(func(k: float) -> void: _flash = maxf(_flash, k))
 	# tiny FPS counter, bottom left
 	_fps_label = Label.new()
 	_fps_label.add_theme_font_size_override("font_size", 10)
@@ -625,6 +634,9 @@ func _physics_process(dt: float) -> void:
 func _process(delta: float) -> void:
 	_frames += 1
 	_fps_time += delta
+	if _flash > 0.0:
+		_flash = maxf(_flash - delta * 2.4, 0.0)
+		_flash_rect.color.a = clampf(_flash, 0.0, 1.0) * 0.6
 	if _fps_time >= 0.5 and _fps_label != null:
 		_fps_time = 0.0
 		_fps_label.text = "%d fps" % int(Engine.get_frames_per_second())

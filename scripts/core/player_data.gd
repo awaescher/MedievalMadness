@@ -46,6 +46,8 @@ var marker: Vector3 = Vector3.INF   # the one map marker of this player (spec 6.
 static var net_on: bool = false
 static var net_id: int = -1
 var net_peer: int = -1
+var points: int = 0                   # the (cosmetic) score: every action pays, funny or spectacular ones more
+var points_frac: float = 0.0
 
 ## A human on THIS machine (in an online game: only the seat this peer controls)
 func is_human() -> bool:

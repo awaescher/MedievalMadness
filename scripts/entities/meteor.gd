@@ -17,6 +17,7 @@ static var _clock: float = 0.0
 static var last_boom: float = -100.0
 static var boom_pos: Vector3 = Vector3.INF
 static var _last_yaw: float = 0.0
+static var _fx_nodes: Array = []          # lights and lava pools that fade out after the strike
 
 var target: Vector3
 var source: Dictionary = {}
@@ -31,6 +32,7 @@ var disc: MeshInstance3D
 var rock: Node3D
 var light: OmniLight3D
 var trail: Trail
+var trail2: Trail
 var dir_in: Vector3
 var dist: float = START_DIST
 var _fx_acc: float = 0.0
@@ -39,6 +41,10 @@ var _cam_pos: Vector3
 var _cam_yaw: float = 0.0
 
 static func reset() -> void:
+	for e in _fx_nodes:
+		if is_instance_valid((e as Dictionary)["node"] as Node):
+			((e as Dictionary)["node"] as Node).queue_free()
+	_fx_nodes.clear()
 	for m in strikes:
 		m._free_nodes()
 	strikes.clear()
@@ -147,36 +153,71 @@ func _spawn_rock() -> void:
 		return
 	rock = Node3D.new()
 	Game.world.fx_root.add_child(rock)
-	var geo: Dictionary = Projectile._boulder_geometry(Rng.new(int(Time.get_ticks_usec() & 0xffff)), 3.6)
+	var geo: Dictionary = Projectile._boulder_geometry(Rng.new(int(Time.get_ticks_usec() & 0xffff)), 5.5)
 	var mi := MeshInstance3D.new()
 	mi.mesh = geo["mesh"] as ArrayMesh
-	mi.material_override = Toon.emissive(Color("#ff6a1a"), 1.6, false)
-	mi.set_instance_shader_parameter("glow", 0.6)
+	var lava := ShaderMaterial.new()
+	lava.shader = load("res://scripts/render/shaders/lava.gdshader") as Shader
+	mi.material_override = lava
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	rock.add_child(mi)
+	# glowing shells around it
+	var halo_shader: Shader = load("res://scripts/render/shaders/halo.gdshader") as Shader
+	for cfg in [[9.0, Color(1.0, 0.55, 0.15), 1.2], [15.0, Color(1.0, 0.32, 0.06), 0.65], [26.0, Color(1.0, 0.2, 0.02), 0.32]]:
+		var h := MeshInstance3D.new()
+		h.mesh = MeshGen.sphere_mesh(float((cfg as Array)[0]), 12, 18)
+		var hm := ShaderMaterial.new()
+		hm.shader = halo_shader
+		hm.set_shader_parameter("tint", (cfg as Array)[1])
+		hm.set_shader_parameter("strength", float((cfg as Array)[2]))
+		h.material_override = hm
+		h.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		rock.add_child(h)
 	light = OmniLight3D.new()
 	light.light_color = Color("#ff9a4a")
 	light.light_energy = 6.0
 	light.omni_range = 140.0
 	rock.add_child(light)
 	trail = Trail.new()
-	trail.max_points = 70
-	trail.width = 5.0
-	trail.color = Color(1.0, 0.55, 0.2, 0.85)
+	trail.max_points = 90
+	trail.width = 16.0
+	trail.color = Color(1.0, 0.4, 0.1, 0.6)
 	Game.world.fx_root.add_child(trail)
+	trail2 = Trail.new()
+	trail2.max_points = 60
+	trail2.width = 5.5
+	trail2.color = Color(1.0, 0.8, 0.4, 0.55)
+	Game.world.fx_root.add_child(trail2)
 	rock.global_position = target - dir_in * dist
 	Sfx.play("whoosh", target, 1.0, 5)
 
 func _free_nodes() -> void:
-	for n in [root, rock, trail]:
+	for n in [root, rock, trail, trail2]:
 		if n != null and is_instance_valid(n):
 			(n as Node).queue_free()
 	root = null
 	rock = null
 	trail = null
+	trail2 = null
 
 static func tick_all(dt: float) -> void:
 	_clock += dt
+	var fi: int = _fx_nodes.size() - 1
+	while fi >= 0:
+		var e: Dictionary = _fx_nodes[fi] as Dictionary
+		var node: Node = e["node"] as Node
+		e["t"] = float(e["t"]) + dt
+		var u: float = float(e["t"]) / float(e["dur"])
+		if not is_instance_valid(node) or u >= 1.0:
+			if is_instance_valid(node):
+				node.queue_free()
+			_fx_nodes.remove_at(fi)
+		elif str(e["kind"]) == "light":
+			(node as OmniLight3D).light_energy = 60.0 * pow(1.0 - u, 2.0)
+		else:
+			var mat: ShaderMaterial = (node as MeshInstance3D).material_override as ShaderMaterial
+			mat.set_shader_parameter("heat", 0.9 * (1.0 - u * u))
+		fi -= 1
 	var i: int = strikes.size() - 1
 	while i >= 0:
 		var m: Meteor = strikes[i]
@@ -213,15 +254,18 @@ func _tick(dt: float) -> void:
 		_fx_acc += dt
 		if _fx_acc >= 0.05:
 			_fx_acc = 0.0
-			Fx.burst("flame", p, Color(0, 0, 0, -1), 2.0)
+			Fx.burst("flame", p, Color(0, 0, 0, -1), 2.8)
+			Fx.burst("spark", p - dir_in * 2.0, Color(0, 0, 0, -1), 1.3)
 			if Quality.current_id != "low":
-				Fx.burst("smoke", p - dir_in * 3.0, Color(0, 0, 0, -1), 0.9)
+				Fx.burst("smoke", p - dir_in * 5.0, Color(0, 0, 0, -1), 1.3)
 		_snd_acc += dt
 		if _snd_acc >= 0.55:
 			_snd_acc = 0.0
 			Sfx.play("whoosh", p, clampf(1.0 - dist / START_DIST + 0.3, 0.3, 1.2), 4)
 		if trail != null:
 			trail.push(p)
+		if trail2 != null:
+			trail2.push(p)
 		if light != null:
 			light.light_energy = 6.0 + 10.0 * (1.0 - clampf(dist / 120.0, 0.0, 1.0))
 	# the sky rumbles harder the closer it gets
@@ -237,11 +281,19 @@ func _impact() -> void:
 	state = 2
 	last_boom = _clock
 	boom_pos = target
+	Scoring.award(int(source.get("player_id", -1)), 150, "orbital")
 	Explosion.explode(target, RADIUS, DAMAGE, {"source": source, "sound": "bigboom", "fire": true, "color": Color("#ff7a2a"), "cat_scale": 0.12, "no_crater": true, "no_slowmo": true})
 	# the fat crater with a raised rim; steep surroundings slide into it
 	if Terrain.current != null:
 		Terrain.current.dig(target, 30.0, 12.0, 1.0, 0.85, 3.2)
 		Landslide.trigger(target, 18.0, source)
+	Events.screen_flash.emit(1.0)
+	Sfx.play("thunder", target, 1.0, 5)
+	Fx.explosion_visual(target + Vector3.UP * 5.0, 58.0, Color("#ffb04a"), true)
+	for hgt in [8.0, 20.0, 34.0, 50.0]:
+		Fx.burst("smoke", target + Vector3.UP * float(hgt), Color(0, 0, 0, -1), 2.2)
+		Fx.burst("flame", target + Vector3.UP * (float(hgt) * 0.5), Color(0, 0, 0, -1), 2.6)
+	_boom_fx()
 	Fx.burst("flame", target + Vector3.UP * 2.0, Color(0, 0, 0, -1), 3.0)
 	Fx.burst("dust", target + Vector3.UP, Color("#6b5a44"), 2.5, Vector3.UP)
 	Fx.burst("smoke", target + Vector3.UP * 6.0, Color(0, 0, 0, -1), 2.0)
@@ -252,12 +304,37 @@ func _impact() -> void:
 	Projectile.release_stuck_logs(target, RADIUS * 0.8)
 	if trail != null and is_instance_valid(trail):
 		trail.stop()
+	if trail2 != null and is_instance_valid(trail2):
+		trail2.stop()
 	if rock != null and is_instance_valid(rock):
 		rock.queue_free()
 	rock = null
 	if root != null and is_instance_valid(root):
 		root.queue_free()
 	root = null
+
+## A blinding light that dies down, and a glowing lava pool in the crater that cools over half a minute
+func _boom_fx() -> void:
+	if Game.world == null or not is_instance_valid(Game.world.fx_root):
+		return
+	var l := OmniLight3D.new()
+	l.light_color = Color("#ffb060")
+	l.light_energy = 60.0
+	l.omni_range = 260.0
+	Game.world.fx_root.add_child(l)
+	l.global_position = target + Vector3(0, 10, 0)
+	_fx_nodes.append({"node": l, "t": 0.0, "dur": 2.2, "kind": "light"})
+	var pool := MeshInstance3D.new()
+	pool.mesh = MeshGen.disc_mesh(24.0, 40)
+	var pm := ShaderMaterial.new()
+	pm.shader = load("res://scripts/render/shaders/lava.gdshader") as Shader
+	pm.set_shader_parameter("heat", 0.9)
+	pool.material_override = pm
+	pool.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	Game.world.fx_root.add_child(pool)
+	var gy: float = Terrain.h(target.x, target.z) + 0.25
+	pool.global_position = Vector3(target.x, gy, target.z)
+	_fx_nodes.append({"node": pool, "t": 0.0, "dur": 30.0, "kind": "pool"})
 
 ## Cinematic camera of the newest strike (called by the turn manager every physics tick). No bullet time.
 static func camera(cam: CameraRig, dt: float) -> void:
@@ -283,7 +360,7 @@ func _camera(cam: CameraRig, dt: float) -> void:
 		var look: Vector3 = target - dir_in * maxf(dist, 0.0)
 		var low: float = clampf(1.0 - dist / 90.0, 0.0, 1.0)
 		look = look.lerp(target + Vector3(0, 4.0, 0), low * low)
-		cam.cinema(_cam_pos, look, lerpf(54.0, 46.0, clampf(1.0 - dist / START_DIST, 0.0, 1.0)))
+		cam.cinema(_cam_pos, look, lerpf(54.0, 30.0, clampf(1.0 - dist / 220.0, 0.0, 1.0)))
 
 static func _boom_cam(cam: CameraRig, dt: float) -> void:
 	var u: float = clampf((_clock - last_boom) / BOOM_HOLD, 0.0, 1.0)

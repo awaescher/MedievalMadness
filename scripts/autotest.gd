@@ -592,6 +592,30 @@ static func run(main: Node, name: String) -> void:
 			say("joined=%s as %d, roster %s" % [str(Net.active), Net.my_id, str(Net.roster)])
 			await net_play(int(uarg("turns", "6")), 400.0)
 			await seconds(1.0)
+		"bucket":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			for eid in AmmoDef.earnable_ids():
+				Game.players[0].add_ammo(eid, 3)
+			var gb: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and gb < 60.0:
+				await tree.process_frame
+				gb += 1.0 / 60.0
+			await seconds(1.0)
+			Turn.select_catapult(Game.cur().living_catapults()[0] as Catapult)
+			Turn.set_aim(Turn.aim_yaw, 40.0, 0.5)
+			for bid in ["stone", "quad", "chain", "boulder", "log", "firebarrel", "powderkeg", "scatter", "cow", "powdertrail", "meteor"]:
+				Turn.set_ammo(bid)
+				Turn.sel.set_ammo_visual(bid)
+				await seconds(0.5)
+				await shot("bucket_" + bid)
+		"lobby":
+			await wait_loaded()
+			await seconds(1.0)
+			(m.get("lobby") as Lobby).open()
+			await seconds(0.5)
+			await shot("lobby_idle")
 		"logstick":
 			await wait_loaded()
 			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])

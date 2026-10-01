@@ -625,6 +625,8 @@ func _handle_impact(info: Dictionary) -> void:
 	# direct catapult hit: impulse / 40 (spec 6.6)
 	if target is Catapult:
 		Damage.damage_catapult(target as Catapult, energy / 22.0, source, "projectile")
+		if not is_sub and (target as Catapult).player_id != player_id and impact_time >= 0.0 and _impacts == 1:
+			Scoring.award(player_id, 150, "direct_hit")
 		if not is_sub and target != launch_catapult:
 			Events.slowmo.emit(0.22, 1.5)         # a direct hit on a catapult
 	match kind():
@@ -1010,6 +1012,7 @@ func _log_stick(pos: Vector3, tip_dir: Vector3) -> void:
 	if not PhysWorld.bodies.has(body_id):
 		return
 	stuck = true
+	Scoring.award(player_id, 120, "log_stuck")
 	var d: Vector3 = tip_dir.normalized()
 	if d.y > -0.5:
 		d = (Vector3(d.x, 0.0, d.z).normalized() * 0.8 + Vector3.DOWN * 0.6).normalized()
@@ -1096,6 +1099,48 @@ func _tick_boulder(dt: float, pos: Vector3, vel: Vector3) -> void:
 # ------------------------------------------------------------------ lumpy boulder geometry
 ## A potato-like rock: a sphere with a few broad bumps and dents, slightly stretched along random axes, sometimes one
 ## outlier lump. Returns {points: hull vertices (collision), mesh: ArrayMesh (visual)} built from the SAME vertices.
+## The ammo as it sits in the catapult's bucket: the real shape (barrel, log, cow, chain ...), scaled to fit and lying
+## across the arm. Used by Catapult.set_ammo_visual.
+static func bucket_visual(ammo_id: String) -> Node3D:
+	var holder := Node3D.new()
+	var tmp := Projectile.new()
+	tmp.ammo = AmmoDef.get_def(ammo_id)
+	var sc: float = 1.0
+	var basis := Basis()
+	match ammo_id:
+		"boulder":
+			tmp._boulder_mesh = _boulder_geometry(Rng.new(7), tmp.ammo.radius)["mesh"] as ArrayMesh
+			sc = 0.5
+		"chain":
+			sc = 0.42
+		"log":
+			basis = Basis(Vector3(0, 0, 1), PI * 0.5)
+			sc = 0.3
+		"firebarrel", "powderkeg":
+			basis = Basis(Vector3(0, 0, 1), PI * 0.5)
+			sc = 0.7 if ammo_id == "firebarrel" else 0.8
+		"powdertrail":
+			basis = Basis(Vector3(0, 0, 1), PI * 0.5)
+			sc = 1.0
+		"cow":
+			sc = 0.36
+		"scatter":
+			sc = 0.85
+		"quad":
+			var buf := MeshGen.Buf.new()
+			for q in [Vector3(-0.17, 0, -0.17), Vector3(0.17, 0, -0.15), Vector3(-0.15, 0, 0.17), Vector3(0.16, 0.0, 0.16), Vector3(0, 0.22, 0)]:
+				MeshGen.add_sphere(buf, 0.2, Transform3D(Basis(), q as Vector3), Color("#8d8d94"), 0.03, 6, 9)
+			var mi := MeshInstance3D.new()
+			mi.mesh = buf.to_mesh()
+			mi.material_override = Toon.main()
+			holder.add_child(mi)
+			tmp = null
+	if tmp != null:
+		var vis: MeshInstance3D = tmp._make_visual() as MeshInstance3D
+		vis.transform = Transform3D(basis.scaled(Vector3(sc, sc, sc)), Vector3.ZERO)
+		holder.add_child(vis)
+	return holder
+
 static func _boulder_geometry(r: Rng, radius: float) -> Dictionary:
 	var bump_dir: Array[Vector3] = []
 	var bump_amp: Array[float] = []
