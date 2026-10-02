@@ -52,6 +52,7 @@ common/max_physics_steps_per_frame=3
 renderer/rendering_method="forward_plus"
 renderer/rendering_method.mobile="mobile"
 anti_aliasing/quality/msaa_3d=2
+environment/glow/upscale_mode=1
 environment/defaults/default_clear_color=Color(0.29, 0.66, 1, 1)
 textures/vram_compression/import_etc2_astc=true
 limits/global_shader_variables/buffer_size=2097152

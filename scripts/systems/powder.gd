@@ -78,6 +78,12 @@ static func _add(d: Dust) -> void:
 		grid[k] = []
 	(grid[k] as Array).append(d)
 	_dirty = true
+	# a keg that rolls into (or onto) a fire: the powder it spills catches at once
+	var at: Vector3 = d.part.xf.origin if d.part != null else d.pos
+	if not suppress and Fire.fire_within(at + Vector3.UP * 0.3, 2.2):
+		d.lit = true
+		d.delay = rng.range_f(0.03, 0.12)
+		_lit_count += 1
 
 static func _remove(d: Dust) -> void:
 	dust.erase(d)
@@ -102,6 +108,37 @@ static func drop(pos: Vector3, source: Dictionary, amount: float = 1.0) -> void:
 	nd.amount = amount
 	nd.source = source
 	_add(nd)
+
+## The burst of a keg: dark blobs of powder fly up and come down on their spots (the first 24 are drawn, the rest drops at
+## once); each heap is laid where its blob lands
+static func spray(from: Vector3, spots: Array[Vector3], amounts: Array[float], source: Dictionary) -> void:
+	var holder: Node = mm_node.get_parent() if mm_node != null and is_instance_valid(mm_node) else null
+	for i in spots.size():
+		var tgt: Vector3 = spots[i]
+		tgt.y = Terrain.h(tgt.x, tgt.z)
+		if holder == null or i >= 24:
+			drop(tgt, source, amounts[i])
+			continue
+		var blob := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.15
+		sm.height = 0.3
+		sm.radial_segments = 6
+		sm.rings = 3
+		blob.mesh = sm
+		blob.material_override = mm_node.material_override
+		blob.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		blob.position = from
+		holder.add_child(blob)
+		var dur: float = rng.range_f(0.45, 0.85)
+		var peak: float = rng.range_f(1.8, 3.6)
+		var amt: float = amounts[i]
+		var tw: Tween = blob.create_tween()
+		tw.tween_method(func(t: float) -> void:
+			blob.position = from.lerp(tgt, t) + Vector3.UP * (sin(PI * t) * peak), 0.0, 1.0, dur)
+		tw.tween_callback(func() -> void:
+			blob.queue_free()
+			drop(tgt, source, amt))
 
 ## Powder smeared on the building parts within `radius` of `pos`
 static func stain(pos: Vector3, radius: float, source: Dictionary) -> void:

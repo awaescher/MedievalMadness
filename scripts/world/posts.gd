@@ -247,7 +247,7 @@ static func auto_place(p: PlayerData, r: Rng) -> void:
 	var toward := Vector3.ZERO
 	var bd: float = 1e9
 	for o in Game.players:
-		if o.id != p.id and not o.eliminated:
+		if p.is_enemy(o) and not o.eliminated:
 			var d: float = Util.dist_xz(o.village_center, p.village_center)
 			if d < bd:
 				bd = d

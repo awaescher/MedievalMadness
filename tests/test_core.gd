@@ -90,7 +90,7 @@ func test_ammo_table() -> void:
 	var all: Array[AmmoDef] = AmmoDef.all()
 	TestBase.eq(all.size(), 13, "eleven weapons plus the two turn actions (relocate, wall)")
 	TestBase.eq(AmmoDef.get_def("stone").start_count, -1, "stone is unlimited")
-	TestBase.eq(AmmoDef.get_def("firebarrel").start_count, 2, "only two fire barrels at the start")
+	TestBase.eq(AmmoDef.get_def("firebarrel").start_count, 0, "the fire barrel has to be earned like everything but the stone (Standard preset)")
 	for id in ["boulder", "powderkeg", "scatter", "cow", "quad", "chain", "log", "meteor", "powdertrail"]:
 		TestBase.eq(AmmoDef.get_def(id).start_count, 0, "%s has to be earned" % id)
 	TestBase.eq(AmmoDef.earnable_ids().size(), 10, "ten earnable weapons (everything but the stone)")

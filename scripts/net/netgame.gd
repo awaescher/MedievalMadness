@@ -29,6 +29,9 @@ static func setup(main_node: Node) -> void:
 	Net.on("aim", _on_aim)
 	Net.on("fire_req", _on_fire_req)
 	Net.on("shot", _on_shot)
+	Net.on("lobby", _on_lobby)
+	Net.on("lobby_set", _on_lobby_set)
+	Net.on("marker", _on_marker)
 	Net.on("act_req", _on_act_req)
 	Net.on("act", _on_act)
 	Net.on("skip", _on_skip)
@@ -36,6 +39,8 @@ static func setup(main_node: Node) -> void:
 	Net.on("turn_end", _on_turn_end)
 	Net.on("cat_dead", _on_cat_dead)
 	Net.on("grant", _on_grant)
+	Net.on("crate", _on_crate)
+	Net.on("cratego", _on_cratego)
 	Net.on("pts", _on_pts)
 	Net.on("drop", _on_drop)
 	Net.on("over", _on_over)
@@ -81,7 +86,7 @@ static func make_cfg(rows_cfg: Array, seat_count: int) -> Dictionary:
 			row["net_peer"] = -1
 		row["color"] = int(row["color"])
 		players.append(row)
-	return {"k": "start", "seed": Settings.seed_text, "nonce": str(randi()), "players": players, "timer": Settings.timer, "cats": Settings.catapult_count, "posts": Settings.palisade_count, "hills": Settings.terrain_hills, "arsenal": Settings.arsenal.duplicate(), "ver": Cfg.game_version()}
+	return {"k": "start", "seed": Settings.seed_text, "nonce": str(randi()), "players": players, "timer": Settings.timer, "cats": Settings.catapult_count, "posts": Settings.palisade_count, "hills": Settings.terrain_hills, "arsenal": Settings.arsenal.duplicate(), "rules": Settings.effective_rule_level(), "crates": Settings.crates_on, "rquarry": Settings.arsenal_preset == "quarry", "ver": Cfg.game_version()}
 
 static func host_start(cfg: Dictionary) -> void:
 	Net.send_all(cfg)
@@ -242,6 +247,67 @@ static func _on_shot(_from: int, d: Dictionary) -> void:
 		Turn.net_fire(d)
 	else:
 		queued_shot = d
+
+# ------------------------------------------------------------------ lobby (the menu before the match)
+## Peer ids of the seats in joining order: seat 0 = the host (peer 1), then the accepted guests; later seats are CPUs
+static func seat_peers() -> Array:
+	var peers: Array = []
+	for id in Net.roster:
+		if int(id) != 1 and accepted.has(int(id)):
+			peers.append(int(id))
+	peers.sort()
+	return [1] + peers
+
+static func seat_of(peer: int) -> int:
+	return seat_peers().find(peer)
+
+## Host: the whole menu state (players, colours, bots, match options) goes to everybody
+static func send_lobby(state: Dictionary) -> void:
+	if Net.active and Net.is_host:
+		var d: Dictionary = state.duplicate()
+		d["k"] = "lobby"
+		Net.send_all(d)
+
+static func _on_lobby(_from: int, d: Dictionary) -> void:
+	if Net.is_host or main == null:
+		return
+	var menu: Node = main.get("menu") as Node
+	if menu != null:
+		menu.call("net_lobby_apply", d)
+
+## Guest -> host: "my colour is now N" (a guest may only change its own)
+static func send_lobby_set(d: Dictionary) -> void:
+	if Net.is_client():
+		var m: Dictionary = d.duplicate()
+		m["k"] = "lobby_set"
+		Net.send_host(m)
+
+static func _on_lobby_set(from: int, d: Dictionary) -> void:
+	if not Net.is_host or main == null:
+		return
+	var menu: Node = main.get("menu") as Node
+	if menu != null:
+		menu.call("net_lobby_set", seat_of(from), d)
+
+## Map markers are shared with the team: a changed marker goes to everybody (the host relays it)
+static func send_marker(seat: int, pos: Vector3) -> void:
+	if not Net.active:
+		return
+	var d: Dictionary = {"k": "marker", "seat": seat, "on": pos != Vector3.INF, "x": pos.x if pos != Vector3.INF else 0.0, "y": pos.y if pos != Vector3.INF else 0.0, "z": pos.z if pos != Vector3.INF else 0.0}
+	if Net.is_host:
+		Net.send_all(d)
+	else:
+		Net.send_host(d)
+
+static func _on_marker(from: int, d: Dictionary) -> void:
+	var p: PlayerData = Game.player(int(d["seat"]))
+	if p == null or (Net.is_host and p.net_peer != from):
+		return
+	if Net.is_host:
+		for id in Net.roster:
+			if int(id) != 1 and int(id) != from:
+				Net.send_to(int(id), d)
+	p.marker = Vector3(float(d["x"]), float(d["y"]), float(d["z"])) if bool(d["on"]) else Vector3.INF
 
 ## A turn action (build a wall / relocate a catapult) in an online game: same route as a shot
 static func request_act(d: Dictionary) -> void:
@@ -464,6 +530,14 @@ static func _on_pts(_from: int, d: Dictionary) -> void:
 
 static func send_grant(pid: int, ammo_id: String, n: int, why: String) -> void:
 	Net.send_all({"k": "grant", "pid": pid, "ammo": ammo_id, "n": n, "why": why})
+
+static func _on_crate(_from: int, d: Dictionary) -> void:
+	if not Net.is_host:
+		SupplyCrate.spawn(int(d["id"]), str(d["kind"]), Vector3(float(d["x"]), float(d["y"]), float(d["z"])), str(d["ammo"]), int(d["n"]))
+
+static func _on_cratego(_from: int, d: Dictionary) -> void:
+	if not Net.is_host:
+		SupplyCrate.collect(int(d["id"]), int(d["pid"]))
 
 static func _on_grant(_from: int, d: Dictionary) -> void:
 	if not Net.is_host:

@@ -58,7 +58,8 @@ var _autotest_types: String = "peasant,squire,knight,king"
 var _autotest_lang: String = ""
 var _autotest_events_list: String = "dragon,cheese_meteor,cow_rain,earthquake,goose_army,tax_collector,fireworks_accident,bubble,flood"
 var _autotest_events: bool = false
-var _occluded: Array[Structure] = []   # buildings hidden because they stand between the aiming camera and the catapult
+var _occluded: Array[Structure] = []   # buildings that stand between the aiming camera and the catapult (they turn almost transparent)
+var _fade: Dictionary = {}              # Structure -> {a: current transparency, nodes: Array[GeometryInstance3D], awake: bool}
 var _autotest_ammo: String = "firebarrel,boulder,powderkeg,scatter,cow,quad,chain,log,meteor"
 
 func _ready() -> void:
@@ -121,6 +122,12 @@ func _ready() -> void:
 	marker.name = "MapMarker"
 	marker.cam = cam_rig
 	world.fx_root.add_child(marker)
+	for slot_i in Cfg.MAX_PLAYERS:
+		var mate_marker := MapMarker.new()
+		mate_marker.name = "TeamMarker%d" % slot_i
+		mate_marker.cam = cam_rig
+		mate_marker.slot = slot_i
+		world.fx_root.add_child(mate_marker)
 	Quality.apply(Settings.quality, get_viewport(), sky)
 	Sfx.begin_synthesis()
 	_build_ui()
@@ -285,11 +292,15 @@ func _connect_events() -> void:
 	Events.building_destroyed.connect(_on_building_destroyed)
 	Events.catapult_destroyed.connect(_on_catapult_destroyed)
 	Events.building_destroyed.connect(func(k: String, o: int, s: Dictionary) -> void: Scoring.on_building_destroyed(k, o, s))
-	Events.turn_start.connect(func(_id: int) -> void:
-		_overview = false
-		hud.overview_on = false
-		aiming.overview_active = false
-		actions.overview_active = false)
+	Events.turn_start.connect(func(id: int) -> void:
+		# the own turn starts with the chase camera; while others play (CPU, online) an open overview stays open
+		var pl: PlayerData = Game.player(id)
+		if pl != null and pl.is_human():
+			_overview = false
+			hud.overview_on = false
+			aiming.overview_active = false
+			actions.overview_active = false
+		cam_rig.hold_overview = _overview and not (pl != null and pl.is_human()))
 
 func _feed_throttle(key: String, seconds: float = 0.5) -> bool:
 	var now: float = Time.get_ticks_msec() * 0.001
@@ -321,8 +332,6 @@ func _on_building_destroyed(kind: String, owner_id: int, source: Dictionary) -> 
 	Events.kill_feed.emit(I18n.pick("kill.flattened", Game.rng_battle, {"attacker": _name_of(int(source["player_id"])), "ammo": ammo, "building": b}))
 
 func _on_catapult_destroyed(owner_id: int, source: Dictionary, reason: String) -> void:
-	if reason != "fire" and not source.is_empty() and int(source.get("player_id", owner_id)) != owner_id:
-		Events.slowmo.emit(0.2, 1.8)
 	Unlocks.on_catapult_destroyed(owner_id, source, reason)
 	var victim: String = _name_of(owner_id)
 	if reason == "fire":
@@ -357,9 +366,12 @@ func _clear_match() -> void:
 	world.teardown()
 	Weather.reset()
 	RandomEvents.reset()
+	Unlocks.reset()
+	SupplyCrate.reset()
 	Game.players.clear()
 	_overview = false
 	_occluded.clear()
+	_fade.clear()
 	Turn.phase = Turn.Phase.NONE
 	Turn.turn_count = 0
 	Engine.time_scale = 1.0
@@ -395,6 +407,7 @@ func _show_menu(first: bool) -> void:
 		p.id = i
 		p.name = "Attract %d" % i
 		p.color = Game.color_of(i)
+		p.team = i
 		p.type = "peasant"
 		dummy.append(p)
 	Game.players = dummy
@@ -426,6 +439,11 @@ func _on_progress(p: float, msg_idx: int) -> void:
 func _on_start_requested() -> void:
 	if Net.is_client():
 		return
+	var teams_seen: Dictionary = {}
+	for row in menu.players_config():
+		teams_seen[int((row as Dictionary)["color"])] = true
+	if teams_seen.size() < 2:
+		return
 	if Net.active and Net.is_host:
 		# online: everybody starts the same match
 		var cfg: Dictionary = NetGame.make_cfg(menu.players_config(), menu.count)
@@ -448,6 +466,7 @@ func _build_players(cfg: Array) -> Array[PlayerData]:
 		p.id = i
 		p.type = str(c["type"])
 		p.color = Game.color_of(int(c["color"]))
+		p.team = int(c["color"])
 		var nm: String = str(c["name"]).strip_edges()
 		if p.type != "human" and (Game.HUMAN_NAMES.has(nm) or nm == ""):
 			nm = Game.cpu_name(p.type, used, name_rng)
@@ -471,6 +490,7 @@ func _build_net_players(cfg: Dictionary) -> Array[PlayerData]:
 		p.type = str(c["type"])
 		p.net_peer = int(c["net_peer"])
 		p.color = Game.color_of(int(c["color"]))
+		p.team = int(c["color"])
 		var nm: String = str(c["name"]).strip_edges()
 		if p.type != "human" and (Game.HUMAN_NAMES.has(nm) or nm == ""):
 			nm = Game.cpu_name(p.type, used, name_rng)
@@ -500,6 +520,9 @@ func _start_game(seed_text: String, keep_layout: bool = false, net_cfg: Dictiona
 	Game.palisades_per_player = Settings.palisade_count
 	Game.terrain_hills = Settings.terrain_hills
 	Game.arsenal = Settings.arsenal.duplicate()
+	Game.rule_level = Settings.effective_rule_level()
+	Game.crates_on = Settings.crates_on
+	Game.rule_quarry = Settings.arsenal_preset == "quarry"
 	Game.weather_on = Settings.weather_on
 	Game.events_on = Settings.events_on
 	if net_cfg.is_empty():
@@ -511,6 +534,9 @@ func _start_game(seed_text: String, keep_layout: bool = false, net_cfg: Dictiona
 		Game.palisades_per_player = int(net_cfg["posts"])
 		Game.terrain_hills = int(net_cfg["hills"])
 		Game.arsenal = (net_cfg["arsenal"] as Dictionary).duplicate()
+		Game.rule_level = int(net_cfg.get("rules", 0))
+		Game.crates_on = bool(net_cfg.get("crates", true))
+		Game.rule_quarry = bool(net_cfg.get("rquarry", false))
 		Game.weather_on = false
 		Game.events_on = false
 		Game.players = _build_net_players(net_cfg)
@@ -596,10 +622,12 @@ func _place_marker(pos: Vector2, remove: bool) -> void:
 	if remove or (p.marker != Vector3.INF and Util.dist_xz(p.marker, hit) < 4.0):
 		if p.marker != Vector3.INF:
 			p.marker = Vector3.INF
+			NetGame.send_marker(p.id, Vector3.INF)
 			Events.toast.emit(I18n.t("marker.cleared"))
 			Sfx.play("ui_click", Vector3.INF, 0.5, 0)
 		return
 	p.marker = hit
+	NetGame.send_marker(p.id, hit)
 	Events.toast.emit(I18n.t("marker.set"))
 	Sfx.play("ui_click", Vector3.INF, 0.9, 0)
 
@@ -616,6 +644,7 @@ func _toggle_overview() -> void:
 		cam_rig.overview(Vector3.ZERO, r * 1.9, 58.0)
 		Events.toast.emit(I18n.t("hud.overview"))
 	else:
+		cam_rig.hold_overview = false
 		if Turn.phase == Turn.Phase.AIMING and Turn.sel != null and Game.cur().is_human():
 			cam_rig.aim_at(Turn.sel.global_pos(), Turn.aim_yaw, deg_to_rad(Turn.aim_elev))
 		elif Game.cur() != null:
@@ -633,6 +662,7 @@ func _physics_process(dt: float) -> void:
 		world.physics_tick(dt, cam_rig.camera_position())
 		if st != Game.State.MENU:
 			RandomEvents.tick(dt)
+			SupplyCrate.tick(dt)
 			Weather.update(dt)
 	if st == Game.State.BATTLE or st == Game.State.GAME_OVER:
 		Turn.update(dt)
@@ -649,6 +679,8 @@ func _process(delta: float) -> void:
 		_fps_time = 0.0
 		_fps_label.text = "%d fps" % int(Engine.get_frames_per_second())
 	delta = minf(delta, 1.0 / 20.0)
+	# the overview stays while others play (CPUs, online players): the game cameras must not pull it away
+	cam_rig.hold_overview = _overview and Game.state == Game.State.BATTLE and not (Game.cur() != null and Game.cur().is_human())
 	# slow motion (real-time timers)
 	var now: float = Time.get_ticks_msec() * 0.001
 	var target_scale: float = 1.0
@@ -734,12 +766,41 @@ func _update_occluders() -> void:
 			# the catapult's own surroundings (props, carts) stay visible: only big things behind it are hidden
 			if probe.intersects_segment(from, to) and to.distance_to(s.center) > 1.0:
 				want.append(s)
-	for s2 in _occluded:
-		if is_instance_valid(s2.root) and not want.has(s2):
-			s2.root.visible = true
-	for s3 in want:
-		s3.root.visible = false
 	_occluded = want
+	var dt: float = get_process_delta_time()
+	for s3 in want:
+		if not _fade.has(s3):
+			_fade[s3] = {"a": 0.0, "nodes": _geoms(s3.root), "awake": s3.awake}
+	for key in _fade.keys():
+		var st: Structure = key as Structure
+		var e: Dictionary = _fade[key] as Dictionary
+		if st.root == null or not is_instance_valid(st.root):
+			_fade.erase(key)
+			continue
+		if bool(e["awake"]) != st.awake:
+			e["awake"] = st.awake
+			e["nodes"] = _geoms(st.root)
+		var target: float = OCCLUDER_ALPHA if want.has(st) else 0.0
+		var a_now: float = move_toward(float(e["a"]), target, dt * 4.0)
+		e["a"] = a_now
+		for n in e["nodes"] as Array:
+			if is_instance_valid(n):
+				(n as GeometryInstance3D).transparency = a_now
+		if a_now <= 0.0 and target == 0.0:
+			_fade.erase(key)
+
+const OCCLUDER_ALPHA := 0.88
+
+static func _geoms(root: Node) -> Array:
+	var out: Array = []
+	var stack: Array = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back() as Node
+		if n is GeometryInstance3D:
+			out.append(n)
+		for c in n.get_children():
+			stack.append(c)
+	return out
 
 func _camera_controls(delta: float) -> void:
 	# WASD pans the overview camera, Home recenters

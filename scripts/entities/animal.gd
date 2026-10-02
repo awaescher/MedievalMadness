@@ -41,6 +41,10 @@ var _head_r: float = 0.1
 var _tick: int = 0
 var _last_sound: float = -10.0
 var scale_f: float = 1.0
+var _move_vel: Vector3 = Vector3.ZERO     # walking velocity set by the 10 Hz behaviour, integrated every frame (smooth at any FPS)
+var _face_target: float = 0.0
+var _has_face: bool = false
+static var _tick_msec: int = 0
 var stable_door: Vector3 = Vector3.INF
 
 static func reset() -> void:
@@ -88,21 +92,9 @@ static func _meshes(k: String) -> Dictionary:
 			MeshGen.add_box(h, Vector3(0.06, 0.08, 0.06), Transform3D(Basis(), Vector3(-0.14, 0.06, -0.03)), Color("#45454c"), 0.008)
 			info = {"size": Vector3(0.6, 0.6, 1.0), "body_off": Vector3(0, 0.6, 0), "head_r": 0.15, "head_off": Vector3(0, 0.75, 0.55), "scale": 1.0}
 		"cow":
-			var white := Color("#f4f1e8")
-			var black := Color("#2b2b33")
-			MeshGen.add_box(b, Vector3(0.8, 0.75, 1.5), Transform3D(Basis(), Vector3(0, 1.0, 0)), white, 0.03)
-			MeshGen.add_box(b, Vector3(0.5, 0.05, 0.6), Transform3D(Basis(), Vector3(0.05, 1.39, 0.1)), black, 0.01)
-			MeshGen.add_box(b, Vector3(0.05, 0.4, 0.4), Transform3D(Basis(), Vector3(0.41, 1.05, -0.3)), black, 0.01)
-			for lx3 in [-0.28, 0.28]:
-				for lz2 in [-0.55, 0.55]:
-					MeshGen.add_box(b, Vector3(0.16, 0.65, 0.16), Transform3D(Basis(), Vector3(lx3 as float, 0.33, lz2 as float)), white, 0.01)
-					MeshGen.add_box(b, Vector3(0.18, 0.1, 0.18), Transform3D(Basis(), Vector3(lx3 as float, 0.05, lz2 as float)), black, 0.008)
-			MeshGen.add_box(b, Vector3(0.28, 0.32, 0.2), Transform3D(Basis(), Vector3(0, 0.6, -0.3)), Color("#f2b6b6"), 0.01)
-			MeshGen.add_box(h, Vector3(0.5, 0.5, 0.6), id, white, 0.02)
-			MeshGen.add_box(h, Vector3(0.36, 0.26, 0.24), Transform3D(Basis(), Vector3(0, -0.12, 0.38)), Color("#f2b6b6"), 0.01)
-			MeshGen.add_box(h, Vector3(0.06, 0.2, 0.06), Transform3D(Basis(Vector3(0, 0, 1), 0.5), Vector3(0.22, 0.32, 0.0)), Color("#e8dcb0"), 0.008)
-			MeshGen.add_box(h, Vector3(0.06, 0.2, 0.06), Transform3D(Basis(Vector3(0, 0, 1), -0.5), Vector3(-0.22, 0.32, 0.0)), Color("#e8dcb0"), 0.008)
-			info = {"size": Vector3(0.8, 0.9, 1.5), "body_off": Vector3(0, 1.0, 0), "head_r": 0.32, "head_off": Vector3(0, 1.3, 0.95), "scale": 1.0}
+			CowMesh.body(b, Transform3D.IDENTITY)
+			CowMesh.head(h, Transform3D.IDENTITY)
+			info = {"size": Vector3(0.8, 0.9, 1.5), "body_off": Vector3(0, 1.0, 0), "head_r": 0.32, "head_off": Vector3(0, 1.3, 1.1), "scale": 1.0}
 		"horse":
 			var brown := Color("#8a5a2a")
 			var dark := Color("#3a2a1a")
@@ -178,6 +170,14 @@ func global_pos() -> Vector3:
 func _process(delta: float) -> void:
 	if dead or state == State.RAGDOLL:
 		return
+	if Time.get_ticks_msec() - _tick_msec > 300:
+		return                          # paused / world not running
+	if (state == State.WANDER or state == State.FLEE) and _move_vel != Vector3.ZERO:
+		var np: Vector3 = position + _move_vel * delta
+		np.y = (Terrain.h(np.x, np.z) if not floats else WaterSys.water_y() - 0.03)
+		position = np
+	if _has_face:
+		rotation.y = lerp_angle(rotation.y, _face_target, clampf(delta * 10.0, 0.0, 1.0))
 	_phase += delta * (4.0 if state == State.WANDER else 1.0) * (2.0 if state == State.FLEE else 1.0)
 	if state == State.WANDER or state == State.FLEE:
 		body_node.position.y = absf(sin(_phase * 2.0)) * 0.03
@@ -296,6 +296,7 @@ func ignite() -> void:
 
 func think(step: float) -> void:
 	# called at ~10 Hz from the world manager
+	_move_vel = Vector3.ZERO              # a walking state sets it again
 	if dead:
 		return
 	if state == State.RAGDOLL:
@@ -389,9 +390,11 @@ func _walk(step: float, speed: float) -> void:
 		state = State.IDLE
 		_timer = 1.0
 		return
-	next.y = Terrain.h(next.x, next.z) if not floats else WaterSys.water_y() - 0.03
-	rotation.y = lerp_angle(rotation.y, atan2(dir.x, dir.z), clampf(step * 8.0, 0.0, 1.0))
-	position = next
+	var moved: Vector3 = next - pos
+	moved.y = 0.0
+	_move_vel = moved / maxf(step, 0.001)
+	_face_target = atan2(dir.x, dir.z)
+	_has_face = true
 
 func _settle() -> void:
 	_ragdolls = maxi(_ragdolls - 1, 0)
@@ -417,6 +420,7 @@ func _settle() -> void:
 	_timer = 2.0
 
 static func update_all(_dt: float) -> void:
+	_tick_msec = Time.get_ticks_msec()
 	var i: int = all.size() - 1
 	while i >= 0:
 		var a: Animal = all[i]

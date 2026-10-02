@@ -79,16 +79,16 @@ func _ready() -> void:
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	h.add_theme_constant_override("separation", 12)
 	v.add_child(h)
-	remove_btn = UITheme.button("", "ParchButton", Vector2(160, 40), 16)
+	remove_btn = UITheme.dialog_button("", "ParchButton", 160.0)
 	remove_btn.pressed.connect(_remove_last)
 	h.add_child(remove_btn)
-	auto_btn = UITheme.button("", "GoldButton", Vector2(200, 40), 16)
+	auto_btn = UITheme.dialog_button("", "GoldButton", 200.0)
 	auto_btn.pressed.connect(_auto_place)
 	h.add_child(auto_btn)
-	done_btn = UITheme.button("", "GreenButton", Vector2(160, 40), 18)
+	done_btn = UITheme.dialog_button("", "GreenButton", 160.0)
 	done_btn.pressed.connect(_done)
 	h.add_child(done_btn)
-	quick_btn = UITheme.button("", "RedButton", Vector2(190, 40), 17)
+	quick_btn = UITheme.dialog_button("", "RedButton", 190.0)
 	quick_btn.pressed.connect(_quick_start)
 	h.add_child(quick_btn)
 	Events.language_changed.connect(_refresh)
@@ -247,7 +247,7 @@ func _default_yaw(p: PlayerData) -> float:
 	var best: PlayerData = null
 	var bd: float = 1e9
 	for o in Game.players:
-		if o.id != p.id:
+		if p.is_enemy(o):
 			var d: float = Util.dist_xz(o.village_center, p.village_center)
 			if d < bd:
 				bd = d
@@ -258,6 +258,7 @@ func _default_yaw(p: PlayerData) -> float:
 
 func _finish() -> void:
 	_active = false
+	_hide_arrows()
 	visible = false
 	if ghost != null:
 		ghost.visible = false
@@ -365,7 +366,7 @@ static func auto_place(p: PlayerData, w: GameWorld, kind: String, r: Rng) -> voi
 				# prefer buildings within 6 m in the direction of enemies (cover)
 				var toward: Vector3 = Vector3.ZERO
 				for o in Game.players:
-					if o.id != p.id and not o.eliminated:
+					if p.is_enemy(o) and not o.eliminated:
 						toward += Util.flat(o.village_center - p.village_center).normalized()
 				toward = toward.normalized()
 				for s in Breakable.structures:
@@ -401,7 +402,7 @@ static func auto_place(p: PlayerData, w: GameWorld, kind: String, r: Rng) -> voi
 		var best_o: PlayerData = null
 		var bd: float = 1e9
 		for o2 in Game.players:
-			if o2.id != p.id and not o2.eliminated:
+			if p.is_enemy(o2) and not o2.eliminated:
 				var d2: float = Util.dist_xz(o2.village_center, p.village_center)
 				if d2 < bd:
 					bd = d2
@@ -439,6 +440,8 @@ func _process(delta: float) -> void:
 		yaw += rot * deg_to_rad(120.0) * delta
 	_update_ghost()
 	_bad_toast_t = maxf(_bad_toast_t - delta, 0.0)
+	_update_arrows()
+	queue_redraw()
 
 func _mouse_ground() -> Vector3:
 	var mp: Vector2 = get_viewport().get_mouse_position()
@@ -544,3 +547,150 @@ func _unhandled_input(event: InputEvent) -> void:
 			_remove_last()
 		elif k.keycode == KEY_ENTER or k.keycode == KEY_KP_ENTER:
 			_done()
+
+# ------------------------------------------------------------------ where are the others? (direction markers)
+## While placing, every other village is marked with its colour and name: above the village when it is on screen, as an arrow
+## on the screen border when it is not. Teammates get a green shield, enemies crossed red swords, plus the distance.
+func _draw() -> void:
+	if not _active or cam == null or player_idx < 0 or player_idx >= Game.players.size():
+		return
+	var me: PlayerData = _cur()
+	if me.is_cpu() or me.is_remote():
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var sc: float = maxf(vp.y / 900.0, 0.6)
+	var f: Font = UITheme.font_bold()
+	var fs: int = int(17.0 * sc)
+	var margin: float = 70.0 * sc
+	var center: Vector2 = vp * 0.5
+	for o in Game.players:
+		if o.id == me.id or o.eliminated:
+			continue
+		var target: Vector3 = o.village_center + Vector3(0, 7.0, 0)
+		var behind: bool = cam.is_behind(target)
+		var sp: Vector2 = cam.project(target)
+		var on_screen: bool = (not behind) and sp.x > margin and sp.x < vp.x - margin and sp.y > margin and sp.y < vp.y - margin
+		var ally: bool = me.is_ally(o)
+		var label: String = "%s  %d m" % [o.name, int(round(Util.dist_xz(cam.camera_position(), o.village_center)))]
+		var tag: String = I18n.t("placement.ally") if ally else I18n.t("placement.enemy")
+		var pos: Vector2
+		var dirv: Vector2 = Vector2.ZERO
+		if on_screen:
+			pos = sp
+		else:
+			var d2: Vector2 = sp - center
+			if behind:
+				d2 = -d2
+			if d2.length() < 1.0:
+				d2 = Vector2(0, 1)
+			d2 = d2.normalized()
+			var k: float = INF
+			var half: Vector2 = vp * 0.5 - Vector2(margin, margin)
+			if absf(d2.x) > 0.001:
+				k = minf(k, half.x / absf(d2.x))
+			if absf(d2.y) > 0.001:
+				k = minf(k, half.y / absf(d2.y))
+			pos = center + d2 * k
+			dirv = d2
+		var tw: float = f.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var gw: float = f.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, int(fs * 0.8)).x
+		var w: float = tw + gw + 70.0 * sc
+		var h: float = 34.0 * sc
+		var rect := Rect2(pos - Vector2(w * 0.5, h * 0.5 + (22.0 * sc if on_screen else 0.0)), Vector2(w, h))
+		rect.position.x = clampf(rect.position.x, 34.0 * sc, vp.x - w - 34.0 * sc)
+		rect.position.y = clampf(rect.position.y, 34.0 * sc, vp.y - h - 34.0 * sc)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.12, 0.08, 0.05, 0.82)
+		sb.border_color = o.color
+		sb.set_border_width_all(3)
+		sb.set_corner_radius_all(int(10.0 * sc))
+		draw_style_box(sb, rect)
+		# colour chip + icon (shield = team mate, crossed swords = enemy)
+		draw_rect(Rect2(rect.position + Vector2(8, 8) * sc, Vector2(10, h - 16 * sc)), o.color)
+		var ic: Vector2 = rect.position + Vector2(34.0 * sc, h * 0.5)
+		if ally:
+			draw_colored_polygon(PackedVector2Array([ic + Vector2(-9, -10) * sc, ic + Vector2(9, -10) * sc, ic + Vector2(9, 2) * sc, ic + Vector2(0, 11) * sc, ic + Vector2(-9, 2) * sc]), Color("#46d36b"))
+		else:
+			draw_line(ic + Vector2(-9, -9) * sc, ic + Vector2(9, 9) * sc, Color("#ff6a5a"), 3.0 * sc, true)
+			draw_line(ic + Vector2(9, -9) * sc, ic + Vector2(-9, 9) * sc, Color("#ff6a5a"), 3.0 * sc, true)
+		draw_string(f, rect.position + Vector2(52.0 * sc, h * 0.5 + fs * 0.35), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+		draw_string(f, rect.position + Vector2(56.0 * sc + tw, h * 0.5 + fs * 0.3), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, int(fs * 0.8), Color("#46d36b") if ally else Color("#ff9a8a"))
+		# a pointer: arrow on the border towards an off-screen village, a small triangle under an on-screen label
+		if on_screen:
+			draw_colored_polygon(PackedVector2Array([Vector2(rect.get_center().x - 7.0 * sc, rect.end.y), Vector2(rect.get_center().x + 7.0 * sc, rect.end.y), Vector2(rect.get_center().x, rect.end.y + 11.0 * sc)]), o.color)
+		else:
+			var tip: Vector2 = rect.get_center() + dirv * (maxf(w, h) * 0.5 + 6.0 * sc)
+			var side := Vector2(-dirv.y, dirv.x)
+			draw_colored_polygon(PackedVector2Array([tip + dirv * 16.0 * sc, tip - dirv * 4.0 * sc + side * 11.0 * sc, tip - dirv * 4.0 * sc - side * 11.0 * sc]), o.color)
+
+# ------------------------------------------------------------------ 3D direction arrows at the own village
+## While a human places, a 3D arrow hovers at the edge of the own village for every other player, pointing towards that
+## player's village: in the player's colour, a green ring under it and a "Team" tag for teammates, red crossed swords above it
+## (the names and distances are on the screen pills).
+var _arrows: Dictionary = {}          # player id -> Node3D
+
+func _hide_arrows() -> void:
+	for k in _arrows.keys():
+		(_arrows[k] as Node3D).visible = false
+
+func _make_arrow(o: PlayerData, ally: bool) -> Node3D:
+	var root := Node3D.new()
+	root.scale = Vector3.ONE * 0.85
+	var buf := MeshGen.Buf.new()
+	MeshGen.add_box(buf, Vector3(0.8, 0.8, 4.0), Transform3D(Basis(), Vector3(0, 0, 1.2)), o.color, 0.05)
+	MeshGen.add_frustum(buf, 1.7, 0.05, 2.8, 8, Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, -1.7)), o.color, 0.05)
+	var body := MeshInstance3D.new()
+	body.mesh = buf.to_mesh()
+	body.material_override = Toon.colored(o.color)
+	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(body)
+	var mark := MeshInstance3D.new()
+	mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if ally:
+		mark.mesh = MeshGen.ring_mesh(1.9, 2.5, 28)
+		mark.material_override = Toon.unlit(Color("#46d36b"), false, true)
+		mark.position = Vector3(0, -1.1, 0.4)
+	else:
+		var mb := MeshGen.Buf.new()
+		# two crossed swords (blade, tip, crossguard, grip), tilted +-40 degrees
+		for sg in [-1.0, 1.0]:
+			var bs := Basis(Vector3.BACK, 0.7 * float(sg))
+			MeshGen.add_box(mb, Vector3(0.42, 2.2, 0.3), Transform3D(bs, bs * Vector3(0, 0.5, 0)), Color("#e9edf2"), 0.03)
+			MeshGen.add_frustum(mb, 0.21, 0.02, 0.7, 4, Transform3D(bs * Basis(Vector3.BACK, 0.0), bs * Vector3(0, 1.95, 0)), Color("#e9edf2"), 0.03)
+			MeshGen.add_box(mb, Vector3(1.3, 0.3, 0.4), Transform3D(bs, bs * Vector3(0, -0.75, 0)), Color("#ff3b2e"), 0.03)
+			MeshGen.add_box(mb, Vector3(0.3, 0.8, 0.3), Transform3D(bs, bs * Vector3(0, -1.3, 0)), Color("#b3261e"), 0.03)
+		mark.mesh = mb.to_mesh()
+		mark.material_override = Toon.colored(Color.WHITE)
+		mark.position = Vector3(0, 2.4, 1.6)
+	root.add_child(mark)
+	world.add_child(root)
+	return root
+
+func _update_arrows() -> void:
+	var me: PlayerData = _cur() if player_idx >= 0 and player_idx < Game.players.size() else null
+	if not _active or world == null or me == null or me.is_cpu() or me.is_remote():
+		_hide_arrows()
+		return
+	var t: float = float(Time.get_ticks_msec()) * 0.001
+	for o in Game.players:
+		if o.id == me.id or o.eliminated:
+			if _arrows.has(o.id):
+				(_arrows[o.id] as Node3D).visible = false
+			continue
+		var ally: bool = me.is_ally(o)
+		var arrow: Node3D = _arrows.get(o.id) as Node3D
+		if arrow == null or not is_instance_valid(arrow) or bool(arrow.get_meta("ally", false)) != ally:
+			if arrow != null and is_instance_valid(arrow):
+				arrow.queue_free()
+			arrow = _make_arrow(o, ally)
+			arrow.set_meta("ally", ally)
+			_arrows[o.id] = arrow
+		var dir: Vector3 = Util.flat(o.village_center - me.village_center)
+		if dir.length() < 0.5:
+			arrow.visible = false
+			continue
+		dir = dir.normalized()
+		var at: Vector3 = me.village_center + dir * (Cfg.ZONE_RADIUS + 4.0)
+		at.y = Terrain.h(at.x, at.z) + 6.0 + sin(t * 2.2 + float(o.id)) * 0.45
+		arrow.global_transform = Transform3D(Basis(Vector3.UP, Util.dir_to_yaw(dir)), at)
+		arrow.visible = true

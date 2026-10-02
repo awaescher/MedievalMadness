@@ -210,6 +210,8 @@ static func _draw_bolt(pos: Vector3) -> void:
 		_bolt.extra_cull_margin = 500.0
 		fx_root.add_child(_bolt)
 		_light = OmniLight3D.new()
+		_light.light_bake_mode = Light3D.BAKE_DISABLED
+		_light.light_volumetric_fog_energy = 0.0        # fire / flashes must not turn the (blocky) volumetric fog into a yellow haze
 		_light.light_color = Color(0.8, 0.9, 1.0)
 		_light.light_energy = 8.0
 		_light.omni_range = 40.0

@@ -39,9 +39,9 @@ static var _frozen_time: float = 0.0
 static var _end_hold: float = 0.6
 static var _epic_done: bool = false
 static var _net_firing: bool = false
+static var _pellet_first_t: float = -1.0       # flint sack: when the first piece landed (the camera waits for the rest)
+static var drove_local: bool = false       # this machine drove the catapult itself (its ramming damage is already applied)
 static var move_used: float = 0.0          # relocate action: metres driven so far this turn (set by the Actions UI)
-static var move_max: float = 14.0
-const MOVE_MAX := 14.0
 
 # ------------------------------------------------------------------ ballistic prediction (also used by the CPU)
 static func launch_velocity(yaw: float, elev_deg: float, power: float) -> Vector3:
@@ -227,6 +227,7 @@ static func fire() -> void:
 		aim_ammo = "stone"
 	p.ammo_sel = aim_ammo
 	shot_ammo = aim_ammo
+	_pellet_first_t = -1.0
 	shot_owner = p.id
 	var vel: Vector3 = launch_velocity(aim_yaw, aim_elev, aim_power)
 	var origin: Vector3 = launch_origin(sel, aim_elev, aim_yaw)
@@ -273,6 +274,9 @@ static func net_act(d: Dictionary) -> void:
 				if (c2 as Catapult).index == int(d["cat"]):
 					var a: Array = d["p"] as Array
 					(c2 as Catapult).place_at(Vector3(float(a[0]), float(a[1]), float(a[2])), float(d["y"]))
+			if not drove_local:
+				Actions.apply_hits(p, d.get("hits", []) as Array)
+			drove_local = false
 	if sel != null:
 		sel.set_selected(false)
 		sel.rest_arm()
@@ -359,6 +363,8 @@ static func update(dt: float) -> void:
 			if phase_time > 1.0:
 				_begin_aiming()
 		Phase.AIMING:
+			if not Net.is_client() and not _aim_still_possible():
+				return
 			if timer_on:
 				time_left -= real_dt
 				if time_left <= 0.0:
@@ -379,6 +385,21 @@ static func update(dt: float) -> void:
 		Phase.TURN_END:
 			if phase_time > _end_hold:
 				_next_turn()
+
+## The selected catapult may be lost while aiming (landslide, fire, falling debris ...). Pick another one, or - if the
+## player has none left - end the turn right away, so the elimination / next player / game over logic runs. false = turn ended.
+static func _aim_still_possible() -> bool:
+	var p: PlayerData = Game.cur()
+	if p == null or (sel != null and not sel.destroyed):
+		return true
+	var list: Array = p.living_catapults()
+	if list.is_empty():
+		_finish_turn()
+		return false
+	if not cpu_active and not p.is_remote():
+		sel = null
+		select_catapult(list[0] as Catapult)
+	return true
 
 static func _begin_aiming() -> void:
 	var p: PlayerData = Game.cur()
@@ -449,7 +470,13 @@ static func _update_flight() -> void:
 	else:
 		# a scatter shot / cow burst: the sack is gone but its pieces are still flying - keep the camera on them
 		# (and then on the target) instead of swinging back to the shooter
-		if Projectile.last_impact_pos == Vector3.INF and Projectile.any_alive() and phase_time < 10.0:
+		var waiting_for_pieces: bool = false
+		if shot_ammo == "scatter" and Projectile.any_alive() and phase_time < 10.0:
+			# the first piece to land is often a short one: wait ~0.9 s for the rest, then look at where most of them came down
+			if Projectile.last_impact_pos != Vector3.INF and _pellet_first_t < 0.0:
+				_pellet_first_t = phase_time
+			waiting_for_pieces = _pellet_first_t < 0.0 or phase_time - _pellet_first_t < 0.9
+		if (Projectile.last_impact_pos == Vector3.INF or waiting_for_pieces) and Projectile.any_alive() and phase_time < 10.0:
 			var sub_pos: Vector3 = Projectile.last_pos
 			if cam != null and sub_pos != Vector3.INF:
 				cam.follow_projectile(sub_pos, Vector3(_launch_dir.x, -0.2, _launch_dir.z).normalized() * 20.0)
@@ -482,7 +509,24 @@ static func _enter_aftermath_from_gone() -> void:
 		pr_last = Projectile.last_pos
 	if pr_last == Vector3.INF and sel != null:
 		pr_last = sel.global_pos() + _launch_dir * 40.0
-	if pr_last != Vector3.INF and cam != null and not Meteor.active():
+	if shot_ammo == "scatter" and not Projectile.pellet_impacts.is_empty():
+		# the camera shows the village that the pieces hit: the one nearest to where most of them landed
+		var cen := Vector3.ZERO
+		for ip in Projectile.pellet_impacts:
+			cen += ip
+		cen /= float(Projectile.pellet_impacts.size())
+		var focus: Vector3 = cen
+		var bd: float = 70.0
+		for pl in Game.players:
+			var d: float = Util.dist_xz(pl.village_center, cen)
+			if d < bd:
+				bd = d
+				focus = cen.lerp(pl.village_center, 0.45)
+		for ip2 in Projectile.pellet_impacts:
+			impact_points.append(ip2)
+		if cam != null and not Meteor.active():
+			cam.impact_cam(focus, _launch_dir)
+	elif pr_last != Vector3.INF and cam != null and not Meteor.active():
 		cam.impact_cam(_impact_focus(pr_last), _launch_dir)
 	aftermath_time = 0.0
 	settle_acc = 0.0
@@ -509,9 +553,7 @@ static func _update_aftermath(dt: float) -> void:
 	# a really good hit is shown in bullet time (once per turn)
 	if shot_ammo == "meteor" or Meteor.active():
 		Meteor.camera(cam, dt)
-	elif not _epic_done and shot_ammo != "boulder" and aftermath_time < 2.5 and Scoring.current_shot_score() >= 600.0:
-		_epic_done = true
-		Events.slowmo.emit(0.25, 1.6)
+	# (bullet time is only played for a direct hit on a catapult, see Projectile; nothing else slows the game down)
 	# a rolling fire barrel is followed by the impact camera while it burns its way through the village
 	if (shot_ammo == "firebarrel" or shot_ammo == "boulder" or shot_ammo == "powdertrail") and Projectile.primary != null and Projectile.primary.alive and cam != null:
 		var bp: Vector3 = Projectile.primary.position()
@@ -605,7 +647,7 @@ static func net_turn_end(d: Dictionary) -> void:
 
 ## Online host: a seat left in the middle of the battle
 static func host_player_dropped(seat: int) -> void:
-	if Game.living_players().size() <= 1:
+	if Game.living_teams().size() <= 1:
 		_end_of_turn_checks({})
 		return
 	if Game.current_player == seat and (phase == Phase.TURN_START or phase == Phase.AIMING):
@@ -644,10 +686,10 @@ static func _end_of_turn_checks(net: Dictionary = {}) -> void:
 	var alive: Array[PlayerData] = Game.living_players()
 	if Net.is_client():
 		return          # the host announces the end of the game ("over")
-	if alive.size() <= 1:
+	if Game.living_teams().size() <= 1:
 		var winner: int = -1
-		if alive.size() == 1:
-			winner = alive[0].id
+		if not alive.is_empty():
+			winner = alive[0].id          # everybody who is left is on the winning team
 		elif not newly.is_empty():
 			# everybody eliminated at once: most remaining building HP wins, ties lose
 			var best: float = -1.0
@@ -664,18 +706,27 @@ static func _end_of_turn_checks(net: Dictionary = {}) -> void:
 				winner = -1
 		_game_over(winner)
 		return
+	SupplyCrate.turn_end_check()
 	RandomEvents.turn_end_check()
 
 static func _game_over(winner: int) -> void:
 	if winner >= 0:
-		Scoring.award(winner, 1000, "winner")
+		for tm in Game.team_members(Game.player(winner).team):
+			Scoring.award(tm.id, 1000, "winner")
 	if Net.is_host:
 		NetGame.send_over(winner)
 	_set_phase(Phase.GAME_OVER)
 	Game.last_winner = winner
 	Game.set_state(Game.State.GAME_OVER)
 	if winner >= 0:
-		Events.banner.emit(I18n.t("banner.win", {"name": Game.player(winner).name}), "win")
+		var crew: Array[PlayerData] = Game.team_members(Game.player(winner).team)
+		if crew.size() > 1:
+			var names: Array[String] = []
+			for tm2 in crew:
+				names.append(tm2.name)
+			Events.banner.emit(I18n.t("banner.team_win", {"names": " + ".join(names)}), "win")
+		else:
+			Events.banner.emit(I18n.t("banner.win", {"name": Game.player(winner).name}), "win")
 		Sfx.play("victory", Vector3.INF, 1.0, 5)
 	else:
 		Events.banner.emit(I18n.t("banner.everybody_loses"), "win")

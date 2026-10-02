@@ -9,6 +9,9 @@ signal synth_progress(p: float)
 
 const POOL_2D := 24
 const POOL_3D := 24
+## Voices of people and animals: quiet and local - they fade out quickly with the distance to the camera (small unit size,
+## short range), so a distant village never babbles over the battle
+const CREATURES: Array[String] = ["scream", "yeet", "boing", "squeak", "moo", "bawk", "baa", "neigh", "quack", "honk"]
 const IMPACT_SOUNDS: Array[String] = ["thunk", "clack", "crunch", "clang", "tinkle", "fwump", "swish", "splat"]
 
 var is_ready: bool = false
@@ -187,7 +190,10 @@ func play(sname: String, pos: Vector3 = Vector3.INF, volume: float = 1.0, priori
 		var p3: AudioStreamPlayer3D = _players_3d[idx3]
 		p3.stream = stream
 		p3.pitch_scale = pitch
-		p3.volume_db = db
+		var creature: bool = CREATURES.has(sname)
+		p3.unit_size = 5.0 if creature else 20.0
+		p3.max_distance = 70.0 if creature else 250.0
+		p3.volume_db = db - (3.0 if creature else 0.0)
 		p3.global_position = pos
 		_prio_3d[idx3] = priority
 		_start_3d[idx3] = now

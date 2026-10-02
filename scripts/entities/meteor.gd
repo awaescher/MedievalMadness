@@ -174,6 +174,8 @@ func _spawn_rock() -> void:
 		h.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		rock.add_child(h)
 	light = OmniLight3D.new()
+	light.light_bake_mode = Light3D.BAKE_DISABLED
+	light.light_volumetric_fog_energy = 0.0        # fire / flashes must not turn the (blocky) volumetric fog into a yellow haze
 	light.light_color = Color("#ff9a4a")
 	light.light_energy = 6.0
 	light.omni_range = 140.0

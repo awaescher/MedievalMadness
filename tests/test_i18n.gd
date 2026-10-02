@@ -66,8 +66,8 @@ func test_spec_content_present() -> void:
 	var en: Dictionary = _flatten(EN.DATA as Dictionary)
 	var elim: Array = en["banner.eliminated"] as Array
 	TestBase.eq(elim.size(), 8, "eight elimination banners")
-	TestBase.eq((en["speech.idle"] as Array).size(), 10, "ten idle lines")
-	TestBase.eq((en["speech.panic"] as Array).size(), 8, "eight panic lines")
+	TestBase.check((en["speech.idle"] as Array).size() >= 10, "at least ten idle lines")
+	TestBase.check((en["speech.panic"] as Array).size() >= 8, "at least eight panic lines")
 	TestBase.eq((en["loading.lines"] as Array).size(), 10, "ten loading lines")
 	TestBase.eq((en["title.crown"] as Array).size(), 4, "four crown titles")
 	TestBase.eq(str(en["ammo.meteor"]), "Meteor Marker", "meteor name")

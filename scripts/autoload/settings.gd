@@ -13,9 +13,10 @@ var relay_url: String = Cfg.DEFAULT_RELAY             # online play: wss://<your
 var net_name: String = ""
 var lighting: String = "enhanced"      # basic | enhanced | rt (needs the Forward+ renderer)
 var shake: bool = true
-var timer: int = 30
+var timer: int = 0
 var weather_on: bool = true
 var events_on: bool = true
+var crates_on: bool = true               # supply crates (meteor crate + small boulder / log crates)
 var auto_quality: bool = true
 var fullscreen: bool = false
 var vsync: bool = true
@@ -24,10 +25,31 @@ var win_size: Vector2i = Vector2i(1600, 900)
 var players: Array = []      # last used player list: [{name, color, type}]
 var player_count: int = 4
 var seed_text: String = ""
-var catapult_count: int = 5
+var catapult_count: int = 3
 var palisade_count: int = 4
 var terrain_hills: int = 2
-var arsenal: Dictionary = {}           # pre-granted weapons: ammo id -> count
+var arsenal_preset: String = "standard"   # standard | powerplay | chaos | quarry | custom (see Arsenal)
+var rules_level: int = 0                  # unlock rules of the Custom mode: 0 core, 1 power, 2 chaos (presets bring their own)
+var arsenal_custom: Dictionary = {}       # the player's own selection: ammo id -> count (-1 = unlimited), saved on this machine
+## Which unlock rules the chosen mode uses (see Unlocks.RULES): Standard / Quarry core, Powerplay +power, Chaos +chaos
+func effective_rule_level() -> int:
+	match arsenal_preset:
+		"powerplay":
+			return 1
+		"chaos":
+			return 2
+		"custom":
+			return rules_level
+	return 0
+
+## The starting arsenal of the chosen preset: ammo id -> count (-1 = unlimited)
+var arsenal_edit: Dictionary = {}         # a preset tweaked in the dialog: this session only, never saved
+var arsenal_edit_preset: String = ""
+var arsenal: Dictionary:
+	get:
+		if arsenal_edit_preset != "" and arsenal_edit_preset == arsenal_preset:
+			return arsenal_edit.duplicate()
+		return Arsenal.counts(arsenal_preset, arsenal_custom)
 var debug: bool = false
 
 func _ready() -> void:
@@ -56,9 +78,10 @@ func load_settings() -> void:
 	shake = bool(cf.get_value("main", "shake", shake))
 	timer = int(cf.get_value("main", "timer", timer))
 	if not [0, 20, 30, 45, 60].has(timer):
-		timer = 30
+		timer = 0
 	weather_on = bool(cf.get_value("main", "weather_on", weather_on))
 	events_on = bool(cf.get_value("main", "events_on", events_on))
+	crates_on = bool(cf.get_value("main", "crates_on", crates_on))
 	auto_quality = bool(cf.get_value("main", "auto_quality", auto_quality))
 	fullscreen = bool(cf.get_value("main", "fullscreen", fullscreen))
 	vsync = bool(cf.get_value("main", "vsync", vsync))
@@ -68,9 +91,13 @@ func load_settings() -> void:
 	catapult_count = clampi(int(cf.get_value("main", "catapult_count", catapult_count)), 1, Cfg.CATAPULTS_PER_PLAYER)
 	palisade_count = clampi(int(cf.get_value("main", "palisade_count", palisade_count)), 1, 10)
 	terrain_hills = clampi(int(cf.get_value("main", "terrain_hills", terrain_hills)), 0, 4)
-	var ar: Variant = cf.get_value("main", "arsenal", {})
-	if ar is Dictionary:
-		arsenal = (ar as Dictionary).duplicate()
+	arsenal_preset = str(cf.get_value("main", "arsenal_preset", arsenal_preset))
+	if not Arsenal.PRESETS.has(arsenal_preset):
+		arsenal_preset = "standard"
+	rules_level = clampi(int(cf.get_value("main", "rules_level", rules_level)), 0, 2)
+	var ac: Variant = cf.get_value("main", "arsenal_custom", {})
+	if ac is Dictionary:
+		arsenal_custom = (ac as Dictionary).duplicate()
 	var ws: Variant = cf.get_value("main", "win_size", win_size)
 	if ws is Vector2i:
 		var v: Vector2i = ws
@@ -80,7 +107,85 @@ func load_settings() -> void:
 	if pl is Array:
 		players = (pl as Array).duplicate(true)
 
+## While a guest sits in an online lobby the host's match settings are shown in its menu. They are only a temporary overlay:
+## the guest's own saved settings come back when the lobby is left, and are what is written to disk meanwhile.
+var _stash: Dictionary = {}
+
+func _snapshot() -> Dictionary:
+	return {"player_count": player_count, "players": players.duplicate(true), "seed_text": seed_text, "timer": timer,
+		"catapult_count": catapult_count, "palisade_count": palisade_count, "terrain_hills": terrain_hills,
+		"crates_on": crates_on, "arsenal_preset": arsenal_preset, "rules_level": rules_level, "arsenal_edit": arsenal_edit.duplicate(), "arsenal_edit_preset": arsenal_edit_preset}
+
+func _apply_snapshot(d: Dictionary) -> void:
+	player_count = int(d["player_count"])
+	players = (d["players"] as Array).duplicate(true)
+	seed_text = str(d["seed_text"])
+	timer = int(d["timer"])
+	catapult_count = int(d["catapult_count"])
+	palisade_count = int(d["palisade_count"])
+	terrain_hills = int(d["terrain_hills"])
+	arsenal_preset = str(d["arsenal_preset"])
+	rules_level = int(d["rules_level"])
+	crates_on = bool(d["crates_on"])
+	arsenal_edit = (d["arsenal_edit"] as Dictionary).duplicate()
+	arsenal_edit_preset = str(d["arsenal_edit_preset"])
+
+func push_lobby() -> void:
+	if _stash.is_empty():
+		_stash = _snapshot()
+
+func pop_lobby() -> bool:
+	if _stash.is_empty():
+		return false
+	_apply_snapshot(_stash)
+	_stash.clear()
+	return true
+
 func save_settings() -> void:
+	if not _stash.is_empty():
+		var shown: Dictionary = _snapshot()
+		_apply_snapshot(_stash)
+		_save_now()
+		_apply_snapshot(shown)
+	else:
+		_save_now()
+
+## Automated test runs (`-- --autotest=...`) must never overwrite the player's saved settings
+static func _is_test_run() -> bool:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--autotest"):
+			return true
+	return false
+
+## "Reset options": everything of the options panel back to the first-start defaults (language, names, players, seed and
+## the saved custom arsenal are kept). `local_only`: a guest in an online lobby only resets its own display / sound options.
+func reset_options(local_only: bool = false) -> void:
+	volume = 0.8
+	quality = "medium"
+	lighting = "enhanced"
+	shake = true
+	auto_quality = true
+	vsync = true
+	fullscreen = false
+	weather_on = true
+	events_on = true
+	crates_on = true
+	if not local_only:
+		timer = 0
+		catapult_count = 3
+		palisade_count = 4
+		terrain_hills = 2
+		arsenal_preset = "standard"
+		rules_level = 0
+		arsenal_edit.clear()
+		arsenal_edit_preset = ""
+	apply_display()
+	apply_volume()
+	save_settings()
+
+func _save_now() -> void:
+	if _is_test_run():
+		return
 	var cf := ConfigFile.new()
 	cf.set_value("main", "language", language)
 	cf.set_value("main", "volume", volume)
@@ -92,6 +197,7 @@ func save_settings() -> void:
 	cf.set_value("main", "timer", timer)
 	cf.set_value("main", "weather_on", weather_on)
 	cf.set_value("main", "events_on", events_on)
+	cf.set_value("main", "crates_on", crates_on)
 	cf.set_value("main", "auto_quality", auto_quality)
 	cf.set_value("main", "fullscreen", fullscreen)
 	cf.set_value("main", "vsync", vsync)
@@ -101,7 +207,10 @@ func save_settings() -> void:
 	cf.set_value("main", "catapult_count", catapult_count)
 	cf.set_value("main", "palisade_count", palisade_count)
 	cf.set_value("main", "terrain_hills", terrain_hills)
-	cf.set_value("main", "arsenal", arsenal)
+	# only "Custom" is remembered; every other preset (and every tweak of one) is for this session only
+	cf.set_value("main", "arsenal_preset", "custom" if arsenal_preset == "custom" else "standard")
+	cf.set_value("main", "arsenal_custom", arsenal_custom)
+	cf.set_value("main", "rules_level", rules_level)
 	cf.set_value("main", "win_size", win_size)
 	cf.set_value("main", "players", players)
 	var err: int = cf.save(PATH)

@@ -1,0 +1,77 @@
+# Changelog
+
+Rough release notes, newest first. Versions before 1.10.0 are reconstructed from the specification and are approximate.
+**Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
+
+## 1.10.9
+- Small plain supply crates (3 boulders or 5 logs) land quietly near the villages, as many as there are players (+30 % Powerplay, +50 % Chaos). New option "Supply crates" switches all crates off. Meteor crate: epic sound + camera look when it comes, fanfare when somebody hits it.
+- Unlock rules are now tiered by game mode: Standard/Quarry = core, Powerplay adds power rules, Chaos adds chaos rules, Quarry has its own. New menu row "Unlock rules" (tier choosable for Custom) with a "?" that lists the rules. Locked weapons explain how to get them in their tooltip.
+- New team rules: team mates get weapons when a mate loses a catapult, is down to the last one, is eliminated or wrecks an enemy catapult.
+- New rules like revenge keg, own-goal keg, cow for destroyed animals / combo turns (Chaos), tavern/windmill/powder store boulders.
+- Flaming barrel: fires are counted per turn (a spreading fire is one), every 3rd (Chaos: 2nd) turn pays one.
+- Meteor marker only from the new supply crate: green glowing crate on a parachute sinks between two villages, hit it to win the marker. Not before every player has fired 5 shots, 1 (Standard) or 2 (Powerplay/Chaos) per match.
+- Game mode dropdown order: Standard, Powerplay, Quarry, Chaos, Custom.
+- Unlocks: powder keg only when your own blacksmith is destroyed; black powder only when one last catapult is left; blowing up barrels and wrecking 3 buildings no longer pay a keg (chain reactions still give points).
+- New game icon (bold comic style: catapult, flaming boulder, castle tower).
+- GitHub Action (`.github/workflows/build.yml`) builds Windows, macOS and Linux with `export.sh`; the run number becomes the patch number (`MM_BUILD_NUMBER`). Tags `v*` attach the files to a release. macOS stays unsigned.
+- Defaults: 3 catapults, no round timer (also for "Reset options").
+- Enemy markers on the 3D direction arrows are crossed swords instead of a red X (the X looked like an error).
+- A rock that merely rolls into a catapult only bumps it (little damage, no bullet time); real hits still wreck it.
+- Fixed: when the selected catapult was lost during the player's own turn the game hung. It now picks another catapult, or ends the turn at once: the player is eliminated, the next player is up, or the game ends.
+- Camera shake is gentler (about a third) and only fires for real impacts (big explosions, boulders, meteors).
+
+## 1.10.8
+- New "Reset options" button in the main menu (first-start defaults for the options panel).
+- Round timer defaults to 30 seconds; the last 5 seconds show a big red countdown with ticks and a flashing timer ring.
+- Test runs no longer touch the saved settings (they had been leaving odd values like timer off behind).
+
+## 1.10.7
+- Online lobby is synchronised: each guest changes only their own colour, the host changes everybody's colours, defines the bots and the match options, and everybody sees the changes live.
+- The V overview now stays open while another player (online or CPU) is playing.
+- Online version number raised: older builds cannot join (lobby sync).
+
+## 1.10.6
+- Voices of people and animals are friendlier cartoon sounds, much quieter and only audible close to the camera.
+- Fixed the blocky yellow halo around fire (lighting settings: no SSIL, finer glow, fire lights no longer feed global illumination and fog).
+
+## 1.10.5
+- A 3D arrow floats at your village while placing catapults and points to every other village, in their colour (green ring = team, red swords = enemy).
+- Builders stand right at the wall they repair.
+- Bullet time now only happens for direct hits on a catapult.
+- The Boulder is 15% bigger and heavier; Chaos has 5 Boulders and 3 Logs, Quarry 3 Boulders and 6 Logs, Powerplay 2 Logs.
+- Shooting down a tree near your own camp earns a Pointy Log.
+
+## 1.10.4
+- Settlers now rebuild damaged houses of their own village: slowly, with a hammer, only when calm and alive (never catapults).
+- The last powder keg bursts over a much smaller area (30%) but leaves three times the powder, and the powder visibly flies.
+- The version number is written into the app (Finder, Windows file properties) at every export.
+- Added this changelog.
+
+## 1.10.3
+- While placing catapults, every other village is marked with its colour, name, distance and a Team / Enemy tag.
+- Comic words ("BONK!") no longer cover the projectile; the Boulder rolls about 70% farther.
+- After a Flints shot the camera shows the village that was actually hit.
+- People and animals move smoothly at high frame rates.
+
+## 1.10.1 – 1.10.2
+- Cow weapon icon redrawn (detailed head, straight mouth); hosting dialog has an OK button instead of Leave.
+- Version numbers now count up automatically; spec brought in line with all decisions.
+
+## 1.10.0
+- **Turn actions**: instead of a shot you can reposition a catapult (rams buildings) or build a stackable stone wall.
+- **Teams**: the player colour is the team; teams win together; shared map markers; flagpole and tinted windows per village.
+- **Starting arsenal presets** (Standard, Powerplay, Chaos, Quarry, Custom); the Flaming Barrel must now be earned.
+- New UI: flat weapon bar, hint strip with key caps, flags for language, colour dropdowns, aligned menu, consistent buttons and dialogs, short tooltips with pros and cons.
+- Online: relay hidden behind a cog, relay help with copyable spec and template, separate room-code step, room banner, Close/Leave lobby.
+- Two cows per village with a new rounded model; Pointy Log tuning (about 70% stick, lies where it falls); powder ignites next to existing fire; many more (and rarer) settler sayings; buildings between camera and catapult turn see-through.
+
+## 1.9.x
+- Online play for up to 8 players through a relay (Cloudflare worker or self-hosted), with host-authoritative rules and turn snapshots.
+- Mobile (touch) controls and export presets; quality tiers and lighting presets; automatic quality drop on low FPS.
+
+## 1.8.x
+- Points / scoreboard and end-of-game titles; impact focus with bullet time instead of replays; map marker with compass while aiming.
+- Weapons are earned during the match (unlocks); Meteor Marker, Black Powder Kegs, Chain Shot, Stone Hail and Pointy Log added.
+
+## 1.0 – 1.7
+- First native (Godot 4, Jolt) port: 2–8 players hot-seat with CPU bots (four levels), procedural destructible villages, fire, water, weather, random events, ragdoll settlers and animals, synthesized sound, English and German, palisade posts, standalone exports for Windows, macOS and Linux.

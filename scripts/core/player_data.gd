@@ -42,6 +42,7 @@ var fence_counter: int = 0
 var hits_taken: int = 0               # catapults lost (for the consolation weapons)
 var trees_hit: Dictionary = {}        # distinct trees damaged since the last log
 var ammo_sel: String = "stone"      # this player's own ammo choice (kept between turns, never shared)
+var team: int = 0                   # team = colour index: same colour, same team (teams win together)
 var marker: Vector3 = Vector3.INF   # the one map marker of this player (spec 6.7), INF = none
 
 ## Online play: set by the Net autoload. `net_peer` is the peer that controls this seat (-1 = nobody / the CPU).
@@ -59,16 +60,24 @@ func is_human() -> bool:
 func is_remote() -> bool:
 	return type == "human" and net_on and net_peer != net_id
 
+## Someone else on the same team (never `self`)
+func is_ally(o: PlayerData) -> bool:
+	return o != null and o.id != id and o.team == team
+
+## Somebody this player has to beat
+func is_enemy(o: PlayerData) -> bool:
+	return o != null and o.id != id and o.team != team
+
 func is_cpu() -> bool:
 	return type != "human"
 
-## `extra`: weapons pre-granted in the menu (ammo id -> count)
-func reset_ammo(extra: Dictionary = {}) -> void:
+## `start`: the starting arsenal of the match (ammo id -> count, -1 = unlimited, see Arsenal); everything else starts at its default
+func reset_ammo(start: Dictionary = {}) -> void:
 	ammo.clear()
 	for a in AmmoDef.all():
 		ammo[a.id] = a.start_count
-		if a.start_count >= 0 and extra.has(a.id):
-			ammo[a.id] = a.start_count + maxi(int(extra[a.id]), 0)
+		if a.earnable and start.has(a.id):
+			ammo[a.id] = maxi(int(start[a.id]), -1)
 	ammo_sel = "stone"
 	hits_taken = 0
 	trees_hit.clear()

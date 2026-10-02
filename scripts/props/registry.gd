@@ -196,6 +196,7 @@ static func free_joints(s: Structure) -> void:
 		if e is Dictionary and (e as Dictionary).has("joint"):
 			var j: RID = (e as Dictionary)["joint"] as RID
 			if j.is_valid():
+				PhysicsServer3D.joint_clear(j)      # detach from the bodies first: freeing a live hinge crashed Jolt
 				PhysicsServer3D.free_rid(j)
 	s.extras = s.extras.filter(func(e: Variant) -> bool: return not (e is Dictionary and (e as Dictionary).has("joint")))
 

@@ -52,19 +52,19 @@ func _build() -> void:
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
 	if not _options:
-		var b1: Button = UITheme.button(I18n.t("pause.resume"), "GreenButton", Vector2(0, 50), 22)
+		var b1: Button = UITheme.dialog_button(I18n.t("pause.resume"), "GreenButton")
 		b1.pressed.connect(func() -> void: resume.emit())
 		v.add_child(b1)
-		var b2: Button = UITheme.button(I18n.t("pause.options"), "GoldButton", Vector2(0, 46), 20)
+		var b2: Button = UITheme.dialog_button(I18n.t("pause.options"), "GoldButton")
 		b2.pressed.connect(func() -> void:
 			_options = true
 			_build())
 		v.add_child(b2)
-		var b3: Button = UITheme.button(I18n.t("pause.restart"), "ParchButton", Vector2(0, 46), 18)
+		var b3: Button = UITheme.dialog_button(I18n.t("pause.restart"), "ParchButton")
 		b3.pressed.connect(func() -> void: restart.emit())
 		b3.visible = not Net.active
 		v.add_child(b3)
-		var b4: Button = UITheme.button(I18n.t("pause.quit"), "RedButton", Vector2(0, 46), 18)
+		var b4: Button = UITheme.dialog_button(I18n.t("pause.quit"), "RedButton")
 		b4.pressed.connect(func() -> void: quit_to_menu.emit())
 		v.add_child(b4)
 	else:
@@ -110,14 +110,14 @@ func _build() -> void:
 		var lang_row := HBoxContainer.new()
 		lang_row.add_theme_constant_override("separation", 8)
 		lang_row.add_child(UITheme.label(I18n.t("menu.language"), 17, UITheme.INK, true))
-		var en: Button = UITheme.button("EN", "GoldButton" if I18n.get_lang() == "en" else "ParchButton", Vector2(56, 34), 15)
-		en.pressed.connect(func() -> void: I18n.set_lang("en"))
-		lang_row.add_child(en)
-		var de: Button = UITheme.button("DE", "GoldButton" if I18n.get_lang() == "de" else "ParchButton", Vector2(56, 34), 15)
-		de.pressed.connect(func() -> void: I18n.set_lang("de"))
-		lang_row.add_child(de)
+		for lg in ["de", "en"]:
+			var fb := Menu.FlagButton.new(lg)
+			fb.selected = I18n.get_lang() == lg
+			var code: String = lg
+			fb.pressed.connect(func() -> void: I18n.set_lang(code))
+			lang_row.add_child(fb)
 		v.add_child(lang_row)
-		var back: Button = UITheme.button(I18n.t("pause.back"), "ParchButton", Vector2(0, 44), 18)
+		var back: Button = UITheme.dialog_button(I18n.t("pause.back"), "ParchButton")
 		back.pressed.connect(func() -> void:
 			Settings.save_settings()
 			_options = false

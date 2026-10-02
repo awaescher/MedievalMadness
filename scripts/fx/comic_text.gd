@@ -64,7 +64,7 @@ static func spawn_kind(kind: String, pos: Vector3, size_mult: float = 1.0) -> vo
 	if inst == null:
 		return
 	var now: int = Time.get_ticks_msec()
-	if now - _last_spawn_ms < 250:
+	if now - _last_spawn_ms < 600:
 		return
 	var lines: Array = I18n.tr_list("comic." + kind)
 	if lines.is_empty():
@@ -93,8 +93,16 @@ func spawn(text: String, pos: Vector3, size_mult: float = 1.0) -> void:
 	w.t = 0.0
 	w.dur = 1.2
 	w.tilt = deg_to_rad(rng.range_f(-12.0, 12.0))
-	w.base = pos
-	w.size_mult = size_mult
+	# keep the word OFF the action: lifted up and to the side in screen terms, more the farther the camera is, so it never
+	# covers the projectile / the thing that was hit (a boulder ploughing through a village, for instance)
+	var cam: Camera3D = get_viewport().get_camera_3d()
+	var off := Vector3(0, 2.0, 0)
+	if cam != null:
+		var dist: float = cam.global_position.distance_to(pos)
+		var side: float = 1.0 if rng.chance(0.5) else -1.0
+		off = cam.global_basis.y * (1.6 + dist * 0.07) + cam.global_basis.x * side * (1.6 + dist * 0.06)
+	w.base = pos + off
+	w.size_mult = size_mult * 0.8
 	w.label.text = text
 	w.label.modulate = Color.html(COLORS[rng.range_i(0, COLORS.size() - 1)])
 	w.label.visible = true
@@ -117,7 +125,7 @@ func _process(delta: float) -> void:
 			continue
 		var s: float = Util.ease_out_back(minf(k * 4.0, 1.0)) * w.size_mult
 		w.label.scale = Vector3.ONE * s
-		var p: Vector3 = w.base + Vector3.UP * (k * 3.0)
+		var p: Vector3 = w.base + Vector3.UP * (k * 1.5)
 		w.label.global_position = p
 		var a: float = 1.0 - clampf((k - 0.6) / 0.4, 0.0, 1.0)
 		var col: Color = w.label.modulate

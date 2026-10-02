@@ -1,0 +1,7 @@
+{
+  "name": "medieval-madness-relay-template",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node relay_node.mjs", "test": "node check.mjs" },
+  "dependencies": { "ws": "^8.18.0" }
+}

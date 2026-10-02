@@ -1,6 +1,6 @@
 # MEDIEVAL MADNESS (native, Godot 4)
 
-A local hot-seat, turn-based, physics-heavy 3D artillery game for 2-8 players (humans and/or CPU bots).
+A turn-based, physics-heavy 3D artillery game for 2-8 players (humans and/or CPU bots), on one screen or online, alone or in teams.
 Everybody owns a medieval village and 5 catapults. Take turns firing one shot at any other village.
 Everything is a physics object and destructible, fire spreads, water puts it out, settlers become ragdolls and
 shout jokes. Lose all 5 catapults and you are out - the last player standing wins.
@@ -23,6 +23,8 @@ Needs `godot` (4.4 or newer, standard non-.NET build) on the `PATH`; on macOS `b
 ./export.sh              # Windows / macOS / Linux into build/   (Windows: export.bat)
 ```
 
+Every export increases the patch number in `VERSION` (shown in the menu and sent when joining online).
+
 The export presets live in `export_presets.cfg` (Windows x86_64 single .exe with embedded PCK, macOS universal .zip,
 Linux x86_64 single file). They need the matching Godot **export templates** (Editor -> Manage Export Templates).
 `build/` is git-ignored.
@@ -37,6 +39,7 @@ Linux x86_64 single file). They need the matching Godot **export templates** (Ed
 | Orbit camera | Right mouse drag (aiming: +-60 deg / +-25 deg around the chase view) |
 | Zoom | Mouse wheel |
 | Choose ammo | `1`-`8` or click the ammo bar (locked weapons are dimmed with a padlock until earned) |
+| Turn actions instead of a shot | `U` = relocate the selected catapult (`W`/`S` drive, `A`/`D` steer, any distance, `Space` ends the turn; people, animals and crates are no obstacle, buildings are rammed and take damage - the neighbours comment on it). `B` = build a stone wall (click sets it, `Q`/`E` turns it, next to a wall it continues it, click on a wall stacks another layer, only the top layer keeps its crenellations). Both sit at the right end of the weapon bar with a grey rim; the strip above the bar always lists what is possible right now |
 | Choose catapult | `Tab` / `Shift+Tab`, click a catapult, or use the numbered catapult buttons (bottom right) |
 | Skip the aftermath | click or `Space` after the first impact |
 | Fine aim | Arrows (azimuth / elevation, `Shift` = finer), `W`/`S` power, `Space` fire |
@@ -53,6 +56,15 @@ Linux x86_64 single file). They need the matching Godot **export templates** (Ed
 *down* to lob higher. Power = pull length (up to 220 px), azimuth = 0.25 deg per pixel, elevation = 15 deg + 0.3 deg per pixel
 of downward pull. The first 40% of the flight path is previewed as dotted spheres; wind and per-ammo drag are included.
 The HUD shows power / elevation / azimuth and the distance to the predicted landing point.
+
+## Teams
+
+The player colour is the team: give several players the same colour and they play as one team (no limit, no symmetry needed;
+a match needs at least two colours). Turn order stays as it is. A team wins together as soon as no catapult of another team is
+left. Allies are not targeted by the bots or by `R`, hits on allies count as own goals, markers set in the overview are shown to the
+whole team (online too), every village has a flagpole in its team colour and window frames in a darker shade of it.
+
+See [CHANGELOG.md](CHANGELOG.md) for the release notes (kept up to date together with `SPEC.md`).
 
 ## Rules in one minute
 

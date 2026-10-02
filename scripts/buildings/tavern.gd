@@ -16,16 +16,16 @@ static func build(ctx: BuildContext, rng: Rng, _opts: Dictionary) -> BuildResult
 	var door: Array = [Rect2(2.4, 0.0, 1.5, 1.35), Rect2(0.2, 1.35, 1.0, 1.0), Rect2(5.2, 1.35, 1.0, 1.0)]
 	Kit.house_walls(r, "stone", Vector2.ZERO, hx - 0.15, hz - 0.15, y0, 2.7, 0.3, 2.4, 1.35, rng, door, [], [], [], Kit.NO_COLOR, "wall")
 	Kit.door(r, Vector2(-hx + 0.15 + 3.15, hz - 0.15), y0, 1.3, 1.35, 0.0, rng)
-	Kit.window(r, Vector2(-hx + 0.15 + 0.7, hz - 0.15), y0 + 1.35, 1.0, 1.0, 0.0, rng)
-	Kit.window(r, Vector2(-hx + 0.15 + 5.7, hz - 0.15), y0 + 1.35, 1.0, 1.0, 0.0, rng)
+	Kit.window(r, Vector2(-hx + 0.15 + 0.7, hz - 0.15), y0 + 1.35, 1.0, 1.0, 0.0, rng, ctx.player_color.darkened(0.15))
+	Kit.window(r, Vector2(-hx + 0.15 + 5.7, hz - 0.15), y0 + 1.35, 1.0, 1.0, 0.0, rng, ctx.player_color.darkened(0.15))
 	# floor between stories
 	Kit.floor_planks(r, "plank", Vector2.ZERO, 2.0 * hx - 0.5, 2.0 * hz - 0.5, y0 + 2.75, 2.0, 0.12, rng, false, "floor")
 	# upper floor: planks (timber frame look)
 	var y1: float = y0 + 2.8
 	var up_open: Array = [Rect2(0.5, 0.8, 1.0, 1.0), Rect2(2.6, 0.0, 1.5, 1.3), Rect2(5.2, 0.8, 1.0, 1.0)]
 	Kit.house_walls(r, "plank", Vector2.ZERO, hx - 0.15, hz - 0.15, y1, 2.6, 0.24, 2.4, 1.3, rng, up_open, [], [], [], Color("#d9b88a"), "wall")
-	Kit.window(r, Vector2(-hx + 0.15 + 1.0, hz - 0.15), y1 + 0.8, 1.0, 1.0, 0.0, rng)
-	Kit.window(r, Vector2(-hx + 0.15 + 5.7, hz - 0.15), y1 + 0.8, 1.0, 1.0, 0.0, rng)
+	Kit.window(r, Vector2(-hx + 0.15 + 1.0, hz - 0.15), y1 + 0.8, 1.0, 1.0, 0.0, rng, ctx.player_color.darkened(0.15))
+	Kit.window(r, Vector2(-hx + 0.15 + 5.7, hz - 0.15), y1 + 0.8, 1.0, 1.0, 0.0, rng, ctx.player_color.darkened(0.15))
 	# balcony door
 	Kit.door(r, Vector2(-hx + 0.15 + 3.35, hz - 0.15), y1, 1.3, 1.3, 0.0, rng)
 	# balcony (front, above the door): floor + rail + 2 posts

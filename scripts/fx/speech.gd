@@ -92,12 +92,24 @@ func _say(text: String, follow: Node3D, speaker: Object, life: float, offset: fl
 	b.label.modulate = color
 	b.label.visible = true
 
+## Per category: the least number of seconds between two lines (bubbles are fun, so they stay rare)
+const COOLDOWNS := {"speech.idle": 9.0, "speech.panic": 2.5, "speech.hit": 1.5, "speech.fire": 4.0, "speech.landed": 3.0, "speech.bump": 2.5, "speech.bucket": 8.0}
+static var _last_said: Dictionary = {}
+
 static func say_random(key: String, follow: Node3D, speaker: Object = null, rng: Rng = null, offset: float = 2.4) -> void:
 	var lines: Array = I18n.tr_list(key)
 	if lines.is_empty():
 		return
+	# the line is drawn BEFORE any throttling so the RNG stream is the same on every machine (online play)
 	var r: Rng = rng if rng != null else Game.rng_battle
-	say(str(lines[r.range_i(0, lines.size() - 1)]), follow, speaker, LIFETIME, offset)
+	var text: String = str(lines[r.range_i(0, lines.size() - 1)])
+	var now: float = float(Time.get_ticks_msec()) / 1000.0
+	if now - float(_last_said.get(key, -999.0)) < float(COOLDOWNS.get(key, 3.0)):
+		return
+	if alive_count() >= (2 if key == "speech.idle" else 4):
+		return
+	_last_said[key] = now
+	say(text, follow, speaker, LIFETIME, offset)
 
 static func alive_count() -> int:
 	if inst == null:

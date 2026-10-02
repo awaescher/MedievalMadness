@@ -32,6 +32,12 @@ var home: Vector3 = Vector3.ZERO
 var zone_radius: float = Cfg.ZONE_RADIUS
 var tunic: Color = Color.RED
 var hat: String = "none"
+## Smooth walking at any frame rate: the 10 Hz behaviour only sets a walking velocity and a facing; the position, the facing and
+## the limb animation advance every rendered frame (_process), so people do not stutter at 120 FPS.
+var _move_vel: Vector3 = Vector3.ZERO
+var _face_target: float = 0.0
+var _has_face: bool = false
+static var _tick_msec: int = 0         # last time the world ticked (not while paused)
 var scream_pitch: float = 1.0
 var last_source: Dictionary = {}
 var launched_flag: bool = false
@@ -70,6 +76,11 @@ var _stung: float = 0.0
 var is_archer: bool = false
 var is_tax: bool = false
 var _chat_cool: float = 0.0
+## Rebuilding (Repair): the part this settler is walking to / working on, how long it has hammered, the hammer in the hand
+var _repair: Part = null
+var _repair_left: float = 0.0
+var _tool: MeshInstance3D
+var _tool_sound: float = 0.0
 
 static func reset() -> void:
 	for s in all:
@@ -119,7 +130,9 @@ static func _head_mesh(hat_kind: String, patch: Color) -> ArrayMesh:
 				var a: float = float(i) / 5.0 * TAU
 				MeshGen.add_box(b, Vector3(0.05, 0.1, 0.05), Transform3D(Basis(), Vector3(cos(a) * 0.14, 0.3, sin(a) * 0.14)), Color("#ffd700"), 0.01)
 		"feather":
-			MeshGen.add_box(b, Vector3(0.04, 0.24, 0.1), Transform3D(Basis(Vector3(0, 0, 1), -0.4), Vector3(0.1, 0.24, 0)), patch, 0.01)
+			# a soft beret in the team colour with a little stalk (the old tilted slab looked like something stuck to the head)
+			MeshGen.add_frustum(b, 0.2, 0.13, 0.12, 8, Transform3D(Basis(), Vector3(0, 0.16, 0)), patch, 0.012)
+			MeshGen.add_cyl(b, 0.025, 0.05, 6, Transform3D(Basis(), Vector3(0, 0.25, 0)), patch.darkened(0.3), 0.006)
 		_:
 			pass
 	var m: ArrayMesh = b.to_mesh()
@@ -173,6 +186,15 @@ func setup(village_owner: int, home_pos: Vector3, player_color: Color, r: Rng) -
 	leg_l = _mk_node(_limb_mesh("leg", pants), Vector3(-0.1, 0.5, 0))
 	leg_r = _mk_node(_limb_mesh("leg", pants), Vector3(0.1, 0.5, 0))
 	limbs = [torso, head, arm_l, arm_r, leg_l, leg_r]
+	# a hammer for rebuilding (only shown while working on a house)
+	var tb := MeshGen.Buf.new()
+	MeshGen.add_box(tb, Vector3(0.045, 0.34, 0.045), Transform3D(Basis(), Vector3(0, -0.6, 0.0)), Color("#8a5a2a"), 0.008)
+	MeshGen.add_box(tb, Vector3(0.1, 0.1, 0.22), Transform3D(Basis(), Vector3(0, -0.79, 0.04)), Color("#6a7480"), 0.01)
+	_tool = MeshInstance3D.new()
+	_tool.mesh = tb.to_mesh()
+	_tool.material_override = Toon.main()
+	_tool.visible = false
+	arm_r.add_child(_tool)
 	for l in limbs:
 		_limb_home.append(l.transform)
 	_phase = r.range_f(0.0, TAU)
@@ -195,6 +217,7 @@ func global_pos() -> Vector3:
 	return global_position
 
 func cleanup() -> void:
+	_cancel_repair()
 	_free_bodies()
 	if _flame != null and Fx.inst != null:
 		Fx.inst.release_flame(_flame)
@@ -582,6 +605,7 @@ func carry_bucket(on: bool) -> void:
 # ------------------------------------------------------------------ 10 Hz behavior
 static func update_all(dt: float, cam: Vector3) -> void:
 	camera_pos = cam
+	_tick_msec = Time.get_ticks_msec()
 	# 10 Hz slices: process 1/6 of the settlers each physics tick (60 Hz)
 	_acc += dt
 	var n: int = all.size()
@@ -607,6 +631,8 @@ static func update_all(dt: float, cam: Vector3) -> void:
 		k -= 1
 
 func _tick_fast(dt: float) -> void:
+	if _repair != null and state != State.WANDER and state != State.WORK:
+		_cancel_repair()              # panic, fire, ragdoll, death: no more rebuilding
 	_hit_cool = maxf(_hit_cool - dt, 0.0)
 	gag_time = maxf(gag_time - dt, 0.0)
 	bees_time = maxf(bees_time - dt, 0.0)
@@ -640,8 +666,50 @@ func _tick_fast(dt: float) -> void:
 	# animation for near settlers
 	var near: bool = global_position.distance_squared_to(camera_pos) < 80.0 * 80.0
 	_lod_near = near
-	if near and (state == State.WANDER or state == State.PANIC or state == State.BURNING or state == State.EXTINGUISH or state == State.WORK or state == State.IDLE):
-		_animate(dt)
+	# (the limb animation runs every rendered frame in _process)
+
+func _process(delta: float) -> void:
+	if Time.get_ticks_msec() - _tick_msec > 300:
+		return                          # the world is paused (or not running)
+	var walking: bool = state == State.WANDER or state == State.PANIC or state == State.BURNING or state == State.EXTINGUISH
+	if walking and _move_vel != Vector3.ZERO:
+		var np: Vector3 = position + _move_vel * delta
+		np.y = Terrain.h(np.x, np.z)
+		position = np
+	if _has_face and state != State.RAGDOLL and state != State.DEAD and state != State.GONE:
+		rotation.y = lerp_angle(rotation.y, _face_target, clampf(delta * 12.0, 0.0, 1.0))
+	if _lod_near and (walking or state == State.WORK or state == State.IDLE):
+		_animate(delta)
+
+## Give up the rebuilding (panic, fire, death, ...): the claim on the part is released and the hammer disappears
+func _cancel_repair() -> void:
+	if _repair != null:
+		Repair.release(_repair)
+	_repair = null
+	if _tool != null and is_instance_valid(_tool):
+		_tool.visible = false
+
+## Look for a damaged part of the own village and walk to it (called when calm and idle)
+func _try_repair() -> bool:
+	if not Repair.allowed() or hp <= 0.0 or Repair.builders(owner_id) >= Repair.MAX_WORKERS:
+		return false
+	var p: Part = Repair.pick_job(owner_id, global_position)
+	if p == null:
+		return false
+	_repair = p
+	Repair.claim(p, self)
+	var at: Vector3 = p.xf0.origin
+	var from: Vector3 = Util.flat(global_position - at)
+	if from.length() < 0.1:
+		from = Vector3(1, 0, 0)
+	# stand right in front of the part: the hammer just touches it
+	var stand: Vector3 = at + from.normalized() * (0.55 + 0.5 * minf(p.size.x, p.size.z))
+	stand.y = Terrain.h(stand.x, stand.z)
+	_target = stand
+	_work_target = at
+	state = State.WANDER
+	_timer = 80.0                    # a long walk across the village is fine
+	return true
 
 func _fade_and_go(dt: float) -> void:
 	scale = scale * maxf(1.0 - dt * 1.5, 0.01)
@@ -686,6 +754,7 @@ func _think(step: float) -> void:
 	if state == State.DEAD or state == State.GONE or state == State.RAGDOLL:
 		return
 	_chat_cool = maxf(_chat_cool - step, 0.0)
+	_move_vel = Vector3.ZERO          # a walking state sets it again below
 	var pos: Vector3 = global_position
 	# --- detect threats
 	var pr: Projectile = Projectile.primary
@@ -700,24 +769,46 @@ func _think(step: float) -> void:
 	match state:
 		State.IDLE:
 			_timer -= step
-			if _chat_cool <= 0.0 and rng.chance(0.03):
-				_chat_cool = 8.0
+			if _chat_cool <= 0.0 and rng.chance(0.012):
+				_chat_cool = 20.0
 				Speech.say_random("speech.idle", self, self, rng)
 			if _timer <= 0.0:
-				if rng.chance(0.2) and _find_work():
+				if rng.chance(0.55) and _try_repair():
+					pass                      # off to rebuild a damaged house
+				elif rng.chance(0.2) and _find_work():
 					state = State.WORK
 					_timer = rng.range_f(2.0, 5.0)
 				else:
 					_pick_wander()
 		State.WORK:
-			_timer -= step
 			_face(_work_target - pos, step)
-			if _timer <= 0.0:
-				state = State.IDLE
-				_timer = rng.range_f(0.5, 2.0)
+			if _repair != null:
+				# hammering: a knock now and then, the part is back when the work is done (calm phases only)
+				_tool.visible = true
+				_tool_sound -= step
+				if _tool_sound <= 0.0:
+					_tool_sound = 0.9
+					Sfx.play("clack", _work_target, 0.3, 0)
+				if Repair.allowed():
+					_repair_left -= step
+				if _repair_left <= 0.0:
+					Repair.finish(_repair)
+					_cancel_repair()
+					state = State.IDLE
+					_timer = rng.range_f(4.0, 9.0)
+			else:
+				_timer -= step
+				if _timer <= 0.0:
+					state = State.IDLE
+					_timer = rng.range_f(0.5, 2.0)
 		State.WANDER:
 			_walk(step, 1.2)
-			if pos.distance_to(_target) < 0.6 or _timer < 0.0:
+			if _repair != null and pos.distance_to(_target) < 0.4:
+				state = State.WORK                    # arrived at the damaged spot
+				_repair_left = Repair.WORK_TIME
+				_tool_sound = 0.3
+			elif (_repair == null and pos.distance_to(_target) < 0.6) or _timer < 0.0:
+				_cancel_repair()
 				state = State.IDLE
 				_timer = rng.range_f(1.0, 4.0)
 			_timer -= step
@@ -810,8 +901,8 @@ func _blocked(p: Vector3, margin: float) -> bool:
 func _face(dir: Vector3, step: float) -> void:
 	if dir.length() < 0.05:
 		return
-	var yaw_t: float = atan2(dir.x, dir.z)
-	rotation.y = lerp_angle(rotation.y, yaw_t, clampf(step * 10.0, 0.0, 1.0))
+	_face_target = atan2(dir.x, dir.z)
+	_has_face = true
 
 func _walk(step: float, speed: float) -> void:
 	_speed = speed
@@ -823,7 +914,7 @@ func _walk(step: float, speed: float) -> void:
 	var dir: Vector3 = to.normalized()
 	# steer around obstacles
 	var next: Vector3 = pos + dir * speed * step
-	for o in (obstacles.get(owner_id, []) as Array):
+	for o in ([] if _repair != null else (obstacles.get(owner_id, []) as Array)):      # a builder walks right up to the house
 		var ov: Vector3 = o as Vector3
 		var d2: Vector2 = Vector2(next.x - ov.x, next.z - ov.y)
 		var rr: float = ov.z + 0.5
@@ -839,7 +930,7 @@ func _walk(step: float, speed: float) -> void:
 		state = State.IDLE
 		_timer = 1.0
 		return
-	next.y = Terrain.h(next.x, next.z)
 	var moved: Vector3 = next - pos
-	position = next
+	moved.y = 0.0
+	_move_vel = moved / maxf(step, 0.001)          # integrated every frame in _process
 	_face(moved, step)

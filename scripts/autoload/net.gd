@@ -14,7 +14,7 @@ const PING_EVERY := 15.0
 const RELAY_PROTO := 1
 ## Version of the game-level sync (message kinds, shot / placement / snapshot formats, RNG usage). Raise it whenever a
 ## change would make two players on different builds drift apart. Players with different values cannot play together.
-const NET_VERSION := 1
+const NET_VERSION := 3
 
 var active: bool = false            # in a room (handshake done)
 var is_host: bool = false

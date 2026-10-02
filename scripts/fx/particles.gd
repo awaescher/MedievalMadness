@@ -413,6 +413,8 @@ func _spawn_flash(pos: Vector3, radius: float, col: Color) -> void:
 	l.light_energy = 6.0
 	l.omni_range = maxf(radius * 3.0, 8.0)
 	l.shadow_enabled = false
+	l.light_bake_mode = Light3D.BAKE_DISABLED
+	l.light_volumetric_fog_energy = 0.0        # fire / flashes must not turn the (blocky) volumetric fog into a yellow haze
 	l.position = pos + Vector3.UP * 1.5
 	add_child(l)
 	_fireballs.append({"node": l, "t": 0.0, "dur": 0.4, "max": 6.0, "kind": "light"})

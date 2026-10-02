@@ -30,6 +30,9 @@ var events_on: bool = true
 var catapults_per_player: int = 5
 var palisades_per_player: int = 4
 var arsenal: Dictionary = {}
+var rule_level: int = 0              # unlock rule tier of the game mode: 0 core, 1 power, 2 chaos (see Unlocks)
+var crates_on: bool = true
+var rule_quarry: bool = false        # the Quarry mode adds its own rules
 var layout_nonce: String = ""       # decides the village layout together with the seed (new for every fresh match)
 var terrain_hills: int = 2           # 0 flat .. 4 very hilly
 
@@ -77,6 +80,37 @@ func living_players() -> Array[PlayerData]:
 		if not p.eliminated:
 			out.append(p)
 	return out
+
+## Teams (colour indices) that still have a player in the game
+func living_teams() -> Array[int]:
+	var out: Array[int] = []
+	for p in players:
+		if not p.eliminated and not out.has(p.team):
+			out.append(p.team)
+	return out
+
+func team_members(team: int) -> Array[PlayerData]:
+	var out: Array[PlayerData] = []
+	for p in players:
+		if p.team == team:
+			out.append(p)
+	return out
+
+## Is the player (id) on the winning side?
+func is_winner(p: PlayerData) -> bool:
+	var w: PlayerData = player(last_winner)
+	return w != null and p.team == w.team
+
+## The marker a player sees: the own one, else a teammate's (teams share what they mark in the overview)
+func marker_for(p: PlayerData) -> Vector3:
+	if p == null:
+		return Vector3.INF
+	if p.marker != Vector3.INF:
+		return p.marker
+	for o in players:
+		if p.is_ally(o) and o.marker != Vector3.INF:
+			return o.marker
+	return Vector3.INF
 
 func all_cpu() -> bool:
 	for p in players:

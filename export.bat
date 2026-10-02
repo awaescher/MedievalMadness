@@ -3,6 +3,13 @@ rem Builds standalone executables for Windows, macOS and Linux (spec 25).
 rem Needs godot.exe on PATH (or set GODOT) and the matching export templates installed.
 setlocal
 cd /d "%~dp0"
+powershell -NoProfile -Command "$v=(Get-Content VERSION).Trim().Split('.'); $v[2]=[int]$v[2]+1; ($v -join '.') | Set-Content VERSION"
+for /f %%v in (VERSION) do set VER=%%v
+powershell -NoProfile -Command "$v=$env:VER; $t=Get-Content export_presets.cfg -Raw; $t=$t -replace '(?m)^(application/(short_)?version=)\"[^\"]*\"','$1\"'+$v+'\"'; $t=$t -replace '(?m)^(version/name=)\"[^\"]*\"','$1\"'+$v+'\"'; $t=$t -replace '(?m)^(application/(file|product)_version=)\"[^\"]*\"','$1\"'+$v+'.0\"'; Set-Content export_presets.cfg $t -NoNewline"
+mkdir assets\relay_help 2>nul
+copy /y relay\PROTOCOL.md assets\relay_help\spec.txt >nul
+copy /y relay\template\relay_node.mjs assets\relay_help\relay_node.txt >nul
+copy /y relay\template\check.mjs assets\relay_help\check.txt >nul
 if "%GODOT%"=="" set GODOT=godot
 where %GODOT% >nul 2>nul
 if errorlevel 1 (

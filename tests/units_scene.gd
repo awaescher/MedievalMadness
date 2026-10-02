@@ -281,19 +281,15 @@ static func _test_debris_cap() -> void:
 
 static func _test_settings_roundtrip() -> void:
 	TestBase.current = "settings"
+	# test runs must never touch the player's real settings.cfg (the save is a no-op there)
+	TestBase.check(Settings._is_test_run(), "autotest runs are recognised as test runs")
 	var old_vol: float = Settings.volume
 	var old_lang: String = Settings.language
 	Settings.volume = 0.37
-	Settings.language = "de"
 	Settings.save_settings()
 	Settings.volume = 0.9
-	Settings.language = "en"
 	Settings.load_settings()
-	TestBase.near(Settings.volume, 0.37, 0.001, "volume persists")
-	TestBase.eq(Settings.language, "de", "language persists")
 	Settings.volume = old_vol
-	Settings.language = old_lang
-	Settings.save_settings()
 	# i18n runtime: a few keys resolve in both languages without falling back to the key
 	for lang in ["en", "de"]:
 		I18n.set_lang(lang)
@@ -323,7 +319,7 @@ static func _test_unlocks() -> void:
 	a.reset_ammo()
 	b.reset_ammo({"meteor": 2})
 	TestBase.eq(a.ammo_count("stone"), -1, "stone is always there")
-	TestBase.eq(a.ammo_count("firebarrel"), 2, "two fire barrels at the start")
+	TestBase.eq(a.ammo_count("firebarrel"), 0, "no fire barrel at the start (Standard preset)")
 	TestBase.eq(a.ammo_count("cow"), 0, "the cow is locked at the start")
 	TestBase.eq(b.ammo_count("meteor"), 2, "menu pre-grant works")
 	TestBase.check(not a.has_ammo("meteor"), "a locked weapon is not usable")
@@ -342,11 +338,54 @@ static func _test_unlocks() -> void:
 	TestBase.eq(a.ammo_count("scatter"), 1, "destroying an enemy catapult earns buckshot")
 	TestBase.eq(b.ammo_count("boulder"), 1, "losing a catapult earns a boulder")
 	Unlocks.on_catapult_destroyed(b.id, src, "projectile")
-	TestBase.eq(b.ammo_count("powderkeg"), 1, "the second lost catapult earns a powder keg")
+	TestBase.eq(b.ammo_count("powderkeg"), 0, "losing catapults earns no powder keg")
+	Unlocks.on_building_destroyed("blacksmith", b.id, src)
+	TestBase.eq(b.ammo_count("powderkeg"), 1, "losing your own blacksmith earns a powder keg")
+	Unlocks.on_building_destroyed("blacksmith", b.id, src)
+	TestBase.eq(a.ammo_count("powdertrail"), 0, "an enemy blacksmith earns the attacker nothing")
 	Unlocks.on_building_destroyed("church", b.id, src)
-	TestBase.eq(a.ammo_count("meteor"), 1, "destroying a church earns the meteor marker")
-	Unlocks.on_building_destroyed("farmhouse", b.id, src)
-	TestBase.eq(a.ammo_count("meteor"), 1, "a farmhouse does not")
+	TestBase.eq(a.ammo_count("meteor"), 0, "a church no longer earns the meteor marker (only the supply crate does)")
+	Unlocks.on_building_destroyed("powderstore", b.id, src)
+	TestBase.eq(a.ammo_count("boulder"), 0, "the powder store rule is a power rule: off in the core mode")
+	Game.rule_level = 1
+	Unlocks.on_building_destroyed("powderstore", b.id, src)
+	TestBase.eq(a.ammo_count("boulder"), 1, "power mode: wrecking an enemy powder store earns a boulder")
+	Game.rule_level = 0
+	# fires count once per turn, every 3rd counted turn pays a fire barrel
+	var fb0: int = a.ammo_count("firebarrel")
+	for t in 6:
+		Game.turn_number = 100 + t
+		Unlocks.on_fire_started(src)
+		Unlocks.on_fire_started(src)
+	TestBase.eq(a.ammo_count("firebarrel"), fb0 + 2, "six fire turns = two fire barrels (core rule, one fire per turn)")
+	TestBase.check(Unlocks.how("meteor").size() == 1 and Unlocks.how("powderkeg").size() == 2, "core rules listed for the locked weapon tooltips")
+	TestBase.check(Unlocks.rules_of_mode(2, false).size() > Unlocks.rules_of_mode(0, false).size() - 1, "chaos lists at least the core rules")
+	TestBase.eq(Settings.effective_rule_level(), 0, "Standard uses the core rules")
+	# the supply crate: appears only after 5 shots of everybody, sinks, is hit by a shot -> meteor marker
+	if RandomEvents.fx_root != null:
+		SupplyCrate.reset()
+		Game.crates_on = true
+		SupplyCrate.spawn(1, "meteor", a.village_center + Vector3(40, 0, 0), "meteor", 1)
+		TestBase.check(SupplyCrate.meteor_active(), "meteor crate spawns")
+		var cr: Dictionary = SupplyCrate.crates[0]
+		var h0: float = float(cr["height"])
+		SupplyCrate.tick(2.0)
+		TestBase.check(float(cr["height"]) < h0, "supply crate sinks")
+		var m0: int = a.ammo_count("meteor")
+		TestBase.check(not SupplyCrate.try_hit(Vector3(0, 500, 0), 0.5, src), "a shot far away misses the crate")
+		TestBase.check(SupplyCrate.try_hit((cr["node"] as Node3D).position + Vector3(0, 0.7, 0), 0.5, src), "a shot hits the crate")
+		TestBase.eq(a.ammo_count("meteor"), m0 + 1, "hitting the crate earns the meteor marker")
+		TestBase.check(not SupplyCrate.meteor_active(), "the crate is gone after the hit")
+		# small crate: 3 boulders / 5 logs
+		var b0: int = a.ammo_count("boulder")
+		SupplyCrate.spawn(2, "small", a.village_center + Vector3(-30, 0, 0), "boulder", 3)
+		TestBase.eq(SupplyCrate.small_count(), 1, "small crate spawns")
+		TestBase.check(SupplyCrate.try_hit((SupplyCrate.crates[0]["node"] as Node3D).position + Vector3(0, 0.5, 0), 0.5, src), "a shot hits the small crate")
+		TestBase.eq(a.ammo_count("boulder"), b0 + 3, "a small crate holds 3 boulders")
+		Game.rule_level = 2
+		TestBase.check(SupplyCrate.small_target() >= int(Game.players.size() * 1.5) - 1, "chaos: 50% more small crates")
+		Game.rule_level = 0
+		SupplyCrate.reset()
 	# three different trees
 	var fake: Array[Structure] = []
 	for i in 3:

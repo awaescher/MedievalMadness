@@ -53,7 +53,10 @@ func show_results(winner: int, replay_available: bool) -> void:
 		head.add_child(_crown(wp.color))
 		var col := VBoxContainer.new()
 		head.add_child(col)
-		var t: Label = UITheme.label(I18n.t("banner.win", {"name": wp.name}), 40, Color("#ffd400"), true, 10)
+		var crew_names: Array[String] = []
+		for tm in Game.team_members(wp.team):
+			crew_names.append(tm.name)
+		var t: Label = UITheme.label(I18n.t("banner.team_win", {"names": " + ".join(crew_names)}) if crew_names.size() > 1 else I18n.t("banner.win", {"name": wp.name}), 40, Color("#ffd400"), true, 10)
 		t.add_theme_font_override("font", ComicText.comic_font())
 		col.add_child(t)
 		var crown_titles: Array = I18n.tr_list("title.crown")
@@ -109,15 +112,15 @@ func show_results(winner: int, replay_available: bool) -> void:
 	h.add_theme_constant_override("separation", 12)
 	v.add_child(UITheme.vspacer(6))
 	v.add_child(h)
-	var b1: Button = UITheme.button(I18n.t("stats.rematch"), "GreenButton", Vector2(230, 46), 16)
+	var b1: Button = UITheme.dialog_button(I18n.t("stats.rematch"), "GreenButton", 210.0)
 	b1.pressed.connect(func() -> void: rematch.emit())
 	b1.visible = not Net.active
 	h.add_child(b1)
-	var b2: Button = UITheme.button(I18n.t("stats.same_map"), "RedButton", Vector2(230, 46), 16)
+	var b2: Button = UITheme.dialog_button(I18n.t("stats.same_map"), "RedButton", 210.0)
 	b2.pressed.connect(func() -> void: same_map.emit())
 	b2.visible = not Net.active
 	h.add_child(b2)
-	var b3: Button = UITheme.button(I18n.t("stats.main_menu"), "ParchButton", Vector2(180, 46), 16)
+	var b3: Button = UITheme.dialog_button(I18n.t("stats.main_menu"), "ParchButton", 210.0)
 	b3.pressed.connect(func() -> void: main_menu.emit())
 	h.add_child(b3)
 	if winner >= 0:
@@ -131,11 +134,12 @@ func hide_results() -> void:
 
 func _ranking(winner: int) -> Array[PlayerData]:
 	var arr: Array[PlayerData] = Game.players.duplicate()
+	var wteam: int = Game.player(winner).team if Game.player(winner) != null else -1
 	arr.sort_custom(func(a: PlayerData, b: PlayerData) -> bool:
-		if a.id == winner:
-			return true
-		if b.id == winner:
-			return false
+		var aw: bool = a.team == wteam
+		var bw: bool = b.team == wteam
+		if aw != bw:
+			return aw
 		if a.eliminated != b.eliminated:
 			return not a.eliminated
 		if a.eliminated and b.eliminated:

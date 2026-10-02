@@ -50,7 +50,7 @@ static func _ensure() -> void:
 	if not tiers.is_empty():
 		return
 	_mk("low", 0.75, 0, false, 1024, 600, 350, 6, 20, 2, false, false, 60.0)
-	_mk("medium", 1.0, 2, true, 1024, 1500, 600, 10, 40, 4, true, false, 90.0)
+	_mk("medium", 1.0, 2, true, 2048, 1500, 600, 10, 40, 4, true, false, 90.0)
 	_mk("high", 1.0, 4, true, 2048, 3000, 900, 14, 60, 6, true, false, 110.0)
 	_mk("ultra", 1.0, 4, true, 4096, 6000, 1400, 16, 80, 8, true, true, 130.0)
 	current = tiers["medium"] as Tier

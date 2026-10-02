@@ -254,6 +254,20 @@ static func fires_near(pos: Vector3, r: float) -> bool:
 				return true
 	return false
 
+## Is something burning within `r` metres (a burning part or a ground fire)? Precise version of fires_near()
+static func fire_within(pos: Vector3, r: float) -> bool:
+	if not fires_near(pos, r):
+		return false
+	var r2: float = r * r
+	for p in burning_list:
+		# horizontally close, and not more than 3 m above (flames of a roof lick down walls, they do not reach 10 m)
+		if p.state != Part.State.DEAD and Util.dist_xz(p.xf.origin, pos) <= r and p.xf.origin.y - pos.y <= 3.0 and pos.y - p.xf.origin.y <= 2.0:
+			return true
+	for g in ground_fires:
+		if g.pos.distance_squared_to(pos) <= r2:
+			return true
+	return false
+
 static func burning_count() -> int:
 	return burning_list.size()
 
@@ -442,9 +456,11 @@ static func _update_lights() -> void:
 	while _lights.size() < want:
 		var l := OmniLight3D.new()
 		l.light_color = Color("#ff8a3a")
-		l.omni_range = 13.0
-		l.light_energy = 2.2
+		l.omni_range = 12.0
+		l.light_energy = 1.5
 		l.shadow_enabled = false
+		l.light_bake_mode = Light3D.BAKE_DISABLED       # short-lived lights must not feed the blocky SDFGI cells
+		l.light_volumetric_fog_energy = 0.0        # fire / flashes must not turn the (blocky) volumetric fog into a yellow haze
 		light_root.add_child(l)
 		_lights.append(l)
 	if burning_list.is_empty():

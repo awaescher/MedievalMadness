@@ -67,6 +67,7 @@ func reset_systems() -> void:
 	WaterSys.reset()
 	Projectile.reset()
 	Settler.reset()
+	Repair.reset()
 	Animal.reset()
 	Meteor.reset()
 	Stink.reset()
@@ -169,9 +170,30 @@ func _populate(p: PlayerData, idx: int) -> void:
 		var a2: float = rng_map.range_f(0, TAU)
 		var d2: float = rng_map.range_f(6.0, Cfg.ZONE_RADIUS - 3.0)
 		Animal.spawn("sheep", Vector3(c.x + cos(a2) * d2, 0, c.z + sin(a2) * d2), idx, 6.0, rng_map)
-	if rng_map.chance(0.5):
-		var a3: float = rng_map.range_f(0, TAU)
-		Animal.spawn("cow", Vector3(c.x + cos(a3) * 14.0, 0, c.z + sin(a3) * 14.0), idx, 6.0, rng_map)
+	# every village keeps two cows, on open ground (not inside a building)
+	var cow_angle: float = rng_map.range_f(0, TAU)
+	for ci in 2:
+		var spot: Vector3 = _free_animal_spot(idx, c, cow_angle + float(ci) * PI * 0.85)
+		Animal.spawn("cow", spot, idx, 5.0, rng_map)
+
+## A spot of the village that is clear of buildings, searched along a ray from the centre (starts at `angle`, tries others)
+func _free_animal_spot(idx: int, c: Vector3, angle: float) -> Vector3:
+	var obstacles: Array = Settler.obstacles.get(idx, []) as Array
+	for t in 24:
+		var a: float = angle + float(t) * 0.9
+		var d: float = 9.0 + float(t % 5) * 2.0
+		var p := Vector3(c.x + cos(a) * d, 0, c.z + sin(a) * d)
+		if Terrain.is_water(p.x, p.z) or Terrain.slope_deg(p.x, p.z) > 14.0:
+			continue
+		var ok: bool = true
+		for o in obstacles:
+			var ov: Vector3 = o as Vector3
+			if Vector2(p.x - ov.x, p.z - ov.y).length() < ov.z + 2.2:
+				ok = false
+				break
+		if ok:
+			return p
+	return Vector3(c.x + cos(angle) * 12.0, 0, c.z + sin(angle) * 12.0)
 
 ## Spawns a settler of village `idx` near `around` (random free spot inside the zone)
 func spawn_settler(idx: int, around: Vector3, spread: float) -> Settler:

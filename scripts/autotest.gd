@@ -12,6 +12,10 @@ static func frames(n: int) -> void:
 	for i in n:
 		await tree.process_frame
 
+static func cam_focus_wall(rig: CameraRig, w: Dictionary) -> void:
+	rig.focus_on(w["center"] as Vector3 + Vector3.UP * 3.0, 22.0, 25.0, float(w["yaw"]) + 0.6)
+	rig.snap()
+
 static func seconds(t: float) -> void:
 	await tree.create_timer(t, true, false, false).timeout
 
@@ -29,6 +33,8 @@ static func shot(name: String) -> void:
 static func start_match(seed_text: String, types: Array, timer: int = 0) -> void:
 	Settings.seed_text = seed_text
 	Settings.timer = timer
+	Settings.arsenal_preset = "custom"
+	Settings.arsenal_custom = {"firebarrel": 2}
 	Settings.weather_on = bool(m.get("_autotest_weather"))
 	Settings.events_on = bool(m.get("_autotest_events"))
 	var menu: Menu = m.get("menu") as Menu
@@ -43,7 +49,7 @@ static func start_match(seed_text: String, types: Array, timer: int = 0) -> void
 static func auto_place_all() -> void:
 	var pl: Placement = m.get("placement") as Placement
 	var guard: int = 0
-	while pl._active and guard < 40:
+	while pl._active and guard < 3000:
 		guard += 1
 		var p: PlayerData = Game.players[pl.player_idx] if pl.player_idx < Game.players.size() else null
 		if p != null and p.is_human():
@@ -190,6 +196,25 @@ static func run(main: Node, name: String) -> void:
 			say("stats: cats_destroyed=%d dmg=%d hits=%d shots=%d" % [Game.players[0].stats.catapults_destroyed, int(Game.players[0].stats.damage_dealt), Game.players[0].stats.hits, Game.players[0].stats.shots])
 			say("turn ended after %.1f s, phase=%d, impact points=%s, cat hp=%s" % [t0, Turn.phase, str(Turn.impact_points), str(enemy.living_catapults().map(func(c: Variant) -> float: return (c as Catapult).hp))])
 			await shot("shoot_after")
+		"crate":
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "peasant"])
+			await auto_place_all()
+			await wait_phase(Turn.Phase.AIMING)
+			var spot: Vector3 = SupplyCrate._pick_meteor_spot()
+			say("crate spot %s" % str(spot))
+			SupplyCrate.spawn(1, "meteor", spot, "meteor", 1)
+			SupplyCrate.crates[0]["height"] = 14.0
+			SupplyCrate.tick(0.01)
+			var cm: Node = tree.root.get_node_or_null("Main")
+			var cam: CameraRig = (cm.get("cam_rig") as CameraRig) if cm != null else null
+			if cam != null:
+				cam.focus_on(spot + Vector3(0, 6, 0), 28.0, 30.0)
+			await frames(90)
+			await shot("crate_sinking")
+			SupplyCrate.crates[0]["height"] = 0.05
+			await frames(60)
+			await shot("crate_landed")
 		"cpugame":
 			await wait_loaded()
 			var types: Array = str(m.get("_autotest_types")).split(",")
@@ -432,6 +457,564 @@ static func run(main: Node, name: String) -> void:
 				await seconds(2.0)
 				say("after a hit: attached=%s" % str(beh.attached))
 				await shot("windmill_b")
+		"menu_arsenal":
+			await wait_loaded()
+			await seconds(2.5)
+			var mn: Menu = m.get("menu") as Menu
+			Settings.arsenal_preset = "quarry"
+			await shot("menu_row")
+			var lob: Lobby = m.get("lobby") as Lobby
+			lob.open()
+			await seconds(0.6)
+			await shot("lobby_start")
+			lob._relay_open = true
+			lob._build()
+			await seconds(0.3)
+			await shot("lobby_relay")
+			lob._step = "help"
+			lob._build()
+			await seconds(0.3)
+			await shot("lobby_help")
+			lob._relay_open = false
+			lob._step = "join"
+			lob._build()
+			await seconds(0.3)
+			await shot("lobby_join")
+			Net.active = true
+			Net.is_host = true
+			Net.code = "FZCA"
+			Net.my_id = 1
+			Net.roster = {1: "Lord Percival Pickle", 2: "Anna"}
+			lob._build()
+			await seconds(0.3)
+			await shot("lobby_room")
+			lob._dismiss()
+			mn.call("_refresh_start")
+			await seconds(0.3)
+			await shot("menu_room")
+			Net.active = false
+			Net.is_host = false
+			Net.roster = {}
+			mn.call("_refresh_start")
+			mn.call("_open_arsenal")
+			await seconds(0.8)
+			await shot("menu_custom")
+			say("relay help files: spec %d, template %d, check %d chars" % [FileAccess.get_file_as_string("res://assets/relay_help/spec.txt").length(), FileAccess.get_file_as_string("res://assets/relay_help/relay_node.txt").length(), FileAccess.get_file_as_string("res://assets/relay_help/check.txt").length()])
+			say("arsenals: powerplay=%s chaos=%d keys quarry=%s" % [str(Arsenal.counts("powerplay", {})), Arsenal.counts("chaos", {}).size(), str(Arsenal.counts("quarry", {}))])
+			var pa: PlayerData = PlayerData.new()
+			pa.reset_ammo(Arsenal.counts("powerplay", {}))
+			say("powerplay: stone %d quad %d boulder %d log %d firebarrel %d" % [pa.ammo_count("stone"), pa.ammo_count("quad"), pa.ammo_count("boulder"), pa.ammo_count("log"), pa.ammo_count("firebarrel")])
+		"ram":
+			await wait_loaded()
+			Settings.palisade_count = 1
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			var g10: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and g10 < 60.0:
+				await tree.process_frame
+				g10 += 1.0 / 60.0
+			await seconds(1.0)
+			var me10: PlayerData = Game.players[0]
+			var house: Structure = null
+			var hd: float = 1e9
+			for sx10 in Breakable.structures:
+				if sx10.owner_id == 0 and sx10.kind == "farmhouse" and Util.dist_xz(sx10.center, Turn.sel.global_pos()) < hd:
+					hd = Util.dist_xz(sx10.center, Turn.sel.global_pos())
+					house = sx10
+			Turn.set_ammo("relocate")
+			await frames(5)
+			var cat10: Catapult = Turn.sel
+			var dir10: Vector3 = Util.flat(house.center - cat10.global_pos()).normalized()
+			cat10.place_at(house.center - dir10 * (house.radius + 4.0), Util.dir_to_yaw(dir10))
+			await frames(5)
+			var cam10: CameraRig = m.get("cam_rig") as CameraRig
+			cam10.aim_at(cat10.global_pos(), cat10.yaw, 0.5)
+			var live0: int = house.live_count
+			say("house %s parts before: %d" % [house.kind, live0])
+			var kd := InputEventKey.new()
+			kd.keycode = KEY_W
+			kd.pressed = true
+			for i in 90:
+				Input.parse_input_event(kd)
+				await frames(2)
+			var ku := InputEventKey.new()
+			ku.keycode = KEY_W
+			ku.pressed = false
+			Input.parse_input_event(ku)
+			await seconds(0.5)
+			say("rammed: parts %d -> %d, driven %.1f m, bubbles %d" % [live0, house.live_count, Turn.move_used, Speech.alive_count()])
+			var nset: int = 0
+			for st10 in Settler.all:
+				if is_instance_valid(st10) and st10.global_position.distance_to(house.center) < 18.0:
+					nset += 1
+			say("settlers within 18 m: %d, speech inst %s, bump lines %d" % [nset, str(Speech.inst != null), I18n.tr_list("speech.bump").size()])
+			(m.get("actions") as Actions)._bump_cool = 0.0
+			(m.get("actions") as Actions)._react(house.center)
+			await frames(10)
+			say("after forced reaction: bubbles %d" % Speech.alive_count())
+			await shot("ram")
+			(m.get("actions") as Actions).confirm_move()
+			await seconds(1.0)
+		"powderfire":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			await seconds(1.0)
+			var hs: Structure = null
+			for sx11 in Breakable.structures:
+				if sx11.owner_id == 1 and sx11.kind == "farmhouse":
+					hs = sx11
+			Fire.ignite_in_radius(hs.center, 5.0, 1.0, {})
+			await seconds(2.0)
+			say("burning parts: %d" % Fire.burning_count())
+			var before_d: int = Powder.count()
+			var spot2: Vector3 = Vector3.INF
+			for bp in Fire.burning_list:
+				if spot2 == Vector3.INF:
+					spot2 = Vector3(bp.xf.origin.x, Terrain.h(bp.xf.origin.x, bp.xf.origin.z), bp.xf.origin.z)
+			say("dropping at %s" % str(spot2))
+			Powder.drop(spot2, {}, 1.0)
+			say("heap dropped next to a fire: lit=%s" % str(Powder.active()))
+			await seconds(1.0)
+			say("heaps before %d, after %d (the heap must have flashed away)" % [before_d + 1, Powder.count()])
+			var far: Vector3 = hs.center + Vector3(60, 0, 60)
+			far.y = Terrain.h(far.x, far.z)
+			Powder.drop(far, {}, 1.0)
+			await seconds(1.0)
+			say("heap far from any fire stays: count %d" % Powder.count())
+		"logroof":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			await seconds(1.0)
+			var tgt: Structure = null
+			for sx12 in Breakable.structures:
+				if sx12.owner_id == 1 and (sx12.kind == "barn" or sx12.kind == "farmhouse"):
+					tgt = sx12
+			var base12: Vector3 = tgt.center
+			var launched12: int = 0
+			for k12 in 12:
+				var ang12: float = float(k12) * 0.5
+				var from12: Vector3 = base12 + Vector3(cos(ang12), 0, sin(ang12)) * 34.0 + Vector3(0, 16.0, 0)
+				var aim12: Vector3 = (base12 + Vector3(0, tgt.height * 0.8, 0) - from12).normalized()
+				Projectile.launch("log", from12, aim12 * 30.0, 0, null)
+				launched12 += 1
+				await seconds(0.3)
+			await seconds(10.0)
+			say("LOGROOF stuck %d of %d (thrown at a house)" % [Projectile.stuck_logs.size(), launched12])
+			var persist_n: int = 0
+			for it12 in Debris.items:
+				if it12.persistent:
+					persist_n += 1
+			say("lying logs (persistent): %d" % persist_n)
+			await seconds(40.0)
+			var persist2: int = 0
+			for it13 in Debris.items:
+				if it13.persistent and it13.fading < 0.0:
+					persist2 += 1
+			say("lying logs after 40 more seconds: %d (must be unchanged)" % persist2)
+		"cows":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant", "peasant"])
+			await auto_place_all()
+			await seconds(1.5)
+			for pl14 in Game.players:
+				var n14: int = 0
+				for an in Animal.all:
+					if is_instance_valid(an) and an.kind == "cow" and an.owner_id == pl14.id:
+						n14 += 1
+				say("village %d has %d cows" % [pl14.id, n14])
+			var g14: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and g14 < 60.0:
+				await tree.process_frame
+				g14 += 1.0 / 60.0
+			await seconds(1.0)
+			var cat14: Catapult = Turn.sel
+			var fwd14: Vector3 = Util.yaw_to_dir(cat14.yaw)
+			var cow14: Animal = Animal.spawn("cow", cat14.global_pos() + fwd14 * 6.0, 0, 0.1, Rng.new(3))
+			cow14.rotation.y = cat14.yaw + PI * 0.5
+			cow14._timer = 999.0
+			Turn.phase = Turn.Phase.NONE
+			var rig14: CameraRig = m.get("cam_rig") as CameraRig
+			var cp14: Vector3 = cow14.global_position
+			rig14.cinema(cp14 + Vector3(3.2, 1.8, 3.2), cp14 + Vector3(0, 1.0, 0), 50.0)
+			rig14.snap()
+			await seconds(1.2)
+			await shot("cow_close")
+			rig14.cinema(cp14 + Vector3(-1.5, 1.6, 3.4), cp14 + Vector3(0, 1.2, 0.6), 50.0)
+			rig14.snap()
+			await seconds(0.8)
+			await shot("cow_close2")
+			var big: Hud.AmmoSlot = Hud.AmmoSlot.new()
+			big.ammo = AmmoDef.get_def("cow")
+			big.count = 3
+			big.position = Vector2(300, 100)
+			big.scale = Vector2(7, 7)
+			(m.get("hud") as Hud).add_child(big)
+			var big2: Hud.AmmoSlot = Hud.AmmoSlot.new()
+			big2.ammo = AmmoDef.get_def("log")
+			big2.count = 3
+			big2.position = Vector2(700, 100)
+			big2.scale = Vector2(7, 7)
+			(m.get("hud") as Hud).add_child(big2)
+			await seconds(0.5)
+			await shot("cow_icon")
+			var me14: PlayerData = Game.players[0]
+			me14.ammo["cow"] = 3
+		"boulderroll":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			var total_d: float = 0.0
+			var n_d: int = 0
+			for k15 in 8:
+				var sp15 := Vector3(-150.0 + float(k15) * 5.0, 0.0, -110.0 + float(k15) * 20.0)
+				if Terrain.is_water(sp15.x, sp15.z):
+					continue
+				sp15.y = Terrain.h(sp15.x, sp15.z)
+				var ang15: float = deg_to_rad(Rng.new(k15 * 5 + 1).range_f(35.0, 50.0))
+				var spd15: float = Rng.new(k15 * 9 + 2).range_f(28.0, 38.0)
+				var pr15: Projectile = Projectile.launch("boulder", sp15 + Vector3(0, 3.0, 0), Vector3(cos(ang15) * spd15, sin(ang15) * spd15, 0.0), 0, null)
+				var hit15: Vector3 = Vector3.INF
+				var last15: Vector3 = Vector3.INF
+				var t15: float = 0.0
+				while pr15.alive and t15 < 20.0:
+					await tree.process_frame
+					t15 += 1.0 / 60.0
+					if pr15.first_impact_pos != Vector3.INF and hit15 == Vector3.INF:
+						hit15 = pr15.first_impact_pos
+					var pp15: Vector3 = pr15.position()
+					if pp15 != Vector3.INF:
+						last15 = pp15
+				if hit15 != Vector3.INF and last15 != Vector3.INF:
+					total_d += Util.dist_xz(hit15, last15)
+					n_d += 1
+					say("boulder %d: rolled %.1f m in %.1f s" % [k15, Util.dist_xz(hit15, last15), t15])
+			say("BOULDERROLL average %.1f m over %d" % [total_d / maxf(float(n_d), 1.0), n_d])
+		"smooth":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			await seconds(2.0)
+			var samples: Array = []
+			for stt in Settler.all:
+				if stt.state == Settler.State.WANDER and samples.size() < 4:
+					samples.append(stt)
+			var ans: Array = []
+			for an3 in Animal.all:
+				if an3.state == Animal.State.WANDER and ans.size() < 2:
+					ans.append(an3)
+			say("walking settlers %d, animals %d" % [samples.size(), ans.size()])
+			var prev: Dictionary = {}
+			var steps: Array = []
+			var fr: int = 0
+			while fr < 360:
+				await tree.process_frame
+				fr += 1
+				for ent in samples + ans:
+					if is_instance_valid(ent):
+						var cur: Vector3 = ent.global_position
+						if prev.has(ent):
+							var d: float = Util.dist_xz(cur, prev[ent] as Vector3)
+							if d > 0.0:
+								steps.append(d)
+						prev[ent] = cur
+			steps.sort()
+			var med: float = steps[steps.size() / 2] if not steps.is_empty() else 0.0
+			var mx: float = steps[steps.size() - 1] if not steps.is_empty() else 0.0
+			say("SMOOTH per-frame steps: n=%d median %.4f max %.4f (max/median %.1f), fps %d" % [steps.size(), med, mx, mx / maxf(med, 0.0001), Engine.get_frames_per_second()])
+		"placeview":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant", "peasant", "peasant"])
+			Game.players[1].team = Game.players[0].team
+			await seconds(2.0)
+			await shot("placement_markers")
+			await auto_place_all()
+		"repair":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			var g16: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and g16 < 60.0:
+				await tree.process_frame
+				g16 += 1.0 / 60.0
+			var hs16: Structure = null
+			for sx16 in Breakable.structures:
+				if sx16.owner_id == 0 and sx16.kind == "farmhouse":
+					hs16 = sx16
+			var before16: int = hs16.live_count
+			Explosion.explode(hs16.center + Vector3(0, 2, 0), 5.0, 900.0, {"source": {"player_id": 1, "ammo": "stone"}, "no_crater": true})
+			await seconds(5.0)
+			var hurt16: int = hs16.live_count
+			say("farmhouse parts: %d intact, after the blast %d (initial %d)" % [before16, hurt16, hs16.initial_count])
+			var hammering: bool = false
+			var tool_seen: bool = false
+			var live_prev: int = hs16.live_count
+			for tick16 in 90:
+				await seconds(1.0)
+				for st16 in Settler.all:
+					if st16.owner_id == 0 and st16._repair != null:
+						hammering = true
+						if st16.state == Settler.State.WORK and st16._tool.visible and not tool_seen:
+							tool_seen = true
+							var cam16: CameraRig = m.get("cam_rig") as CameraRig
+							cam16.overview(st16.global_position + Vector3(0, 1.0, 0), 7.0, 25.0)
+							cam16.yaw = 0.8
+							cam16.snap()
+							await seconds(0.3)
+							await shot("repair_hammer")
+				if tick16 % 6 == 0:
+					var info16: String = ""
+					for st17 in Settler.all:
+						if st17.owner_id == 0 and st17._repair != null:
+							info16 += " [st=%d d=%.2f left=%.1f]" % [st17.state, st17.global_position.distance_to(st17._target), st17._repair_left]
+					say("t=%d parts %d builders:%s" % [tick16, hs16.live_count, info16])
+				if hs16.live_count != live_prev:
+					live_prev = hs16.live_count
+			say("REPAIR after 90 s: parts %d -> %d -> %d (builders seen %s, hammer visible %s)" % [before16, hurt16, hs16.live_count, str(hammering), str(tool_seen)])
+		"kegburst":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			await seconds(1.0)
+			var c17: Vector3 = Game.players[1].village_center + Vector3(0, 0, 8)
+			c17.y = Terrain.h(c17.x, c17.z)
+			var before17: int = Powder.count()
+			var pr17: Projectile = Projectile.launch("powdertrail", c17 + Vector3(-10, 6, 0), Vector3(14, -8, 0), 0, null)
+			var rig17: CameraRig = m.get("cam_rig") as CameraRig
+			rig17.overview(c17, 30.0, 35.0)
+			rig17.snap()
+			var shots17: int = 0
+			var t17: float = 0.0
+			while t17 < 14.0:
+				await tree.process_frame
+				t17 += 1.0 / 60.0
+				if not pr17.alive and shots17 == 0:
+					shots17 = 1
+					await seconds(0.25)
+					await shot("keg_burst_a")
+					await seconds(0.35)
+					await shot("keg_burst_b")
+			say("KEGBURST powder heaps %d -> %d" % [before17, Powder.count()])
+		"fireglow":
+			await wait_loaded()
+			Settings.lighting = "enhanced"
+			Events.quality_changed.emit(Settings.quality)
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			var g18: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and g18 < 60.0:
+				await tree.process_frame
+				g18 += 1.0 / 60.0
+			var hs18: Structure = null
+			var hd18: float = 1e9
+			for sx18 in Breakable.structures:
+				if sx18.owner_id == 0 and (sx18.kind == "farmhouse" or sx18.kind == "barn") and Util.dist_xz(sx18.center, Turn.sel.global_pos()) < hd18:
+					hd18 = Util.dist_xz(sx18.center, Turn.sel.global_pos())
+					hs18 = sx18
+			Fire.ignite_in_radius(hs18.center, 6.0, 1.0, {})
+			await seconds(7.0)
+			say("lighting %s quality %s" % [Settings.lighting, Settings.quality])
+			await shot("fireglow")
+			var sky18: SkyRig = m.get("sky") as SkyRig
+			sky18.env.glow_enabled = false
+			await seconds(0.6)
+			await shot("fireglow_noglow")
+			sky18.env.volumetric_fog_enabled = false
+			await seconds(0.6)
+			await shot("fireglow_novol")
+			sky18.env.sdfgi_enabled = false
+			await seconds(0.6)
+			await shot("fireglow_nosdfgi")
+		"teams":
+			await wait_loaded()
+			Settings.palisade_count = 1
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant", "peasant", "peasant"])
+			await auto_place_all()
+			var t0: PlayerData = Game.players[0]
+			var t1: PlayerData = Game.players[1]
+			t1.team = t0.team
+			t1.color = t0.color
+			say("teams alive: %s (0 and 1 allied: %s, 0 vs 2 enemy: %s)" % [str(Game.living_teams()), str(t0.is_ally(t1)), str(t0.is_enemy(Game.players[2]))])
+			t1.marker = t1.village_center + Vector3(10, 0, 0)
+			say("marker for 0 comes from the ally: %s" % str(Game.marker_for(t0) == t1.marker))
+			var pole_count: int = 0
+			for sx in Breakable.structures:
+				if sx.kind == "flagpole":
+					pole_count += 1
+			say("flagpoles: %d (one per village = %d)" % [pole_count, Game.players.size()])
+			var fp: Structure = null
+			for sx2 in Breakable.structures:
+				if sx2.kind == "flagpole" and sx2.owner_id == 0:
+					fp = sx2
+			var rig9: CameraRig = m.get("cam_rig") as CameraRig
+			if fp != null:
+				rig9.focus_on(fp.center + Vector3(0, 4, 0), 24.0, 22.0, 0.5)
+				rig9.snap()
+				await seconds(1.5)
+				await shot("flagpole")
+			var g9: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and g9 < 60.0:
+				await tree.process_frame
+				g9 += 1.0 / 60.0
+			await seconds(1.0)
+			await shot("team_hud")
+			# the rival team loses everything: the allied pair wins together
+			for pl9 in [Game.players[2], Game.players[3]]:
+				for c9 in (pl9 as PlayerData).catapults.duplicate():
+					if is_instance_valid(c9):
+						(c9 as Catapult).destroy("debug")
+			Turn.skip_turn()
+			g9 = 0.0
+			while Game.state != Game.State.GAME_OVER and g9 < 30.0:
+				await tree.process_frame
+				g9 += 1.0 / 60.0
+			say("phase=%d cur=%d teams=%s elim=%s" % [Turn.phase, Game.current_player, str(Game.living_teams()), str(Game.players.map(func(q: PlayerData) -> bool: return q.eliminated))])
+			say("game over: %s, winner seat %d, allies both winners: %s %s" % [str(Game.state == Game.State.GAME_OVER), Game.last_winner, str(Game.is_winner(t0)), str(Game.is_winner(t1))])
+			await seconds(2.0)
+			await shot("team_win")
+		"actions":
+			await wait_loaded()
+			Settings.palisade_count = 1
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			var me2: PlayerData = Game.players[0]
+			var rig8: CameraRig = m.get("cam_rig") as CameraRig
+			var g8: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and g8 < 60.0:
+				await tree.process_frame
+				g8 += 1.0 / 60.0
+			await seconds(1.0)
+			await shot("hud_aim")
+			var hud9: Hud = m.get("hud") as Hud
+			var slot_c: Vector2 = hud9.ammo_slots[4].global_position + hud9.ammo_slots[4].size * 0.5
+			var mm_ev := InputEventMouseMotion.new()
+			mm_ev.position = slot_c
+			mm_ev.global_position = slot_c
+			Input.parse_input_event(mm_ev)
+			await seconds(0.3)
+			mm_ev = InputEventMouseMotion.new()
+			mm_ev.position = slot_c + Vector2(2, 1)
+			mm_ev.global_position = slot_c + Vector2(2, 1)
+			Input.parse_input_event(mm_ev)
+			await seconds(1.6)
+			await shot("tooltips")
+			# a house between camera and catapult must turn almost transparent, not vanish
+			var cam_occ: CameraRig = m.get("cam_rig") as CameraRig
+			var fade_n: int = 0
+			for _i in 60:
+				await tree.process_frame
+			for k_s in (m.get("_fade") as Dictionary).keys():
+				fade_n += 1
+			say("faded structures: %d" % fade_n)
+			var near_s: Structure = null
+			var nd: float = 1e9
+			for sx9 in Breakable.structures:
+				if sx9.owner_id == 0 and sx9.kind == "farmhouse" and Util.dist_xz(sx9.center, Turn.sel.global_pos()) < nd:
+					nd = Util.dist_xz(sx9.center, Turn.sel.global_pos())
+					near_s = sx9
+			var cam_r: CameraRig = m.get("cam_rig") as CameraRig
+			cam_r.focus_on(near_s.center + Vector3(0, 2, 0), 16.0, 25.0, 0.4)
+			cam_r.snap()
+			await seconds(0.8)
+			await shot("fade_off")
+			for gn in m.call("_geoms", near_s.root):
+				(gn as GeometryInstance3D).transparency = 0.88
+			await seconds(0.3)
+			await shot("fade_on")
+			for gn2 in m.call("_geoms", near_s.root):
+				(gn2 as GeometryInstance3D).transparency = 0.0
+			# stone vs. wood (material table)
+			say("stone hp/m3 %.0f break %.0f | wood hp/m3 %.0f break %.0f" % [Materials.get_def("stone").hp_per_m3, Materials.get_def("stone").break_force, Materials.get_def("wood").hp_per_m3, Materials.get_def("wood").break_force])
+			# 1) build a wall
+			var spot: Vector3 = Vector3.INF
+			var wyaw: float = Util.dir_to_yaw(Util.flat(Game.players[1].village_center - me2.village_center))
+			for ring_i in 12:
+				for a_i in 16:
+					var ang: float = TAU * float(a_i) / 16.0
+					var cand: Vector3 = me2.village_center + Vector3(cos(ang), 0, sin(ang)) * (6.0 + float(ring_i) * 1.5)
+					cand.y = Terrain.h(cand.x, cand.z)
+					if spot == Vector3.INF and Walls.footprint_valid(me2, cand, wyaw):
+						spot = cand
+			say("wall spot: %s" % str(spot))
+			Turn.set_ammo("wall")
+			await seconds(1.5)
+			await shot("hud_wall")
+			Turn.do_action({"t": "wall", "c": [spot.x, spot.y, spot.z], "y": wyaw, "stack": false})
+			await frames(5)
+			var w0: Dictionary = me2.walls[0] as Dictionary
+			var l0: Structure = (w0["layers"] as Array)[0] as Structure
+			var cren: int = 0
+			for pt in l0.parts:
+				if pt.tag == "crenel":
+					cren += 1
+			say("wall built: layers=%d parts=%d crenellations=%d size=%.1f x %.1f m (palisade fence 1.56 x 5.5) phase=%d" % [Walls.layer_count(w0), l0.parts.size(), cren, l0.aabb.size.x, l0.aabb.size.y, Turn.phase])
+			var rig_f: float = 0.0
+			cam_focus_wall(rig8, w0)
+			await seconds(1.0)
+			await shot("wall1")
+			# next own turn: stack a second layer
+			Turn.skip_aftermath()
+			g8 = 0.0
+			m.set("_fast_forward", true)
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and g8 < 120.0:
+				await tree.process_frame
+				g8 += 1.0 / 60.0
+			m.set("_fast_forward", false)
+			Turn.set_ammo("wall")
+			var wc: Vector3 = w0["center"] as Vector3
+			Turn.do_action({"t": "wall", "c": [wc.x, wc.y, wc.z], "y": float(w0["yaw"]), "stack": true})
+			await frames(5)
+			var dead_cren: int = 0
+			for pt2 in l0.parts:
+				if pt2.tag == "crenel" and pt2.state == Part.State.DEAD:
+					dead_cren += 1
+			var l1: Structure = (w0["layers"] as Array)[1] as Structure
+			var cren1: int = 0
+			for pt3 in l1.parts:
+				if pt3.tag == "crenel":
+					cren1 += 1
+			say("stacked: layers=%d, lower crenellations removed=%d, top crenellations=%d, top y=%.1f" % [Walls.layer_count(w0), dead_cren, cren1, l1.aabb.end.y - Terrain.h(wc.x, wc.z)])
+			cam_focus_wall(rig8, w0)
+			await seconds(1.0)
+			await shot("wall2")
+			# blow a hole into the bottom layer: what stands above must come down
+			Explosion.explode(wc + Vector3(0, 1.5, 0), 4.0, 900.0, {"source": {}, "no_crater": true})
+			await seconds(3.0)
+			say("after a blast: lower layer %d/%d parts, top layer %d/%d parts" % [l0.live_count, l0.initial_count, l1.live_count, l1.initial_count])
+			await shot("wall3")
+			# 2) relocate
+			Turn.skip_aftermath()
+			g8 = 0.0
+			m.set("_fast_forward", true)
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and g8 < 120.0:
+				await tree.process_frame
+				g8 += 1.0 / 60.0
+			m.set("_fast_forward", false)
+			Turn.set_ammo("relocate")
+			await seconds(1.0)
+			await shot("hud_move")
+			var cat8: Catapult = Turn.sel
+			var from8: Vector3 = cat8.global_pos()
+			for i in 40:
+				var key := InputEventKey.new()
+				key.keycode = KEY_W
+				key.pressed = true
+				Input.parse_input_event(key)
+				Input.action_press("ui_up")
+				await frames(3)
+			var kr := InputEventKey.new()
+			kr.keycode = KEY_W
+			kr.pressed = false
+			Input.parse_input_event(kr)
+			say("relocate (driven %.1f m): moved %.1f m" % [Turn.move_used, Util.dist_xz(from8, cat8.global_pos())])
+			var np: Vector3 = from8 + Util.yaw_to_dir(cat8.yaw) * 6.0
+			cat8.place_at(np, cat8.yaw + 0.5)
+			(m.get("actions") as Actions)._moved = true
+			(m.get("actions") as Actions).confirm_move()
+			await seconds(1.0)
+			say("after relocate: moved %.1f m, phase=%d (must be AFTERMATH=%d)" % [Util.dist_xz(from8, cat8.global_pos()), Turn.phase, Turn.Phase.AFTERMATH])
+			await shot("relocate")
 		"marker":
 			await wait_loaded()
 			await start_match(str(m.get("_autotest_seed")), ["human", "peasant", "peasant"])
@@ -581,6 +1164,101 @@ static func run(main: Node, name: String) -> void:
 			NetGame.host_start(NetGame.make_cfg(menu0.players_config(), menu0.count))
 			await net_play(int(uarg("turns", "6")), 400.0)
 			await seconds(1.0)
+		"lobbyhost":
+			await wait_loaded()
+			var mh: Menu = m.get("menu") as Menu
+			Net.host_game(uarg("relay", "ws://127.0.0.1:9080"), "Hosty")
+			var gl: float = 0.0
+			while not Net.active and gl < 15.0:
+				await tree.process_frame
+				gl += 1.0 / 60.0
+			var f2: FileAccess = FileAccess.open("/tmp/mm_netcode.txt", FileAccess.WRITE)
+			f2.store_string(Net.code)
+			f2.close()
+			gl = 0.0
+			while Net.roster.size() < 2 and gl < 60.0:
+				await tree.process_frame
+				gl += 1.0 / 60.0
+			await seconds(1.0)
+			mh.count = 4
+			(mh.rows[0] as Dictionary)["color"] = 3
+			(mh.rows[2] as Dictionary)["color"] = 5
+			(mh.rows[3] as Dictionary)["type"] = "king"
+			Settings.timer = 45
+			Settings.seed_text = "lobby-seed"
+			mh.call("_build")
+			say("host set: count 4, colours 3/?/5, seat 4 king, timer 45")
+			gl = 0.0
+			while int((mh.rows[1] as Dictionary)["color"]) != 6 and gl < 20.0:
+				await tree.process_frame
+				gl += 1.0 / 60.0
+			say("LOBBYHOST guest colour arrived at the host: seat 2 colour = %d (want 6), rows names %s" % [int((mh.rows[1] as Dictionary)["color"]), str([(mh.rows[0] as Dictionary)["name"], (mh.rows[1] as Dictionary)["name"]])])
+			NetGame.send_lobby(mh.lobby_state())
+			(mh.rows[1] as Dictionary)["color"] = 2
+			mh.call("_build")
+			await seconds(2.0)
+			say("host changed the guest's colour to 2; seats: %s" % str(NetGame.seat_peers()))
+			await seconds(2.0)
+		"lobbyjoin":
+			await wait_loaded()
+			var mg: Menu = m.get("menu") as Menu
+			Settings.timer = 20
+			Net.join_game(uarg("relay", "ws://127.0.0.1:9080"), uarg("code", ""), "Guesty")
+			var gj: float = 0.0
+			while not Net.active and gj < 15.0:
+				await tree.process_frame
+				gj += 1.0 / 60.0
+			gj = 0.0
+			while Settings.timer != 45 and gj < 20.0:
+				await tree.process_frame
+				gj += 1.0 / 60.0
+			say("LOBBYJOIN host state arrived: timer %d seed %s count %d colours %d/%d/%d seat4 type %s peers %s" % [Settings.timer, Settings.seed_text, mg.count, int((mg.rows[0] as Dictionary)["color"]), int((mg.rows[1] as Dictionary)["color"]), int((mg.rows[2] as Dictionary)["color"]), str((mg.rows[3] as Dictionary)["type"]), str([(mg.rows[0] as Dictionary)["peer"], (mg.rows[1] as Dictionary)["peer"]])])
+			NetGame.send_lobby_set({"color": 6})
+			gj = 0.0
+			while int((mg.rows[1] as Dictionary)["color"]) != 2 and gj < 20.0:
+				await tree.process_frame
+				gj += 1.0 / 60.0
+			say("guest colour after the host changed it: %d (want 2)" % int((mg.rows[1] as Dictionary)["color"]))
+			Net.leave()
+			await seconds(1.0)
+			say("LOBBYJOIN after leaving: timer back to %d (want 20)" % Settings.timer)
+		"overviewhold":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			var g19: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and g19 < 60.0:
+				await tree.process_frame
+				g19 += 1.0 / 60.0
+			Turn.skip_turn()
+			g19 = 0.0
+			while (Game.current_player != 1 or Turn.phase == Turn.Phase.TURN_START or Turn.phase == Turn.Phase.TURN_END) and g19 < 30.0:
+				await tree.process_frame
+				g19 += 1.0 / 60.0
+			m.call("_toggle_overview")
+			var rig19: CameraRig = m.get("cam_rig") as CameraRig
+			var frames_ov: int = 0
+			var frames_all: int = 0
+			var t19: float = 0.0
+			while t19 < 14.0:
+				await tree.process_frame
+				t19 += 1.0 / 60.0
+				frames_all += 1
+				if rig19.mode == CameraRig.Mode.OVERVIEW:
+					frames_ov += 1
+			say("OVERVIEWHOLD during the CPU turn (aim, flight, aftermath): overview kept in %d of %d frames (cur=%d phase=%d)" % [frames_ov, frames_all, Game.current_player, Turn.phase])
+		"countdown":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"], 30)
+			await auto_place_all()
+			var g20: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and g20 < 60.0:
+				await tree.process_frame
+				g20 += 1.0 / 60.0
+			Turn.time_left = 3.6
+			await seconds(0.5)
+			await shot("countdown")
+			say("timer on %s, left %.1f" % [str(Turn.timer_on), Turn.time_left])
 		"netjoin":
 			await wait_loaded()
 			Settings.timer = 0
@@ -657,7 +1335,7 @@ static func run(main: Node, name: String) -> void:
 			await auto_place_all()
 			var total: int = 0
 			var stuck_n: int = 0
-			for batch in 4:
+			for batch in 8:
 				var before: int = Projectile.stuck_logs.size()
 				var launched: int = 0
 				for k in 10:

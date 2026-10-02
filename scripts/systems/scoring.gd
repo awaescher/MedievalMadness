@@ -15,7 +15,7 @@ static var shot_any: bool = false             # anything at all happened (damage
 static var _first_elimination: int = -1
 static var shot_ammo_id: String = ""
 
-const BUILDING_POINTS: Dictionary = {"church": 250, "powderstore": 300, "tavern": 150, "windmill": 200, "outhouse": 60, "barn": 120, "blacksmith": 140, "watchtower": 180, "well": 70, "stable": 100, "granary": 110}
+const BUILDING_POINTS: Dictionary = {"church": 250, "powderstore": 300, "tavern": 150, "windmill": 200, "outhouse": 60, "barn": 120, "blacksmith": 140, "watchtower": 180, "well": 70, "stable": 100, "granary": 110, "flagpole": 30}
 
 ## Points (cosmetic): every action pays, funny or spectacular ones pay more. `quiet` = no popup (small stuff).
 ## Online only the host decides; clients get the awards as messages.
@@ -72,13 +72,20 @@ static func _pl(source: Dictionary) -> PlayerData:
 	return Game.player(int(source["player_id"]))
 
 ## Damage dealt to a structure of `owner_id` (part hp lost)
+## Own property: the shooter's own or a teammate's
+static func _own(p: PlayerData, owner_id: int) -> bool:
+	if owner_id == p.id:
+		return true
+	var o: PlayerData = Game.player(owner_id)
+	return o != null and o.team == p.team
+
 static func on_damage(source: Dictionary, owner_id: int, amount: float) -> void:
 	var p: PlayerData = _pl(source)
 	if p == null or amount <= 0.0:
 		return
 	if int(source["player_id"]) == shot_player:
 		shot_any = true
-	if owner_id == p.id:
+	if _own(p, owner_id):
 		p.stats.self_damage += amount
 		award_f(p.id, -amount * 0.02)
 		return
@@ -100,7 +107,7 @@ static func on_building_destroyed(kind: String, owner_id: int, source: Dictionar
 	var p: PlayerData = _pl(source)
 	if p == null or kind == "tree":
 		return
-	if owner_id != p.id and owner_id >= 0:
+	if not _own(p, owner_id) and owner_id >= 0:
 		p.stats.buildings_destroyed += 1
 		award(p.id, int(BUILDING_POINTS.get(kind, 100)), "b_" + kind if BUILDING_POINTS.has(kind) else "building")
 		if int(source["player_id"]) == shot_player:
@@ -119,7 +126,7 @@ static func on_settler_launched(source: Dictionary, owner_id: int) -> void:
 	if p == null:
 		return
 	shot_any = true
-	if owner_id != p.id:
+	if not _own(p, owner_id):
 		p.stats.settlers_launched += 1
 		shot_hit = true
 		award(p.id, 25, "launch", true)
@@ -138,7 +145,7 @@ static func on_settler_killed(source: Dictionary, owner_id: int) -> void:
 	if p == null:
 		return
 	shot_any = true
-	if owner_id != p.id:
+	if not _own(p, owner_id):
 		p.stats.settlers_killed += 1
 		award(p.id, 15, "kill", true)
 		shot_hit = true
@@ -147,7 +154,7 @@ static func on_catapult_destroyed(owner_id: int, source: Dictionary) -> void:
 	var p: PlayerData = _pl(source)
 	if p == null:
 		return
-	if owner_id != p.id:
+	if not _own(p, owner_id):
 		p.stats.catapults_destroyed += 1
 		shot_hit = true
 		award(p.id, 400, "cat_kill")

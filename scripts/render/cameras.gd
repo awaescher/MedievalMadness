@@ -8,6 +8,7 @@ enum Mode { OVERVIEW, AIM, FOLLOW, IMPACT, FOCUS, ORBIT, CINEMA }
 
 var cam: Camera3D
 var mode: int = Mode.OVERVIEW
+var hold_overview: bool = false      # the player looks at the whole map during somebody else's turn: game cameras must not take it away
 
 # smoothed actual state
 var _pos: Vector3 = Vector3(0, 60, 60)
@@ -75,6 +76,8 @@ func overview(f: Vector3, d: float = 80.0, p_deg: float = 50.0) -> void:
 	pitch = deg_to_rad(p_deg)
 
 func focus_on(f: Vector3, d: float = 45.0, p_deg: float = 42.0, yaw_rad: float = NAN) -> void:
+	if hold_overview and mode == Mode.OVERVIEW:
+		return
 	mode = Mode.FOCUS
 	focus = f
 	dist = d
@@ -89,6 +92,8 @@ func start_orbit(f: Vector3, d: float, p_deg: float) -> void:
 	pitch = deg_to_rad(p_deg)
 
 func aim_at(p: Vector3, yaw_rad: float, elev_rad: float) -> void:
+	if hold_overview and mode == Mode.OVERVIEW:
+		return
 	if mode != Mode.AIM:
 		mode = Mode.AIM
 		aim_off_yaw = 0.0
@@ -100,12 +105,16 @@ func aim_at(p: Vector3, yaw_rad: float, elev_rad: float) -> void:
 
 ## Scripted shot: the camera goes to `p` and looks at `t` (smoothed)
 func cinema(p: Vector3, t: Vector3, fov_deg: float = 60.0) -> void:
+	if hold_overview and mode == Mode.OVERVIEW:
+		return
 	mode = Mode.CINEMA
 	cin_pos = p
 	cin_target = t
 	cin_fov = fov_deg
 
 func follow_projectile(p: Vector3, v: Vector3) -> void:
+	if hold_overview and mode == Mode.OVERVIEW:
+		return
 	if mode != Mode.FOLLOW:
 		mode = Mode.FOLLOW
 		if v.length() > 0.5:
@@ -116,6 +125,8 @@ func follow_projectile(p: Vector3, v: Vector3) -> void:
 ## Impact camera. With `shot_dir` it is set up once: behind the shot looking along it, high enough to see the whole
 ## village around the impact; without it only the focus point moves (rolling barrels) and the angle stays put.
 func impact_cam(p: Vector3, shot_dir: Vector3 = Vector3.ZERO) -> void:
+	if hold_overview and mode == Mode.OVERVIEW:
+		return
 	var fresh: bool = shot_dir.length() > 0.01
 	mode = Mode.IMPACT
 	focus = p
@@ -161,7 +172,8 @@ func recenter(f: Vector3) -> void:
 	focus = f
 
 func shake(amount: float) -> void:
-	if not shake_enabled:
+	# only real impacts shake the camera: small bumps are ignored, the rest is gentle
+	if not shake_enabled or amount < 0.4:
 		return
 	shake_amount = maxf(shake_amount, minf(amount, 1.5))
 
@@ -252,10 +264,10 @@ func update(delta: float) -> void:
 	if shake_amount > 0.001:
 		_shake_t += dt * 45.0
 		var s: float = shake_amount
-		var off := Vector3(sin(_shake_t * 1.3) + sin(_shake_t * 2.9) * 0.5, sin(_shake_t * 1.7 + 1.0) + sin(_shake_t * 3.3) * 0.5, sin(_shake_t * 2.1 + 2.0)) * s * 0.35
+		var off := Vector3(sin(_shake_t * 1.3) + sin(_shake_t * 2.9) * 0.5, sin(_shake_t * 1.7 + 1.0) + sin(_shake_t * 3.3) * 0.5, sin(_shake_t * 2.1 + 2.0)) * s * 0.12
 		xf.origin += xf.basis * off
 		xf.basis = xf.basis * Basis.from_euler(Vector3(off.y * 0.01, off.x * 0.01, off.z * 0.02))
-		shake_amount = move_toward(shake_amount, 0.0, dt * 1.6 * (0.5 + shake_amount))
+		shake_amount = move_toward(shake_amount, 0.0, dt * 2.4 * (0.5 + shake_amount))
 	cam.global_transform = xf
 	cam.fov = _fov
 

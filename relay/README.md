@@ -28,6 +28,12 @@ Bindings -> Durable Object (variable `ROOMS`, class `Room`, a new SQLite class).
 Free plan: a room costs about 450 GB-s of Durable Object time per hour (the daily allowance is 13,000), so 14+ room-hours a
 day are free; a re-deploy drops running rooms, so deploy while nobody plays.
 
+## Option C: write your own relay
+
+The default relay is hidden in the game UI; under *Play online -> Own relay server ...* anybody can enter another address.
+**[PROTOCOL.md](PROTOCOL.md)** is the complete spec (about 2 pages), `relay/template/relay_node.mjs` is a runnable Node.js
+starting point and `relay/template/check.mjs` tests any relay against the spec.
+
 ## Versions: when does what have to be updated?
 
 | What changed | What you must do |

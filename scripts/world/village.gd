@@ -31,6 +31,7 @@ static func generate(player: PlayerData, c: Vector3, rng: Rng, world: Node) -> A
 	for i in rng.range_i(2, 3):
 		list.append("farmhouse")
 	list.append("barn")
+	list.append("flagpole")
 	for i in rng.range_i(2, 3):
 		list.append("stall")
 	# random extras (3-5) with weights; powder store max 1, water tower max 1
@@ -312,7 +313,9 @@ static func _process_extras(s: Structure, res: BuildResult, base: Transform3D, p
 				smoke_sources.append({"pos": wp, "s": s, "t": rng.range_f(0.0, 1.5)})
 			"flag":
 				var col: Color = ex.get("color", player.color) as Color
-				Flag.spawn(wp, col, s)
+				var fl: Flag = Flag.spawn(wp, col, s)
+				if ex.has("scale"):
+					fl.scale = Vector3.ONE * float(ex["scale"])
 			"prop":
 				var pk: String = str(ex["prop"])
 				var lift: float = float(ex.get("lift", 0.0))

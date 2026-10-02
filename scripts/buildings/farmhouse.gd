@@ -23,10 +23,10 @@ static func build(ctx: BuildContext, rng: Rng, _opts: Dictionary) -> BuildResult
 	Kit.house_walls(r, wall_mat, Vector2.ZERO, hx - 0.15, hz - 0.15, y0, 3.0, 0.24, 1.7, 1.5, rng, front, [], side, side, wall_col, "wall")
 	# door + windows (front wall is drawn from x=-hx to +hx along +Z)
 	Kit.door(r, Vector2(-hx + 0.15 + 1.9, hz - 0.15), y0, 1.0, 1.5, 0.0, rng)
-	Kit.window(r, Vector2(-hx + 0.15 + 0.45, hz - 0.15), y0 + 1.5, 0.9, 0.9, 0.0, rng)
-	Kit.window(r, Vector2(-hx + 0.15 + 4.05, hz - 0.15), y0 + 1.5, 0.9, 0.9, 0.0, rng)
-	Kit.window(r, Vector2(-hx + 0.15, 0.1), y0 + 1.5, 0.9, 0.9, PI * 0.5, rng)
-	Kit.window(r, Vector2(hx - 0.15, -0.1), y0 + 1.5, 0.9, 0.9, PI * 0.5, rng)
+	Kit.window(r, Vector2(-hx + 0.15 + 0.45, hz - 0.15), y0 + 1.5, 0.9, 0.9, 0.0, rng, ctx.player_color.darkened(0.15))
+	Kit.window(r, Vector2(-hx + 0.15 + 4.05, hz - 0.15), y0 + 1.5, 0.9, 0.9, 0.0, rng, ctx.player_color.darkened(0.15))
+	Kit.window(r, Vector2(-hx + 0.15, 0.1), y0 + 1.5, 0.9, 0.9, PI * 0.5, rng, ctx.player_color.darkened(0.15))
+	Kit.window(r, Vector2(hx - 0.15, -0.1), y0 + 1.5, 0.9, 0.9, PI * 0.5, rng, ctx.player_color.darkened(0.15))
 	# timber corner posts
 	for cx in [-hx + 0.15, hx - 0.15]:
 		for cz in [-hz + 0.15, hz - 0.15]:

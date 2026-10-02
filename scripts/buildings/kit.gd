@@ -206,10 +206,10 @@ static func post(r: BuildResult, mat: String, pos_base: Vector3, height: float, 
 static func door(r: BuildResult, c2: Vector2, y: float, w: float, h: float, yaw: float, rng: Rng) -> void:
 	box(r, "wood", Vector3(w, h, 0.14), Vector3(c2.x, y + h * 0.5, c2.y), rng, Color("#7a4a25"), false, "door", Vector3(0, yaw, 0))
 
-static func window(r: BuildResult, c2: Vector2, y: float, w: float, h: float, yaw: float, rng: Rng) -> void:
+static func window(r: BuildResult, c2: Vector2, y: float, w: float, h: float, yaw: float, rng: Rng, frame_color: Color = NO_COLOR) -> void:
 	box(r, "glass", Vector3(w, h, 0.07), Vector3(c2.x, y + h * 0.5, c2.y), rng, Color("#9fe0ff"), false, "window", Vector3(0, yaw, 0))
 	# window frame (thin planks)
-	box(r, "plank", Vector3(w + 0.16, 0.1, 0.12), Vector3(c2.x, y + h + 0.05, c2.y), rng, NO_COLOR, false, "frame", Vector3(0, yaw, 0))
+	box(r, "plank", Vector3(w + 0.16, 0.1, 0.12), Vector3(c2.x, y + h + 0.05, c2.y), rng, frame_color, false, "frame", Vector3(0, yaw, 0))
 
 ## Bounding radius helper for extents
 static func max_radius(r: BuildResult) -> float:

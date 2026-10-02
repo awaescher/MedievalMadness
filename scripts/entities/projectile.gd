@@ -9,6 +9,13 @@ const IMPACT_K := 14.0            # crushing factor: kinetic momentum -> effecti
 const OWN_CATAPULT_GRACE := 0.3
 const CHAIN_HALF := 1.15          # distance of each ball from the middle of the chain shot
 const CHAIN_SPIN := 26.0          # rad/s (about 4 turns per second): the balls whirl at ~30 m/s
+const LOG_TIP_COS := 0.3         # how squarely the pointed end has to arrive to count as a spear hit
+const LOG_TILT := 0.5            # random start tilt (rad) of a log that flies end over end
+const LOG_SIDE_CHANCE := 0.28    # share of logs that lie across the flight and roll: they land flat (about 70% of all logs stick)
+const BOULDER_LIN_DAMP := 0.03    # a boulder keeps rolling far (was 0.1)
+const BOULDER_ANG_DAMP := 0.06
+const BOULDER_ROLL_ASSIST := 5.0  # m/s² of extra push along the roll direction while it is slower than 14 m/s ...
+const BOULDER_ASSIST_TIME := 6.0  # ... for this many seconds after the first impact
 const LOG_HALF := 2.7             # half length of a log
 
 static var primary: Projectile = null
@@ -19,6 +26,7 @@ static var last_impact_info: Dictionary = {}
 static var last_impact_pos: Vector3 = Vector3.INF     # first impact of the current shot (kept after the projectile is gone)
 static var last_pos: Vector3 = Vector3.INF            # last known position of any projectile of the shot (pellets, chunks)
 static var impact_log: Array = []
+static var pellet_impacts: Array[Vector3] = []        # where the pieces of a flint sack / cow burst landed (the camera looks at the village they hit)
 
 var ammo: AmmoDef
 var player_id: int = -1
@@ -37,6 +45,7 @@ var launch_catapult: Catapult
 var _prev_vel: Vector3 = Vector3.ZERO
 var _pending: Dictionary = {}
 var _scattered: bool = false
+var _hit_building: bool = false         # a log that has already hit a building may still plant itself (it rolled off the roof)
 var _mask_restored: bool = false
 var _impacts: int = 0
 var _last_moo: float = -10.0
@@ -158,6 +167,7 @@ static func launch(ammo_id: String, muzzle_pos: Vector3, velocity: Vector3, owne
 			all_live.append(ex)
 	last_impact_pos = Vector3.INF
 	last_pos = Vector3.INF
+	pellet_impacts.clear()
 	Events.projectile_launch.emit(owner_player_id, ammo_id, muzzle_pos, dir * spd)
 	Scoring.on_shot(owner_player_id, ammo_id)
 	Sfx.play("whoosh", muzzle_pos, 0.9, 3)
@@ -211,19 +221,24 @@ func _create_body(pos: Vector3, vel: Vector3) -> void:
 			bounce = 0.25
 			friction = 0.5
 		"log":
-			# a tree trunk, pointed at both ends, lying across the flight direction and tumbling in a random direction
+			# a tree trunk, pointed at both ends: it starts in the plane of flight (pointing along it, pitched like the arc) and
+			# turns slowly end over end about the horizontal axis across the flight, so a tip arrives first far more often
 			var lv: Vector3 = vel.normalized()
 			var lax: Vector3 = Vector3.UP.cross(lv)
 			if lax.length() < 0.05:
 				lax = Vector3.RIGHT
 			lax = lax.normalized()
 			d.shapes.append(_log_shape())
-			d.xf = Transform3D(Basis(lv, lax, lv.cross(lax)), pos)
-			d.mass = ammo.mass
-			# tumbles in every direction, but mostly end over end (a roll about its own axis would never bring a tip forward)
-			var tum: Vector3 = rng.unit_vec3()
-			tum -= lax * tum.dot(lax) * 0.75
-			d.ang_velocity = tum.normalized() * TAU * rng.range_f(0.5, 2.0)
+			if rng.chance(LOG_SIDE_CHANCE):
+				# side-lying: across the flight direction, rolling like a rolling pin - it lands flat and only thumps
+				d.xf = Transform3D(Basis(lv, lax, lv.cross(lax)), pos)
+				d.mass = ammo.mass
+				d.ang_velocity = lv * TAU * rng.range_f(0.4, 1.0) * (1.0 if rng.chance(0.5) else -1.0)
+			else:
+				var tilt: float = rng.range_f(-LOG_TILT, LOG_TILT)
+				d.xf = Transform3D(Basis(lax, lv, lax.cross(lv)).rotated(lax, tilt), pos)
+				d.mass = ammo.mass
+				d.ang_velocity = lax * TAU * rng.range_f(0.3, 0.7) * (1.0 if rng.chance(0.5) else -1.0) + lv * rng.range_f(-0.8, 0.8)
 			bounce = 0.2
 			friction = 0.7
 		"powderkeg":
@@ -384,27 +399,12 @@ func _make_visual() -> Node3D:
 	return mi
 
 func _add_cow_body(buf: MeshGen.Buf) -> void:
-	var white: Color = Color("#f4f1e8")
-	var black: Color = Color("#2b2b33")
-	MeshGen.add_box(buf, Vector3(1.5, 0.85, 0.75), Transform3D(Basis(), Vector3.ZERO), white)
-	MeshGen.add_box(buf, Vector3(0.5, 0.05, 0.5), Transform3D(Basis(), Vector3(-0.2, 0.44, 0.1)), black)
-	MeshGen.add_box(buf, Vector3(0.4, 0.5, 0.05), Transform3D(Basis(), Vector3(0.3, 0.05, 0.39)), black)
-	MeshGen.add_box(buf, Vector3(0.3, 0.3, 0.05), Transform3D(Basis(), Vector3(-0.4, -0.1, -0.39)), black)
-	for lx in [-0.55, 0.55]:
-		for lz in [-0.25, 0.25]:
-			MeshGen.add_box(buf, Vector3(0.18, 0.55, 0.18), Transform3D(Basis(), Vector3(lx as float, -0.65, lz as float)), white)
-			MeshGen.add_box(buf, Vector3(0.2, 0.12, 0.2), Transform3D(Basis(), Vector3(lx as float, -0.95, lz as float)), black)
-	MeshGen.add_box(buf, Vector3(0.08, 0.5, 0.08), Transform3D(Basis(Vector3(0, 0, 1), 0.3), Vector3(-0.85, 0.0, 0)), white)
-	MeshGen.add_box(buf, Vector3(0.22, 0.2, 0.2), Transform3D(Basis(), Vector3(-0.85, -0.28, 0)), black)
+	# the flying cow looks along +X; the model is built looking along +Z with its feet at y=0 (body centre at y=1)
+	CowMesh.body(buf, Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(0, -1.0, 0)))
 
 func _make_cow_head_visual() -> Node3D:
 	var buf := MeshGen.Buf.new()
-	MeshGen.add_box(buf, Vector3(0.6, 0.55, 0.5), Transform3D(Basis(), Vector3.ZERO), Color("#f4f1e8"))
-	MeshGen.add_box(buf, Vector3(0.28, 0.28, 0.44), Transform3D(Basis(), Vector3(0.36, -0.1, 0)), Color("#f2b6b6"))
-	MeshGen.add_box(buf, Vector3(0.05, 0.1, 0.1), Transform3D(Basis(), Vector3(0.32, 0.12, 0.26)), Color("#2b2b33"))
-	MeshGen.add_box(buf, Vector3(0.05, 0.1, 0.1), Transform3D(Basis(), Vector3(0.32, 0.12, -0.26)), Color("#2b2b33"))
-	MeshGen.add_box(buf, Vector3(0.07, 0.22, 0.07), Transform3D(Basis(Vector3(1, 0, 0), 0.4), Vector3(-0.05, 0.36, 0.2)), Color("#e8dcb0"))
-	MeshGen.add_box(buf, Vector3(0.07, 0.22, 0.07), Transform3D(Basis(Vector3(1, 0, 0), -0.4), Vector3(-0.05, 0.36, -0.2)), Color("#e8dcb0"))
+	CowMesh.head(buf, Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3.ZERO))
 	var mi := MeshInstance3D.new()
 	mi.mesh = buf.to_mesh()
 	mi.material_override = Toon.main()
@@ -526,6 +526,7 @@ func tick(dt: float) -> void:
 func _sweep_living(pos: Vector3, vel: Vector3) -> bool:
 	var reach: float = ammo.radius + 0.55
 	var speed: float = vel.length()
+	SupplyCrate.try_hit(pos, ammo.radius, source)          # the supply crate (meteor marker) sinks between the villages
 	var hit_any: bool = false
 	for st in Settler.all:
 		if st.state == Settler.State.DEAD or st.state == Settler.State.GONE or st.state == Settler.State.RAGDOLL:
@@ -606,8 +607,8 @@ func _handle_impact(info: Dictionary) -> void:
 			var ld: float = 1.2 if ground else 0.25
 			var ad: float = 3.0 if ground else 1.0
 			if ammo.id == "boulder":
-				ld = 0.1
-				ad = 0.2
+				ld = BOULDER_LIN_DAMP
+				ad = BOULDER_ANG_DAMP
 			if ammo.id == "firebarrel" or ammo.id == "powdertrail":
 				ld = 0.04
 				ad = 0.15
@@ -628,16 +629,24 @@ func _handle_impact(info: Dictionary) -> void:
 		var lxf: Transform3D = PhysWorld.get_transform(body_id)
 		var lp: Vector3 = lxf.affine_inverse() * pos
 		var tip_dir: Vector3 = lxf.basis.y * signf(lp.y)
-		tip_hit = absf(lp.y) > LOG_HALF - 1.0 and tip_dir.dot(dir) > 0.3
+		tip_hit = absf(lp.y) > LOG_HALF - 1.0 and tip_dir.dot(dir) > LOG_TIP_COS
 		energy *= 10.0 if tip_hit else 0.25
-		if tip_hit and (terrain_hit or target == null) and speed > 9.0 and not stuck:
+		# only the first ground contact can plant it - or a later one after it has hit a building (rolling off a roof, a wall)
+		if tip_hit and (terrain_hit or target == null) and speed > 9.0 and not stuck and (_impacts <= 1 or _hit_building):
 			_log_stick(pos, tip_dir)
+		if target != null and not terrain_hit:
+			_hit_building = true
 	# direct catapult hit: impulse / 40 (spec 6.6)
 	if target is Catapult:
-		Damage.damage_catapult(target as Catapult, energy / 22.0, source, "projectile")
+		# a rock that merely rolls into a catapult only bumps it; real damage needs speed (a shot is 25+ m/s)
+		var bump: float = clampf((speed - 4.0) / 10.0, 0.0, 1.0)
+		var cat_dmg: float = energy / 22.0 * bump
+		if _impacts > 1 and speed < 14.0:
+			cat_dmg = minf(cat_dmg, 12.0)
+		Damage.damage_catapult(target as Catapult, cat_dmg, source, "projectile")
 		if not is_sub and (target as Catapult).player_id != player_id and impact_time >= 0.0 and _impacts == 1:
 			Scoring.award(player_id, 150, "direct_hit")
-		if not is_sub and target != launch_catapult:
+		if not is_sub and target != launch_catapult and bump > 0.5:
 			Events.slowmo.emit(0.22, 1.5)         # a direct hit on a catapult
 	match kind():
 		"stone":
@@ -810,6 +819,7 @@ func _spawn_pellet(pos: Vector3, vel: Vector3, mass_kg: float = 9.0, burn: float
 
 func _pellet_hit(info: Dictionary) -> void:
 	var pos: Vector3 = info["pos"] as Vector3
+	pellet_impacts.append(pos)
 	if last_impact_pos == Vector3.INF:
 		last_impact_pos = pos
 	var vel: Vector3 = info["vel"] as Vector3
@@ -891,7 +901,7 @@ func _cleanup(keep_body: bool) -> void:
 			pb.on_contact = Callable()
 			pb.owner = null
 			PhysicsServer3D.body_set_state(pb.rid, PhysicsServer3D.BODY_STATE_CAN_SLEEP, true)
-			Debris.register_shard(body_id, visual)
+			Debris.register_shard(body_id, visual, ammo.id == "log")      # a log that did not stick stays where it lies
 		if head_id != 0 and PhysWorld.bodies.has(head_id):
 			var hb: PhysWorld.PBody = PhysWorld.body(head_id)
 			hb.on_contact = Callable()
@@ -988,12 +998,18 @@ func _tick_firebarrel(dt: float, pos: Vector3, vel: Vector3) -> void:
 		if powder:
 			# the keg bursts: a last big heap
 			# the keg the camera follows bursts for good: several blobs within about a catapult's size around it
-			var blobs: int = 8 if is_extra else 16
-			var spread: float = 6.0 if is_extra else 9.2
+			# the keg bursts: only 30% of the old spread but three times the powder, and the powder visibly FLIES
+			var blobs: int = 24 if is_extra else 48
+			var spread: float = 1.8 if is_extra else 2.76
+			var spots: Array[Vector3] = []
+			var amounts: Array[float] = []
 			for k in blobs:
-				Powder.drop(pos + Vector3(rng.range_f(-spread, spread), 0, rng.range_f(-spread, spread)), source, rng.range_f(1.0, 1.8))
-			Powder.stain(pos, spread + 0.5, source)
-			Fx.burst("dust", pos, Color("#2a2a2e"), 1.0 if not is_extra else 0.6, Vector3.UP)
+				spots.append(pos + Vector3(rng.range_f(-spread, spread), 0, rng.range_f(-spread, spread)))
+				amounts.append(rng.range_f(1.0, 1.8))
+			Powder.spray(pos + Vector3.UP * 0.4, spots, amounts, source)
+			Powder.stain(pos, spread + 0.8, source)
+			Fx.burst("dust", pos + Vector3.UP * 0.3, Color("#2a2a2e"), 1.3 if not is_extra else 0.8, Vector3.UP)
+			Fx.burst("splinter", pos + Vector3.UP * 0.3, Color("#5a4f44"), 1.0 if not is_extra else 0.6, Vector3.UP)
 			Sfx.play("splat", pos, 0.7, 2)
 		else:
 			Fire.ignite_in_radius(pos, 3.5, 1.0, source)
@@ -1088,6 +1104,12 @@ func _tick_boulder(dt: float, pos: Vector3, vel: Vector3) -> void:
 	roll_age += dt
 	_fb_acc += dt
 	var sp: float = vel.length()
+	# rolling assist: a heavy boulder that has been given a push rolls on instead of dying in the first dent
+	var hv: Vector3 = Util.flat(vel)
+	if hv.length() > 1.5:
+		_roll_dir = hv.normalized()
+	if roll_age < BOULDER_ASSIST_TIME and sp < 14.0 and _roll_dir != Vector3.ZERO and PhysWorld.bodies.has(body_id):
+		PhysWorld.apply_force(body_id, _roll_dir * ammo.mass * BOULDER_ROLL_ASSIST)
 	if Terrain.current != null and pos.y - Terrain.h(pos.x, pos.z) < ammo.radius * 1.4 and sp > 3.0:
 		if _last_roll_pos != Vector3.INF:
 			Terrain.current.furrow(_last_roll_pos, pos, 1.1, 0.4)
@@ -1107,7 +1129,7 @@ func _tick_boulder(dt: float, pos: Vector3, vel: Vector3) -> void:
 			Fx.burst("dust", pos + Vector3.DOWN * ammo.radius * 0.6, Color("#8a6d4a"), 0.4, Vector3.UP)
 			Events.camera_shake.emit(0.12)
 	# a heavy ball keeps going; it is taken out after a while or when it has stopped
-	if roll_age >= 10.0 or (roll_age > 1.0 and sp < 1.2):
+	if roll_age >= 16.0 or (roll_age > BOULDER_ASSIST_TIME and sp < 1.0):
 		_finish(pos, false)
 
 # ------------------------------------------------------------------ lumpy boulder geometry

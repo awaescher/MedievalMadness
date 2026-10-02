@@ -108,7 +108,15 @@ func apply_lighting(mode: String) -> void:
 	env.glow_enabled = rich
 	env.glow_intensity = 0.55
 	env.glow_bloom = 0.05
-	env.glow_hdr_threshold = 1.05
+	env.glow_hdr_threshold = 1.2
+	# only the fine glow levels: the coarse ones (1/32, 1/64 resolution) are what showed up as big pixel blocks around flames
+	env.set_glow_level(0, 0.0)
+	env.set_glow_level(1, 0.7)
+	env.set_glow_level(2, 1.0)
+	env.set_glow_level(3, 0.5)
+	env.set_glow_level(4, 0.0)
+	env.set_glow_level(5, 0.0)
+	env.set_glow_level(6, 0.0)
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	env.ssao_enabled = rich and fp
 	env.ssao_radius = 2.2
@@ -116,20 +124,21 @@ func apply_lighting(mode: String) -> void:
 	env.ssao_power = 1.6
 	env.ssao_detail = 0.6
 	env.ssao_light_affect = 0.35
-	env.ssil_enabled = rich and fp
+	# (no SSIL: it paints blocky yellow halos around bright flames; SSAO stays)
+	env.ssil_enabled = false
 	env.ssil_intensity = 0.8
 	env.sdfgi_enabled = mode == "rt" and fp
 	env.sdfgi_cascades = 5
 	env.sdfgi_min_cell_size = 0.6
 	env.sdfgi_use_occlusion = true
-	env.sdfgi_bounce_feedback = 0.5
-	env.sdfgi_energy = 1.0
+	env.sdfgi_bounce_feedback = 0.2
+	env.sdfgi_energy = 0.85
 	env.volumetric_fog_enabled = mode == "rt" and fp
 	env.volumetric_fog_density = 0.0012
 	env.volumetric_fog_albedo = Color("#fff0cf")
 	env.volumetric_fog_anisotropy = 0.6
 	env.volumetric_fog_length = 120.0
-	env.volumetric_fog_gi_inject = 0.6
+	env.volumetric_fog_gi_inject = 0.0
 	sun.light_angular_distance = 0.6 if rich else sun.light_angular_distance
 	_rich = rich
 	_base_fog = 0.0028 * (0.5 if rich else 1.0)

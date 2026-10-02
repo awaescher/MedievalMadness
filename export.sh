@@ -4,6 +4,27 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# every build gets a new patch number (1.10.0 -> 1.10.1 ...), shown in the menu and sent when joining online
+IFS=. read -r V_MAJOR V_MINOR V_PATCH <<< "$(tr -d '[:space:]' < VERSION)"
+# CI: MM_BUILD_NUMBER (e.g. GITHUB_RUN_NUMBER) replaces the local patch counter
+if [ -n "${MM_BUILD_NUMBER:-}" ]; then V_PATCH=$((MM_BUILD_NUMBER - 1)); fi
+echo "$V_MAJOR.$V_MINOR.$((V_PATCH + 1))" > VERSION
+VER="$(cat VERSION)"
+echo "Version $VER"
+# the export presets carry the version too (macOS Finder shows it, also Windows file properties, iOS, Android)
+sed -i.bak -E \
+  -e "s/^(application\/(short_)?version=)\"[^\"]*\"/\1\"$VER\"/" \
+  -e "s/^(version\/name=)\"[^\"]*\"/\1\"$VER\"/" \
+  -e "s/^(version\/code=)[0-9]+/\1$((V_MAJOR * 10000 + V_MINOR * 100 + V_PATCH + 1))/" \
+  -e "s/^(application\/(file|product)_version=)\"[^\"]*\"/\1\"$VER.0\"/" export_presets.cfg
+rm -f export_presets.cfg.bak
+
+# the in-game relay help (copy buttons) ships the relay spec and template as text files
+mkdir -p assets/relay_help
+cp relay/PROTOCOL.md assets/relay_help/spec.txt
+cp relay/template/relay_node.mjs assets/relay_help/relay_node.txt
+cp relay/template/check.mjs assets/relay_help/check.txt
+
 GODOT="${GODOT:-godot}"
 if ! command -v "$GODOT" >/dev/null 2>&1; then
   if [ -x "/Applications/Godot.app/Contents/MacOS/Godot" ]; then

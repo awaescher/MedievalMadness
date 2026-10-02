@@ -15,6 +15,9 @@ var _cat: Catapult = null
 var _start_pos: Vector3 = Vector3.ZERO
 var _start_yaw: float = 0.0
 var _moved: bool = false
+var _hits: Dictionary = {}          # part id -> [x, y, z, damage]: what the catapult has knocked down while driving
+var _bump_cool: float = 0.0
+const RAM_DAMAGE := 450.0           # damage per second to a building part the frame drives into
 # wall
 var _ghost: Node3D
 var _mat_ok: StandardMaterial3D
@@ -75,6 +78,7 @@ func _revert() -> void:
 			Turn.aim_yaw = _start_yaw
 	_moved = false
 	_cat = null
+	_hits.clear()
 	Turn.move_used = 0.0
 
 func _process(delta: float) -> void:
@@ -88,6 +92,7 @@ func _process(delta: float) -> void:
 			_start_pos = _cat.global_pos()
 			_start_yaw = _cat.yaw
 			_moved = false
+			_hits.clear()
 			Turn.move_used = 0.0
 		elif mode == "wall":
 			_wall_yaw = Turn.aim_yaw
@@ -119,15 +124,12 @@ func _drive(delta: float) -> void:
 	var pos: Vector3 = _cat.global_pos()
 	var step: float = fwd * 5.0 * delta
 	if absf(step) > 0.0:
-		if Turn.move_used + absf(step) > Turn.MOVE_MAX:
-			step = 0.0
+		var np: Vector3 = pos + Util.yaw_to_dir(yaw) * step
+		if _spot_ok(np, yaw, delta):
+			pos = np
+			Turn.move_used += absf(step)
 		else:
-			var np: Vector3 = pos + Util.yaw_to_dir(yaw) * step
-			if _spot_ok(np, yaw):
-				pos = np
-				Turn.move_used += absf(step)
-			else:
-				step = 0.0
+			step = 0.0
 	if turn != 0.0 or step != 0.0:
 		_cat.place_at(pos, yaw)
 		_moved = true
@@ -135,8 +137,9 @@ func _drive(delta: float) -> void:
 		if cam != null:
 			cam.aim_at(_cat.global_pos(), yaw, deg_to_rad(Turn.aim_elev))
 
-## Own area, dry, not steep, no other catapult within 4 m, nothing solid under the frame
-func _spot_ok(pos: Vector3, yaw: float) -> bool:
+## Own area, dry, not steep, no other catapult within 4 m. People, animals, crates and debris never stop the frame (props are
+## shoved aside); buildings do not stop it either - it rams them: they take damage and only what survives blocks the way.
+func _spot_ok(pos: Vector3, yaw: float, dt: float) -> bool:
 	var p: PlayerData = Game.cur()
 	if Util.dist_xz(pos, p.village_center) > Cfg.ZONE_RADIUS + 3.0:
 		return false
@@ -147,20 +150,85 @@ func _spot_ok(pos: Vector3, yaw: float) -> bool:
 			if is_instance_valid(c) and c != _cat and not (c as Catapult).destroyed and Util.dist_xz((c as Catapult).global_pos(), pos) < 3.6:
 				return false
 	var blocked: bool = false
+	var seen: Dictionary = {}
 	var f: Vector3 = Util.yaw_to_dir(yaw)
+	var source: Dictionary = Damage.make_source(p.id, "catapult")
+	var rammed: Vector3 = Vector3.INF
 	for off in [-0.9, 0.9]:
 		var q: Vector3 = pos + f * float(off)
 		PhysWorld.overlap_sphere(Vector3(q.x, Terrain.h(q.x, q.z) + 1.1, q.z), 1.0, func(pb: PhysWorld.PBody, _s: int, _r: RID) -> void:
-			if pb != null and pb.kind != "projectile" and pb.owner != _cat:
-				blocked = true, Cfg.LAYER_STRUCT | Cfg.LAYER_PART | Cfg.LAYER_PROP | Cfg.LAYER_CATAPULT)
+			if pb == null or pb.owner == _cat or pb.kind == "projectile" or seen.has(pb.id):
+				return
+			seen[pb.id] = true
+			if pb.kind == "catapult":
+				blocked = true
+			elif pb.kind == "struct":
+				# a still dormant building: wake it up, its parts take the hit from the next step on
+				Breakable.awaken(pb.owner as Structure)
+				blocked = true
+			elif pb.kind == "part" and pb.owner is Part:
+				var part: Part = pb.owner as Part
+				if part.structure.free_parts or part.state == Part.State.FREE:
+					PhysWorld.apply_impulse(pb.id, (f * 1.0 + Vector3.UP * 0.3) * maxf(pb.mass, 1.0) * 3.0)
+				elif part.state == Part.State.FROZEN:
+					var amount: float = RAM_DAMAGE * dt
+					Damage.damage_part(part, amount, source, f)
+					var rec: Array = _hits.get(part.id, [part.xf.origin.x, part.xf.origin.y, part.xf.origin.z, 0.0]) as Array
+					rec[3] = float(rec[3]) + amount
+					_hits[part.id] = rec
+					rammed = part.xf.origin
+					if part.state != Part.State.DEAD:
+						blocked = true, Cfg.LAYER_STRUCT | Cfg.LAYER_PART | Cfg.LAYER_PROP | Cfg.LAYER_CATAPULT)
+	if rammed != Vector3.INF:
+		_react(rammed)
 	return not blocked
+
+## Crash, shake and the neighbours' opinion about the driving
+func _react(at: Vector3) -> void:
+	var now: float = float(Time.get_ticks_msec()) / 1000.0
+	if now < _bump_cool:
+		return
+	_bump_cool = now + 2.2
+	Events.camera_shake.emit(0.25)
+	Sfx.play("crunch", at, 0.9, 3)
+	Fx.comic_kind("crash", at + Vector3.UP * 2.0)
+	var near: Array[Settler] = []
+	for st in Settler.all:
+		if is_instance_valid(st) and st.state != Settler.State.DEAD and st.state != Settler.State.GONE and st.global_position.distance_to(at) < 18.0:
+			near.append(st)
+	near.sort_custom(func(x: Settler, y: Settler) -> bool: return x.global_position.distance_to(at) < y.global_position.distance_to(at))
+	for k in mini(2, near.size()):
+		Speech.say_random("speech.bump", near[k], near[k], _rng, 2.4)
+
+## Damage the other machines have to repeat (online): [[x, y, z, damage], ...]; applied to the part nearest to the point
+static func apply_hits(p: PlayerData, hits: Array) -> void:
+	var source: Dictionary = Damage.make_source(p.id, "catapult")
+	for h in hits:
+		var a: Array = h as Array
+		var at := Vector3(float(a[0]), float(a[1]), float(a[2]))
+		var best: Part = null
+		var bd: float = 0.7
+		for s in Breakable.structures:
+			if s.free_parts or s.destroyed or not s.aabb.grow(0.8).has_point(at):
+				continue
+			for part in s.parts:
+				if part.state == Part.State.DEAD:
+					continue
+				var d: float = part.xf.origin.distance_to(at)
+				if d < bd:
+					bd = d
+					best = part
+		if best != null:
+			Damage.damage_part(best, float(a[3]), source, Vector3.ZERO)
 
 func confirm_move() -> void:
 	if _cat == null or not _moved:
 		Events.toast.emit(I18n.t("action.move_first"))
 		return
 	var o: Vector3 = _cat.global_pos()
-	var d: Dictionary = {"t": "move", "cat": _cat.index, "p": [o.x, o.y, o.z], "y": _cat.yaw}
+	var d: Dictionary = {"t": "move", "cat": _cat.index, "p": [o.x, o.y, o.z], "y": _cat.yaw, "hits": _hits.values()}
+	Turn.drove_local = true  # the damage is already done on this machine
+	_hits.clear()
 	_moved = false           # keep it where it is
 	_cat = null
 	Turn.move_used = 0.0

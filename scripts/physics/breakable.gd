@@ -455,6 +455,26 @@ static func revive_part(p: Part) -> void:
 			q.links.append(p)
 	_make_part_body(p, "static")
 
+## A fallen piece of a building that lies around is carried back and fixed in its old place (settlers rebuilding)
+static func reattach_part(p: Part) -> void:
+	if p.state != Part.State.FREE or p.structure == null or not PhysWorld.bodies.has(p.body_id):
+		return
+	var s: Structure = p.structure
+	PhysWorld.set_transform(p.body_id, p.xf0)
+	PhysWorld.set_velocity(p.body_id, Vector3.ZERO, Vector3.ZERO)
+	PhysWorld.set_mode(p.body_id, "static")
+	p.xf = p.xf0
+	p.hp = p.max_hp
+	p.burning = 0.0
+	p.on_fire = false
+	p.state = Part.State.FROZEN
+	Fire.mobile.erase(p)
+	var bb: AABB = p.world_aabb().grow(0.05)
+	for q in s.parts:
+		if q != p and (q.state == Part.State.FROZEN or q.state == Part.State.DORMANT) and bb.intersects(q.world_aabb().grow(0.05)) and not p.links.has(q):
+			p.links.append(q)
+			q.links.append(p)
+
 static func break_part(p: Part, source: Dictionary = {}, dir: Vector3 = Vector3.ZERO, silent: bool = false) -> void:
 	if p.state == Part.State.DEAD:
 		return
@@ -472,6 +492,8 @@ static func break_part(p: Part, source: Dictionary = {}, dir: Vector3 = Vector3.
 	var vel: Vector3 = Vector3.ZERO
 	if was_state == Part.State.FREE:
 		vel = PhysWorld.get_velocity(p.body_id)
+	if p.prop_kind == "cart":
+		Props.free_joints(s)         # while both bodies still exist (a hinge to a removed body crashes Jolt)
 	if PhysWorld.bodies.has(p.body_id):
 		PhysWorld.remove_body(p.body_id)
 	p.mesh = null
@@ -489,6 +511,8 @@ static func break_part(p: Part, source: Dictionary = {}, dir: Vector3 = Vector3.
 		s.behavior.call("on_part_break", s, p)
 	if not s.destroyed and not s.free_parts and s.destroyed_fraction() > 0.70:
 		s.destroyed = true
+		if s.kind == "tree":
+			Unlocks.on_tree_destroyed(s)
 		Events.building_destroyed.emit(s.kind, s.owner_id, source)
 		Fx.comic_kind("crash", s.center + Vector3.UP * (s.height * 0.5))
 		if s.behavior != null:

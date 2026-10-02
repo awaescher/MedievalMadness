@@ -12,6 +12,7 @@ class Item extends RefCounted:
 	var fading: float = -1.0        # fade progress start time, < 0 = not fading
 	var visual: Node3D = null
 	var base_scale: Vector3 = Vector3.ONE
+	var persistent: bool = false     # stays for the whole match (a pointy log that did not stick)
 
 static var items: Array[Item] = []
 static var _time: float = 0.0
@@ -22,11 +23,12 @@ static func reset() -> void:
 	items.clear()
 	_time = 0.0
 
-static func register_shard(body_id: int, visual: Node3D) -> void:
+static func register_shard(body_id: int, visual: Node3D, persistent: bool = false) -> void:
 	var it := Item.new()
 	it.body_id = body_id
 	it.born = _time
 	it.visual = visual
+	it.persistent = persistent
 	items.append(it)
 
 static func register_part(p: Part) -> void:
@@ -59,8 +61,8 @@ static func tick(dt: float) -> void:
 	var i: int = items.size() - 1
 	while i >= 0:
 		var it: Item = items[i]
-		if it.part != null and it.part.state == Part.State.DEAD:
-			items.remove_at(i)      # broke normally, already cleaned up
+		if it.part != null and (it.part.state == Part.State.DEAD or it.part.state == Part.State.FROZEN):
+			items.remove_at(i)      # broke normally (cleaned up) or was carried back and fixed again by settlers
 		elif it.part == null and not PhysWorld.bodies.has(it.body_id):
 			items.remove_at(i)
 		elif it.fading >= 0.0:
@@ -85,7 +87,9 @@ static func tick(dt: float) -> void:
 			if it2.asleep_since < 0.0:
 				it2.asleep_since = _time
 			# pure shards expire; released building parts stay unless over the cap
-			if it2.part == null and _time - it2.asleep_since > life:
+			if it2.persistent:
+				pass
+			elif it2.part == null and _time - it2.asleep_since > life:
 				_begin_fade(it2)
 			else:
 				sleepers.append(it2)
@@ -97,7 +101,7 @@ static func tick(dt: float) -> void:
 		for it3 in sleepers:
 			if over <= 0:
 				break
-			if it3.fading < 0.0:
+			if it3.fading < 0.0 and not it3.persistent:
 				_begin_fade(it3)
 				over -= 1
 		if over > 0:
@@ -105,6 +109,6 @@ static func tick(dt: float) -> void:
 			for it4 in items:
 				if over <= 0:
 					break
-				if it4.fading < 0.0 and it4.part == null:
+				if it4.fading < 0.0 and it4.part == null and not it4.persistent:
 					_begin_fade(it4)
 					over -= 1

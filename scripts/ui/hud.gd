@@ -15,6 +15,7 @@ class TimerRing extends Control:
 	var frac: float = 1.0
 	var seconds: int = 0
 	var visible_ring: bool = true
+	var urgent: bool = false          # the last 5 seconds: the ring flashes red
 	var col: Color = Color("#2ecc71")
 	func _init() -> void:
 		custom_minimum_size = Vector2(54, 54)
@@ -24,8 +25,9 @@ class TimerRing extends Control:
 			return
 		var c := size * 0.5
 		var r: float = minf(size.x, size.y) * 0.5 - 4.0
-		draw_circle(c, r + 3.0, Color(0.15, 0.1, 0.06))
-		draw_circle(c, r, Color("#fff6da"))
+		var flash: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.018) if urgent else 0.0
+		draw_circle(c, r + 3.0 + flash * 2.0, Color("#e74c3c") if urgent else Color(0.15, 0.1, 0.06))
+		draw_circle(c, r, Color("#fff6da").lerp(Color("#ff8a7a"), flash))
 		var a: Color = col if frac > 0.33 else Color("#e74c3c")
 		draw_arc(c, r - 3.0, -PI * 0.5, -PI * 0.5 + TAU * frac, 32, a, 6.0, true)
 		var f: Font = UITheme.font_bold()
@@ -68,7 +70,7 @@ class AmmoSlot extends Control:
 	var enabled: bool = true
 	signal clicked
 	func _init() -> void:
-		custom_minimum_size = Vector2(56, 72)
+		custom_minimum_size = Vector2(52, 52)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 	func _gui_input(ev: InputEvent) -> void:
 		if ev is InputEventMouseButton:
@@ -83,7 +85,36 @@ class AmmoSlot extends Control:
 		elif what == NOTIFICATION_MOUSE_EXIT:
 			hovered = false
 			queue_redraw()
-	const ICON_SCALE := 0.78
+	## Compact tooltip: name, one line what it is, then short advantages (+) and drawbacks (-)
+	func _make_custom_tooltip(for_text: String) -> Object:
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 2)
+		var ink := Color("#3b2a1a")
+		v.add_child(_tip_line(I18n.t("ammo." + for_text), 15, ink, true))
+		var what: String = I18n.t("ammo_tip." + for_text + ".what")
+		if what != "ammo_tip." + for_text + ".what":
+			v.add_child(_tip_line(what, 12, Color("#6b4a2a"), false))
+		for pro in I18n.tr_list("ammo_tip." + for_text + ".pro"):
+			v.add_child(_tip_line("+ " + str(pro), 12, Color("#2e7d32"), true))
+		for con in I18n.tr_list("ammo_tip." + for_text + ".con"):
+			v.add_child(_tip_line("- " + str(con), 12, Color("#b03a2e"), true))
+		# locked: how to earn it in THIS match (depends on the game mode's rules)
+		if count == 0 and ammo != null and not ammo.is_action() and ammo.earnable:
+			v.add_child(_tip_line("🔒 " + I18n.t("hud.unlock_how"), 12, Color("#8a5a00"), true))
+			for ln in Unlocks.how(for_text):
+				v.add_child(_tip_line("• " + ln, 12, Color("#8a5a00"), false))
+		return v
+	func _tip_line(text: String, size_px: int, col: Color, bold: bool) -> Label:
+		var l := Label.new()
+		l.text = text
+		l.add_theme_font_size_override("font_size", size_px)
+		l.add_theme_color_override("font_color", col)
+		if bold:
+			l.add_theme_font_override("font", UITheme.font_bold())
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size = Vector2(230, 0)
+		return l
+	const ICON_SCALE := 0.6
 	func _draw() -> void:
 		if ammo == null:
 			return
@@ -103,24 +134,22 @@ class AmmoSlot extends Control:
 		sb.shadow_offset = Vector2(0, 2)
 		var off: float = -5.0 if selected else (-2.0 if hovered else 0.0)
 		draw_style_box(sb, Rect2(Vector2(0, off), size))
-		var c := Vector2(size.x * 0.5, 28.0 + off)
+		var c := Vector2(size.x * 0.5 + 1.0, 21.0 + off) if not action else Vector2(size.x * 0.5 + 1.0, 25.0 + off)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(ICON_SCALE, ICON_SCALE))
 		_draw_icon(c / ICON_SCALE, enabled)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		var f: Font = UITheme.font_bold()
-		var w0: float = f.get_string_size(ammo.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-		draw_string(f, Vector2(size.x * 0.5 - w0 * 0.5, 52.0 + off), ammo.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#3b2a1a"))
 		if not action:
 			var cnt: String = "∞" if count < 0 else "x" + str(count)
-			var w: float = f.get_string_size(cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-			draw_string(f, Vector2(size.x * 0.5 - w * 0.5, 67.0 + off), cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#3b2a1a"))
+			var w: float = f.get_string_size(cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+			draw_string(f, Vector2(size.x * 0.5 - w * 0.5, 47.0 + off), cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3b2a1a"))
 		var key: String = ammo.key_label()
-		draw_circle(Vector2(10, 10 + off), 8.0, Color("#3b2a1a"))
+		draw_circle(Vector2(9, 9 + off), 7.0, Color("#3b2a1a"))
 		var kw: float = f.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-		draw_string(f, Vector2(10 - kw * 0.5, 14.5 + off), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#f4e4bc"))
+		draw_string(f, Vector2(9 - kw * 0.5, 13.0 + off), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#f4e4bc"))
 		if count == 0 and not action:
 			# locked: a padlock until the weapon has been earned
-			var lc := Vector2(size.x - 13.0, 13.0 + off)
+			var lc := Vector2(size.x - 11.0, 11.0 + off)
 			draw_arc(lc + Vector2(0, -1), 5.0, PI, TAU, 10, Color("#3b2a1a"), 2.5, true)
 			draw_rect(Rect2(lc + Vector2(-6.5, 0), Vector2(13, 10)), Color("#3b2a1a"))
 			draw_circle(lc + Vector2(0, 5), 1.7, Color("#f4e4bc"))
@@ -262,22 +291,34 @@ class AmmoSlot extends Control:
 					_ball(c + (pe as Vector2), 3.6, Color("#8d8d98"))
 				draw_line(c + Vector2(4, -10), c + Vector2(0, -6), _k(Color("#6a5a48")), 1.4)
 			"cow":
-				# side view: white body with black patches, head with horns, four legs, tail
-				for lx in [-12, -6, 8, 14]:
-					draw_rect(Rect2(c + Vector2(float(lx) - 2.6, 8), Vector2(5.2, 12)), dark)
-					draw_rect(Rect2(c + Vector2(float(lx) - 1.6, 8), Vector2(3.2, 11)), _k(Color("#f4f1e8")))
-					draw_rect(Rect2(c + Vector2(float(lx) - 1.8, 17), Vector2(3.6, 3.5)), _k(Color("#2b2b33")))
-				draw_line(c + Vector2(-21, -4), c + Vector2(-26, 8), dark, 3.0)
-				draw_line(c + Vector2(-21, -4), c + Vector2(-26, 8), _k(Color("#f4f1e8")), 1.4)
-				_ellipse(c + Vector2(-26, 9), 2.4, 3.2, _k(Color("#2b2b33")))
-				_poly(PackedVector2Array([c + Vector2(-21, -11), c + Vector2(14, -11), c + Vector2(19, -4), c + Vector2(17, 9), c + Vector2(-19, 9), c + Vector2(-23, 0)]), Color("#f4f1e8"), dark, 2.4)
-				draw_colored_polygon(PackedVector2Array([c + Vector2(-13, -10), c + Vector2(-2, -10), c + Vector2(-4, -1), c + Vector2(-12, 0)]), _k(Color("#2b2b33")))
-				draw_colored_polygon(PackedVector2Array([c + Vector2(6, -2), c + Vector2(14, -2), c + Vector2(13, 6), c + Vector2(7, 7)]), _k(Color("#2b2b33")))
-				_poly(PackedVector2Array([c + Vector2(15, -12), c + Vector2(25, -14), c + Vector2(29, -6), c + Vector2(27, 0), c + Vector2(17, 0)]), Color("#f4f1e8"), dark, 2.0)
-				draw_colored_polygon(PackedVector2Array([c + Vector2(23, -5), c + Vector2(29, -6), c + Vector2(27, 0), c + Vector2(22, 0)]), _k(Color("#f2b6b6")))
-				draw_line(c + Vector2(17, -12), c + Vector2(15, -18), _k(Color("#e8dcb0")), 2.4)
-				draw_line(c + Vector2(23, -14), c + Vector2(25, -19), _k(Color("#e8dcb0")), 2.4)
-				draw_circle(c + Vector2(20, -8), 1.5, dark)
+				# the cow's head, front view: curved horns, leaf ears with pink insides, a dark patch around one eye,
+				# a big pink muzzle with nostrils and a straight mouth
+				var cw := Color("#f4f1e8")
+				var cp := Color("#f2b6b6")
+				var ck := Color("#2b2b33")
+				for sx in [-1.0, 1.0]:
+					var sgn: float = sx as float
+					var horn := PackedVector2Array([c + Vector2(10.0 * sgn, -16), c + Vector2(17.0 * sgn, -21), c + Vector2(23.0 * sgn, -23), c + Vector2(27.0 * sgn, -29)])
+					draw_polyline(horn, dark, 7.5, true)
+					draw_polyline(horn, _k(Color("#efe3bd")), 4.2, true)
+					var ear: Vector2 = c + Vector2(23.0 * sgn, -7)
+					_ellipse(ear, 12.0, 6.8, dark, 0.5 * sgn)
+					_ellipse(ear, 10.0, 5.0, _k(ck if sgn < 0.0 else cw), 0.5 * sgn)
+					_ellipse(ear + Vector2(-1.0 * sgn, 0.6), 5.8, 2.5, _k(cp), 0.5 * sgn)
+				_ellipse(c + Vector2(0, -3), 17.8, 22.0, dark)
+				_ellipse(c + Vector2(0, -3), 16.0, 20.2, _k(cw))
+				_ellipse(c + Vector2(8, -9), 7.6, 8.8, _k(ck))
+				_ellipse(c + Vector2(-9, -15), 4.5, 3.0, _k(ck), -0.4)
+				_ellipse(c + Vector2(0, -20), 7.5, 3.4, _k(Color("#e4dfcf")))
+				for ex in [-8.0, 8.0]:
+					draw_circle(c + Vector2(ex as float, -8), 3.8, dark)
+					draw_circle(c + Vector2((ex as float) - 1.0, -9.3), 1.2, Color(1, 1, 1, 0.92))
+				_ellipse(c + Vector2(0, 13), 14.2, 10.6, dark)
+				_ellipse(c + Vector2(0, 13), 12.6, 9.1, _k(cp))
+				_ellipse(c + Vector2(-4.5, 8.5), 4.5, 2.0, _k(Color("#f9d6d6")))
+				for nx in [-5.0, 5.0]:
+					_ellipse(c + Vector2(nx as float, 11), 2.4, 3.2, dark)
+				draw_line(c + Vector2(-7, 18.6), c + Vector2(7, 18.6), dark, 2.0, true)
 			"powdertrail":
 				# a row of three small kegs and the black trail they leave
 				for kx in [-17, 0, 17]:
@@ -286,6 +327,30 @@ class AmmoSlot extends Control:
 				for dx in [-22, -12, -1, 9, 19]:
 					draw_circle(c + Vector2(float(dx), 14 + (dx % 3)), 2.3, _k(Color("#3a3a42")))
 				_spark(c + Vector2(26, 9), 5.0, Color("#ffcf3a"))
+			"relocate":
+				# catapult on wheels with drive arrows
+				draw_rect(Rect2(c + Vector2(-17, 2), Vector2(34, 7)), dark)
+				draw_rect(Rect2(c + Vector2(-15.5, 3.5), Vector2(31, 4)), _k(Color("#b5763a")))
+				draw_line(c + Vector2(-3, 3), c + Vector2(11, -20), dark, 5.0)
+				draw_line(c + Vector2(-3, 3), c + Vector2(11, -20), _k(Color("#c58a4a")), 2.6)
+				_ellipse(c + Vector2(13, -22), 5.5, 3.0, _k(Color("#8a5a2a")))
+				for wx in [-11, 11]:
+					draw_circle(c + Vector2(float(wx), 11), 7.5, dark)
+					draw_circle(c + Vector2(float(wx), 11), 5.5, _k(Color("#8a5a2a")))
+					draw_circle(c + Vector2(float(wx), 11), 1.8, _k(Color("#7f8c9a")))
+				_poly(PackedVector2Array([c + Vector2(-26, 24), c + Vector2(-17, 19), c + Vector2(-17, 29)]), Color("#6a6a76"))
+				_poly(PackedVector2Array([c + Vector2(26, 24), c + Vector2(17, 19), c + Vector2(17, 29)]), Color("#6a6a76"))
+			"wall":
+				# stone wall with crenellations
+				for mx in [-20, -4, 12]:
+					_poly(PackedVector2Array([c + Vector2(float(mx), -4), c + Vector2(float(mx), -15), c + Vector2(float(mx) + 9, -15), c + Vector2(float(mx) + 9, -4)]), Color("#8a9096"), dark, 2.0)
+				_poly(PackedVector2Array([c + Vector2(-23, -4), c + Vector2(23, -4), c + Vector2(23, 23), c + Vector2(-23, 23)]), Color("#9aa0a6"), dark, 2.5)
+				for ry in [4, 13]:
+					draw_line(c + Vector2(-23, float(ry)), c + Vector2(23, float(ry)), _k(Color("#6e747a")), 1.5)
+				for bx in [-8, 8]:
+					draw_line(c + Vector2(float(bx), -4), c + Vector2(float(bx), 4), _k(Color("#6e747a")), 1.5)
+					draw_line(c + Vector2(float(bx) + 8, 4), c + Vector2(float(bx) + 8, 13), _k(Color("#6e747a")), 1.5)
+					draw_line(c + Vector2(float(bx), 13), c + Vector2(float(bx), 23), _k(Color("#6e747a")), 1.5)
 			"meteor":
 				# green marker orb with a thin beam into the sky, a pulsing ring and a burning meteor on its way
 				draw_rect(Rect2(c + Vector2(-3.5, -27), Vector2(7, 36)), _k(Color(0.45, 1.0, 0.7, 0.22)))
@@ -302,10 +367,24 @@ class AmmoSlot extends Control:
 
 ## One compact line of "what can I do now": [key cap] label  [key cap] label ... on a parchment strip
 class KeyHints extends Control:
-	var items: Array = []          # [[key, label], ...]; key "" = plain note
+	signal chip_pressed(id: String)
+	var items: Array = []          # [[key, label, optional click id], ...]; key "" = plain note
 	var _sig: String = ""
+	var _hits: Array = []          # [[Rect2, id]] of the clickable chips (only those catch the mouse)
 	func _init() -> void:
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mouse_filter = Control.MOUSE_FILTER_STOP
+	func _has_point(point: Vector2) -> bool:
+		for h in _hits:
+			if ((h as Array)[0] as Rect2).has_point(point):
+				return true
+		return false
+	func _gui_input(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			for h in _hits:
+				if ((h as Array)[0] as Rect2).has_point((ev as InputEventMouseButton).position):
+					chip_pressed.emit(str((h as Array)[1]))
+					accept_event()
+					return
 		custom_minimum_size = Vector2(0, 34)
 	func set_items(list: Array) -> void:
 		var sig: String = str(list)
@@ -336,6 +415,7 @@ class KeyHints extends Control:
 		draw_style_box(strip, Rect2(Vector2(x0, 2), Vector2(total, size.y - 6)))
 		var x: float = x0 + 12.0
 		var cy: float = 2.0 + (size.y - 6.0) * 0.5
+		_hits.clear()
 		for i in items.size():
 			var key2: String = str((items[i] as Array)[0])
 			var lab2: String = str((items[i] as Array)[1])
@@ -349,7 +429,10 @@ class KeyHints extends Control:
 				draw_string(f, Vector2(x + (kw2 - tw) * 0.5, cy + 4.5), key2, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#f4e4bc"))
 				x += kw2 + 6.0
 			draw_string(f, Vector2(x, cy + 5.0), lab2, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#3b2a1a"))
-			x += f.get_string_size(lab2, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 16.0
+			var lw: float = f.get_string_size(lab2, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			if (items[i] as Array).size() > 2:
+				_hits.append([Rect2(Vector2(x - (maxf(f.get_string_size(key2, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 14.0, 22.0) + 6.0 if key2 != "" else 0.0) - 3.0, cy - 13.0), Vector2(lw + 12.0 + (maxf(f.get_string_size(key2, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 14.0, 22.0) + 6.0 if key2 != "" else 0.0), 26.0)), str((items[i] as Array)[2])])
+			x += lw + 16.0
 
 ## Clickable catapult selector (also reachable with Tab / Shift+Tab)
 class CatSelect extends Control:
@@ -359,11 +442,14 @@ class CatSelect extends Control:
 	func _init() -> void:
 		custom_minimum_size = Vector2(260, 46)
 		mouse_filter = Control.MOUSE_FILTER_STOP
+	## right-aligned with the buttons below
+	func _x0() -> float:
+		return size.x - float(cats.size()) * 50.0 + 2.0
 	func _gui_input(ev: InputEvent) -> void:
 		if ev is InputEventMouseButton:
 			var mb: InputEventMouseButton = ev
 			if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-				var i: int = int((mb.position.x - 4.0) / 50.0)
+				var i: int = int(floor((mb.position.x - _x0()) / 50.0))
 				if i >= 0 and i < cats.size() and is_instance_valid(cats[i]) and not (cats[i] as Catapult).destroyed:
 					picked.emit(cats[i] as Catapult)
 					accept_event()
@@ -373,7 +459,7 @@ class CatSelect extends Control:
 			var valid: bool = is_instance_valid(cats[i])
 			var c: Catapult = (cats[i] as Catapult) if valid else null
 			var alive: bool = valid and not c.destroyed
-			var x: float = 4.0 + float(i) * 50.0
+			var x: float = _x0() + float(i) * 50.0
 			var r := Rect2(x, 2, 44, 38)
 			var chosen: bool = alive and c == sel
 			var sb := StyleBoxFlat.new()
@@ -424,7 +510,7 @@ var banner_panel: PanelContainer
 var feed_box: VBoxContainer
 var toast_label: Label
 var btn_overview: Button
-var btn_skip: Button
+var btn_skip: KeyButton
 var btn_sound: Button
 var skip_bar: ProgressBar
 var _banner_tween: Tween
@@ -434,9 +520,11 @@ var _toast_t: float = 0.0
 var _dirty_players: bool = true
 var _players_sig: String = ""
 var hint_label: Label
+var countdown: Label
+var _last_tick: int = -1
 var hints: KeyHints
 var _distance_label: Label
-var btn_fast: Button
+var btn_fast: KeyButton
 var cat_select: CatSelect
 var overview_on: bool = false
 var fast_on: bool = false
@@ -521,7 +609,7 @@ func _build() -> void:
 	ab.anchor_right = 0.5
 	ab.anchor_top = 1.0
 	ab.anchor_bottom = 1.0
-	ab.offset_top = -132
+	ab.offset_top = -76
 	ab.offset_bottom = -10
 	ab.offset_left = -330
 	ab.offset_right = 330
@@ -537,7 +625,7 @@ func _build() -> void:
 		slot.ammo = a
 		var aid: String = a.id
 		slot.clicked.connect(func() -> void: ammo_clicked.emit(aid))
-		slot.tooltip_text = I18n.t("ammo." + a.id) + "\n" + I18n.t("ammo_desc." + a.id)
+		slot.tooltip_text = a.id          # the real text is built in AmmoSlot._make_custom_tooltip
 		ammo_box.add_child(slot)
 		ammo_slots.append(slot)
 	# ---- bottom left: aim info
@@ -575,7 +663,7 @@ func _build() -> void:
 	br.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	br.add_theme_constant_override("separation", 6)
 	add_child(br)
-	btn_fast = UITheme.button("", "ParchButton", Vector2(0, 32), 14)
+	btn_fast = KeyButton.new()
 	btn_fast.pressed.connect(func() -> void: fast_pressed.emit())
 	br.add_child(btn_fast)
 	cat_select = CatSelect.new()
@@ -594,8 +682,8 @@ func _build() -> void:
 	add_child(cat_select)
 	btn_overview = UITheme.button("", "ParchButton", Vector2(0, 32), 14)
 	btn_overview.pressed.connect(func() -> void: overview_pressed.emit())
-	br.add_child(btn_overview)
-	btn_skip = UITheme.button("", "ParchButton", Vector2(0, 32), 14)
+	# (the overview lives as a clickable chip in the hint strip; this button only keeps the text helper alive)
+	btn_skip = KeyButton.new()
 	btn_skip.button_down.connect(func() -> void: _skip_hold = 0.001)
 	btn_skip.button_up.connect(func() -> void: _skip_hold = 0.0)
 	br.add_child(btn_skip)
@@ -664,6 +752,21 @@ func _build() -> void:
 	hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(hint_label)
 	hint_label.visible = false
+	# the last 5 seconds of a turn: a big red number in the middle of the screen
+	countdown = UITheme.label("", 150, Color("#ff3b2e"), true, 16)
+	countdown.add_theme_font_override("font", ComicText.comic_font())
+	countdown.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	countdown.anchor_left = 0.5
+	countdown.anchor_right = 0.5
+	countdown.offset_left = -120
+	countdown.offset_right = 120
+	countdown.offset_top = 150
+	countdown.offset_bottom = 340
+	countdown.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	countdown.pivot_offset = Vector2(120, 95)
+	countdown.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	countdown.visible = false
+	add_child(countdown)
 	hints = KeyHints.new()
 	hints.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	hints.anchor_left = 0.5
@@ -672,9 +775,14 @@ func _build() -> void:
 	hints.anchor_bottom = 1.0
 	hints.offset_left = -520
 	hints.offset_right = 520
-	hints.offset_top = -176
-	hints.offset_bottom = -142
+	hints.offset_top = -118
+	hints.offset_bottom = -84
 	hints.visible = false
+	hints.chip_pressed.connect(func(id: String) -> void:
+		if id == "overview":
+			overview_pressed.emit()
+		elif id == "skip":
+			Turn.skip_aftermath())
 	add_child(hints)
 	_rebuild_texts()
 
@@ -682,11 +790,9 @@ func _rebuild_texts() -> void:
 	if btn_overview == null:
 		return
 	btn_overview.text = I18n.t("hud.overview")
-	btn_fast.text = I18n.t("hud.fast_btn")
-	btn_skip.text = I18n.t("hud.skip")
+	btn_fast.set_content(I18n.t("hud.key_fast"), I18n.t("hud.fast_btn"))
+	btn_skip.set_content(I18n.t("hud.key_skip"), I18n.t("hud.skip"))
 	btn_sound.text = I18n.t("hud.sound_off") if Settings.volume <= 0.01 else I18n.t("hud.sound_on")
-	for s in ammo_slots:
-		s.tooltip_text = I18n.t("ammo." + s.ammo.id) + "\n" + I18n.t("ammo_desc." + s.ammo.id)
 	_dirty_players = true
 
 # ------------------------------------------------------------------ events
@@ -799,6 +905,20 @@ func _process(delta: float) -> void:
 		if show_timer:
 			timer_ring.frac = clampf(Turn.time_left / maxf(float(Game.turn_timer), 1.0), 0.0, 1.0)
 			timer_ring.seconds = int(ceil(maxf(Turn.time_left, 0.0)))
+		var warn: bool = show_timer and Turn.time_left <= 5.0 and Turn.time_left > 0.0 and p.is_human()
+		timer_ring.urgent = warn
+		countdown.visible = warn
+		if warn:
+			var sec: int = int(ceil(Turn.time_left))
+			var into: float = 1.0 - (Turn.time_left - floor(Turn.time_left))      # 0..1 within the current second
+			countdown.text = str(sec)
+			countdown.scale = Vector2.ONE * (1.0 + 0.5 * (1.0 - into) * (1.0 - into))
+			countdown.modulate.a = 1.0 - 0.5 * into
+			if sec != _last_tick:
+				_last_tick = sec
+				Sfx.play("clack", Vector3.INF, 0.9, 3)
+		else:
+			_last_tick = -1
 		timer_ring.queue_redraw()
 		# ammo bar
 		var human_turn: bool = p.is_human()
@@ -822,8 +942,8 @@ func _process(delta: float) -> void:
 			if Turn.aim_power > 0.05:
 				d = Util.dist_xz(Turn.sel.global_pos(), tr["landing"] as Vector3)
 				txt = I18n.t("hud.distance", {"d": int(round(d))})
-			if p.marker != Vector3.INF:
-				txt += ("\n" if txt != "" else "") + Aiming.marker_text(Turn.sel.global_pos(), p.marker, Turn.aim_yaw, d if Turn.aim_power > 0.05 else -1.0)
+			if Game.marker_for(p) != Vector3.INF:
+				txt += ("\n" if txt != "" else "") + Aiming.marker_text(Turn.sel.global_pos(), Game.marker_for(p), Turn.aim_yaw, d if Turn.aim_power > 0.05 else -1.0)
 			_distance_label.text = txt
 		else:
 			_distance_label.text = ""
@@ -877,17 +997,17 @@ func _process(delta: float) -> void:
 ## What the player can do right now (short, same key-cap style everywhere)
 func _hint_items(aiming_human: bool, aftermath: bool) -> Array:
 	if aftermath:
-		return [["", I18n.t("hint.next_turn")]]
+		return [[I18n.t("hint.k_click_space"), I18n.t("hint.next_turn"), "skip"], ["V", I18n.t("hint.overview"), "overview"]]
 	if overview_on:
-		return [[I18n.t("hint.k_click"), I18n.t("hint.marker")], [I18n.t("hint.k_rmb"), I18n.t("hint.camera")], ["V", I18n.t("hint.back")]]
+		return [[I18n.t("hint.k_click"), I18n.t("hint.marker")], [I18n.t("hint.k_rmb"), I18n.t("hint.camera")], ["V", I18n.t("hint.back"), "overview"]]
 	if not aiming_human:
-		return []
+		return [["V", I18n.t("hint.overview"), "overview"]] if Game.state == Game.State.BATTLE else []
 	match Turn.action_mode():
 		"relocate":
-			return [["W/S", I18n.t("hint.drive")], ["A/D", I18n.t("hint.steer")], [I18n.t("hint.k_space"), I18n.t("hint.done")], ["", I18n.t("hint.driven", {"u": int(round(Turn.move_used)), "m": int(Turn.MOVE_MAX)})], ["1-9", I18n.t("hint.weapon")]]
+			return [["W/S", I18n.t("hint.drive")], ["A/D", I18n.t("hint.steer")], [I18n.t("hint.k_space"), I18n.t("hint.done")], ["", I18n.t("hint.driven", {"u": int(round(Turn.move_used))})], ["1-9", I18n.t("hint.weapon")], ["V", I18n.t("hint.overview"), "overview"]]
 		"wall":
-			return [[I18n.t("hint.k_click"), I18n.t("hint.build")], ["Q/E", I18n.t("hint.turn")], [I18n.t("hint.k_on_wall"), I18n.t("hint.stack")], ["1-9", I18n.t("hint.weapon")]]
-	return [[I18n.t("hint.k_drag"), I18n.t("hint.fire")], ["Q/E", I18n.t("hint.turn")], ["↑↓", I18n.t("hint.elevation")], ["Tab", I18n.t("hint.catapult")], ["R", I18n.t("hint.enemy")], ["M", I18n.t("hint.marker_key")], ["U", I18n.t("hint.relocate")], ["B", I18n.t("hint.wall")]]
+			return [[I18n.t("hint.k_click"), I18n.t("hint.build")], ["Q/E", I18n.t("hint.turn")], [I18n.t("hint.k_on_wall"), I18n.t("hint.stack")], ["1-9", I18n.t("hint.weapon")], ["V", I18n.t("hint.overview"), "overview"]]
+	return [[I18n.t("hint.k_drag"), I18n.t("hint.fire")], ["Q/E", I18n.t("hint.turn")], ["↑↓", I18n.t("hint.elevation")], ["Tab", I18n.t("hint.catapult")], ["R", I18n.t("hint.enemy")], ["M", I18n.t("hint.marker_key")], ["V", I18n.t("hint.overview"), "overview"]]
 
 func _cam_yaw() -> float:
 	var cam: Camera3D = get_viewport().get_camera_3d()

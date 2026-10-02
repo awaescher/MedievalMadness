@@ -74,7 +74,7 @@ static func begin_turn(p: PlayerData) -> void:
 static func _living_enemies() -> Array[PlayerData]:
 	var out: Array[PlayerData] = []
 	for p in Game.players:
-		if p.id != bot.id and not p.eliminated and p.catapults_left() > 0:
+		if bot.is_enemy(p) and not p.eliminated and p.catapults_left() > 0:
 			out.append(p)
 	return out
 

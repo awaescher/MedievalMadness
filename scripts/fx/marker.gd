@@ -15,6 +15,8 @@ var _ring_mat: StandardMaterial3D
 var _beam_mat: StandardMaterial3D
 var _t: float = 0.0
 var cam: CameraRig
+var slot: int = -1          # -1: the viewer's own marker; otherwise the marker of that (allied) seat
+var _label: Label3D
 
 func _ready() -> void:
 	visible = false
@@ -68,6 +70,19 @@ func _ready() -> void:
 	_beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_beam.extra_cull_margin = 200.0
 	add_child(_beam)
+	if slot >= 0:
+		_label = Label3D.new()
+		_label.font = Speech.ui_font()
+		_label.font_size = 40
+		_label.outline_size = 10
+		_label.outline_modulate = Color(0.08, 0.05, 0.1)
+		_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_label.fixed_size = true
+		_label.pixel_size = 0.0007
+		_label.no_depth_test = true
+		_label.shaded = false
+		_label.position = Vector3(0, 10.5, 0)
+		add_child(_label)
 
 func _mat(c: Color, additive: bool) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -82,6 +97,9 @@ func _mat(c: Color, additive: bool) -> StandardMaterial3D:
 
 func _process(delta: float) -> void:
 	var p: PlayerData = Game.viewer() if Game.state == Game.State.BATTLE else null
+	if p != null and slot >= 0:
+		var mate: PlayerData = Game.player(slot)
+		p = mate if p.is_ally(mate) else null
 	if p == null or p.marker == Vector3.INF:
 		visible = false
 		return
@@ -89,6 +107,9 @@ func _process(delta: float) -> void:
 	_t += delta
 	position = p.marker
 	var col: Color = p.color.lightened(0.25)
+	if _label != null:
+		_label.text = p.name
+		_label.modulate = col.lightened(0.3)
 	_flag_mat.albedo_color = col
 	# keep it readable from far away: grow with camera distance
 	var d: float = 60.0

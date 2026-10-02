@@ -140,10 +140,11 @@ func _face_marker() -> void:
 	var p: PlayerData = Game.cur()
 	if p == null or Turn.sel == null:
 		return
-	if p.marker == Vector3.INF:
+	var mk0: Vector3 = Game.marker_for(p)
+	if mk0 == Vector3.INF:
 		Events.toast.emit(I18n.t("marker.none"))
 		return
-	var heading: float = Util.dir_to_yaw(Util.flat(p.marker - Turn.sel.global_pos()))
+	var heading: float = Util.dir_to_yaw(Util.flat(mk0 - Turn.sel.global_pos()))
 	Turn.set_aim(heading, Turn.aim_elev, Turn.aim_power)
 	Sfx.play("ui_click", Vector3.INF, 0.6, 0)
 	Events.toast.emit(I18n.t("marker.faced"))
@@ -344,7 +345,7 @@ func _face_next_enemy() -> void:
 		return
 	var enemies: Array[PlayerData] = []
 	for p in Game.players:
-		if p.id != Game.current_player and not p.eliminated:
+		if Game.cur().is_enemy(p) and not p.eliminated:
 			enemies.append(p)
 	if enemies.is_empty():
 		return
@@ -519,12 +520,12 @@ func _draw_heading() -> void:
 ## Marker direction while aiming (spec 6.7): dashed ground line to the marker + compass chevron / label
 func _draw_marker() -> void:
 	var p: PlayerData = Game.cur()
-	if p == null or p.marker == Vector3.INF:
+	if p == null or Game.marker_for(p) == Vector3.INF:
 		return
 	var sc: float = _scale()
 	var col: Color = p.color.lightened(0.3)
 	var from: Vector3 = Turn.sel.global_pos()
-	var mk: Vector3 = p.marker
+	var mk: Vector3 = Game.marker_for(p)
 	# dashed ground line
 	var steps: int = 40
 	var prev: Vector2 = Vector2.ZERO

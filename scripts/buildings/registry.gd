@@ -37,6 +37,8 @@ static func def(id: String) -> Dictionary:
 			return BPalisade.DEF
 		"stonewall":
 			return BStoneWall.DEF
+		"flagpole":
+			return BFlagpole.DEF
 		"tree":
 			return BTree.DEF
 		"ruin":
@@ -77,6 +79,8 @@ static func build(id: String, ctx: BuildContext, rng: Rng, opts: Dictionary = {}
 			return BPalisade.build(ctx, rng, opts)
 		"stonewall":
 			return BStoneWall.build(ctx, rng, opts)
+		"flagpole":
+			return BFlagpole.build(ctx, rng, opts)
 		"tree":
 			return BTree.build(ctx, rng, opts)
 		"ruin":
@@ -85,4 +89,4 @@ static func build(id: String, ctx: BuildContext, rng: Rng, opts: Dictionary = {}
 
 static func all_ids() -> Array[String]:
 	return ["farmhouse", "barn", "tavern", "church", "watchtower", "well", "stall", "stable", "granary",
-		"powderstore", "watertower", "windmill", "blacksmith", "outhouse", "palisade", "stonewall"]
+		"powderstore", "watertower", "windmill", "blacksmith", "outhouse", "palisade", "stonewall", "flagpole"]

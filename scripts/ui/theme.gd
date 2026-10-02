@@ -75,6 +75,15 @@ static func build() -> Theme:
 	var t := Theme.new()
 	t.default_font = font()
 	t.default_font_size = 17
+	# tooltips: parchment panel with ONE border (custom tooltip content has no frame of its own)
+	var tip := box(PARCH, INK, 2, 8, 0)
+	tip.content_margin_left = 10
+	tip.content_margin_right = 10
+	tip.content_margin_top = 6
+	tip.content_margin_bottom = 7
+	t.set_stylebox("panel", "TooltipPanel", tip)
+	t.set_color("font_color", "TooltipLabel", INK)
+	t.set_font_size("font_size", "TooltipLabel", 13)
 	# labels
 	t.set_color("font_color", "Label", INK)
 	t.set_color("font_outline_color", "Label", Color(1, 1, 1, 0.0))
@@ -178,6 +187,19 @@ static func label(text: String, size: int = 17, color: Color = INK, bold: bool =
 		l.add_theme_constant_override("outline_size", outline)
 		l.add_theme_color_override("font_outline_color", outline_col)
 	return l
+
+## One size for the buttons of every dialog, a smaller one for buttons inside option rows; only the two buttons that start
+## a game (menu) are bigger.
+const DIALOG_H := 44.0
+const DIALOG_FONT := 18
+const OPTION_H := 32.0
+const OPTION_FONT := 15
+
+static func dialog_button(text: String, variation: String = "ParchButton", width: float = 0.0) -> Button:
+	return button(text, variation, Vector2(width, DIALOG_H), DIALOG_FONT)
+
+static func option_button(text: String, variation: String = "ParchButton", width: float = 100.0) -> Button:
+	return button(text, variation, Vector2(width, OPTION_H), OPTION_FONT)
 
 static func button(text: String, variation: String = "", min_size: Vector2 = Vector2(0, 0), font_size: int = 18) -> Button:
 	var b := Button.new()
