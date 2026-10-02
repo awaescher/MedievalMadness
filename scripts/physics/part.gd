@@ -38,6 +38,7 @@ var stamp: int = 0                  # BFS visit stamp
 var sup_depth: int = 0              # how many sideways / hanging links away from a part that really stands on something
 var _top: float = 0.0               # cached world-space top / bottom (support check)
 var _bot: float = 0.0
+var _fp: Rect2 = Rect2()           # cached footprint on the ground plane (support check)
 var born: float = 0.0
 var prop_kind: String = ""          # set for props (barrel_beer, crate, ...)
 var charred: float = 0.0

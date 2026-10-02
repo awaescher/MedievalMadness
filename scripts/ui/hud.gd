@@ -505,6 +505,7 @@ var ammo_box: HBoxContainer
 var ammo_slots: Array[AmmoSlot] = []
 var aim_panel: PanelContainer
 var aim_labels: Dictionary = {}
+const BANNER_TOP := 128.0
 var banner: Label
 var banner_panel: PanelContainer
 var feed_box: VBoxContainer
@@ -655,10 +656,11 @@ func _build() -> void:
 	br.anchor_right = 1.0
 	br.anchor_top = 1.0
 	br.anchor_bottom = 1.0
-	br.offset_left = -240
-	br.offset_right = -12
-	br.offset_top = -176
-	br.offset_bottom = -10
+	br.offset_left = -188
+	br.offset_right = -10
+	br.offset_top = -150
+	br.offset_bottom = -8
+	br.alignment = BoxContainer.ALIGNMENT_END
 	br.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	br.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	br.add_theme_constant_override("separation", 6)
@@ -673,8 +675,8 @@ func _build() -> void:
 	cat_select.anchor_bottom = 1.0
 	cat_select.offset_left = -272
 	cat_select.offset_right = -12
-	cat_select.offset_top = -228
-	cat_select.offset_bottom = -182
+	cat_select.offset_top = -204
+	cat_select.offset_bottom = -158
 	cat_select.picked.connect(func(c: Catapult) -> void:
 		if Turn.phase == Turn.Phase.AIMING and Game.cur() != null and Game.cur().is_human():
 			Turn.select_catapult(c)
@@ -704,7 +706,7 @@ func _build() -> void:
 	banner_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	banner_panel.anchor_left = 0.5
 	banner_panel.anchor_right = 0.5
-	banner_panel.offset_top = 128
+	banner_panel.offset_top = BANNER_TOP
 	banner_panel.z_index = 20
 	banner_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	banner_panel.visible = false
@@ -804,7 +806,7 @@ func _on_banner(text: String, kind: String) -> void:
 	banner_panel.modulate = Color(1, 1, 1, 1)
 	if _banner_tween != null and _banner_tween.is_valid():
 		_banner_tween.kill()
-	var start_y: float = banner_panel.offset_top
+	var start_y: float = BANNER_TOP          # (always the same: a banner arriving mid-animation must not drift upwards)
 	banner_panel.offset_top = start_y - 60.0
 	_banner_tween = create_tween()
 	_banner_tween.tween_property(banner_panel, "offset_top", start_y, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

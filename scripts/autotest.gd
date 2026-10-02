@@ -240,6 +240,25 @@ static func run(main: Node, name: String) -> void:
 			await shot("cpugame_end")
 			await seconds(3.5)
 			await shot("cpugame_results")
+		"restart":
+			# plays CPU games and restarts the same map several times (the results screen button "same map")
+			await wait_loaded()
+			for round_i in 4:
+				if round_i == 0:
+					await start_match("autotest-r", ["squire", "knight", "king"])
+				else:
+					m.call("_restart_game", "autotest-r", true)
+					await frames(30)
+				await wait_loaded()
+				await auto_place_all()
+				m.set("_fast_forward", true)
+				var wall2: float = 0.0
+				while Game.state != Game.State.GAME_OVER and wall2 < 60.0:
+					await tree.process_frame
+					wall2 += 1.0 / maxf(Engine.get_frames_per_second(), 20.0)
+				say("round %d: state=%d turn=%d wall=%.0f" % [round_i, Game.state, Game.turn_number, wall2])
+				m.set("_fast_forward", false)
+			say("restart test survived")
 		"perf":
 			await wait_loaded()
 			await start_match(str(m.get("_autotest_seed")), ["squire", "squire", "squire"])

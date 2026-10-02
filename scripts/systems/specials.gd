@@ -211,7 +211,7 @@ class Windmill extends Behavior:
 		hd.mask = 0
 		hd.kind = "struct"
 		hub_id = PhysWorld.add_body(hd)
-		joint = PhysicsServer3D.joint_create()
+		joint = PhysWorld.new_joint()
 		PhysicsServer3D.joint_make_hinge(joint, PhysWorld.body_rid(hub_id), Transform3D.IDENTITY, PhysWorld.body_rid(rotor_id), Transform3D.IDENTITY)
 		PhysicsServer3D.hinge_joint_set_flag(joint, PhysicsServer3D.HINGE_JOINT_FLAG_ENABLE_MOTOR, true)
 		PhysicsServer3D.hinge_joint_set_param(joint, PhysicsServer3D.HINGE_JOINT_MOTOR_TARGET_VELOCITY, speed)
@@ -221,7 +221,7 @@ class Windmill extends Behavior:
 			return
 		attached = false
 		if joint.is_valid():
-			PhysicsServer3D.free_rid(joint)
+			PhysWorld.free_joint(joint)
 			joint = RID()
 		if not PhysWorld.bodies.has(rotor_id):
 			return
@@ -269,7 +269,7 @@ class Windmill extends Behavior:
 			detach(s)
 	func cleanup() -> void:
 		if joint.is_valid():
-			PhysicsServer3D.free_rid(joint)
+			PhysWorld.free_joint(joint)
 			joint = RID()
 
 static func attach(s: Structure, _extras: Array = []) -> void:

@@ -48,6 +48,7 @@ static func run_all() -> void:
 	TestBase.reset()
 	TestBase.current = "units"
 	await _test_support_check()
+	_test_church_roof()
 	await _test_intact_buildings_stand()
 	await _test_every_building_survives_a_blast()
 	await _test_props()
@@ -66,6 +67,30 @@ static func run_all() -> void:
 	print("---- scene units: %d passed, %d failed" % [TestBase.passed, TestBase.failed])
 
 # ------------------------------------------------------------------ tests
+static func _test_church_roof() -> void:
+	TestBase.current = "church_roof"
+	var p: Vector3 = lab_pos()
+	# a church whose nave walls are gone: the nave roof must come down, not hang from the tower on its glue links
+	var ch: Structure = build("church", p, 0)
+	Breakable.awaken(ch)
+	var tower_x: float = 0.0
+	var roofs: Array[Part] = []
+	for part in ch.parts:
+		if part.tag == "tower":
+			tower_x = part.xf.origin.x
+	for part in ch.parts.duplicate():
+		if part.tag == "wall" or part.tag == "window":
+			Breakable.break_part(part, {}, Vector3.ZERO, true)
+	Breakable.support_check(ch)
+	var roof_total: int = 0
+	var roof_frozen: int = 0
+	for part in ch.parts:
+		if part.tag == "roof" and part.state != Part.State.DEAD and part.xf.origin.y < ch.aabb.position.y + 7.5:
+			roof_total += 1
+			if part.state == Part.State.FROZEN:
+				roof_frozen += 1
+	TestBase.check(roof_total > 4 and roof_frozen * 3 <= roof_total, "church nave roof collapses without its walls (%d of %d still glued)" % [roof_frozen, roof_total])
+
 static func _test_support_check() -> void:
 	TestBase.current = "support_check"
 	var p: Vector3 = lab_pos()

@@ -187,6 +187,8 @@ static func spawn(id: int, kind: String, spot: Vector3, ammo: String, n: int) ->
 	var body: MeshInstance3D = _mi(box, Color("#b07a3e") if meteor else Color("#a06c38"))
 	body.position = Vector3(0, sz * 0.41, 0)
 	node.add_child(body)
+	var hide_on_land: Array[Node3D] = [body]
+	var star_node: Node3D = null
 	var canopy := Node3D.new()
 	node.add_child(canopy)
 	var rad: float = 3.4 if meteor else 2.2
@@ -203,12 +205,20 @@ static func spawn(id: int, kind: String, spot: Vector3, ammo: String, n: int) ->
 			var b: MeshInstance3D = _mi(band, Color("#7dff9a"), 1.4)
 			b.position = Vector3(0, float(yy), 0)
 			node.add_child(b)
+			hide_on_land.append(b)
 		var star := BoxMesh.new()
 		star.size = Vector3(0.9, 0.9, 1.76)
 		var mark: MeshInstance3D = _mi(star, Color("#baffc8"), 1.8)
 		mark.position = Vector3(0, 0.7, 0)
 		mark.rotation.z = PI * 0.25
 		node.add_child(mark)
+		hide_on_land.append(mark)
+		# after landing a real crate (physics prop) takes over; this glowing star floats above it
+		var star_mesh := BoxMesh.new()
+		star_mesh.size = Vector3(0.5, 0.5, 0.5)
+		star_node = _mi(star_mesh, Color("#baffc8"), 2.2)
+		star_node.visible = false
+		node.add_child(star_node)
 		var stripe: MeshInstance3D = _mi(MeshGen.sphere_mesh(rad + 0.04, 6, 12), Color("#3fcf6a"))
 		stripe.scale = Vector3(1.0, 0.55, 0.38)
 		stripe.position = Vector3(0, top_y, 0)
@@ -249,13 +259,51 @@ static func spawn(id: int, kind: String, spot: Vector3, ammo: String, n: int) ->
 	var h: float = METEOR_START_H if meteor else SMALL_START_H
 	node.position = spot + Vector3(0, h, 0)
 	crates.append({"id": id, "kind": kind, "node": node, "canopy": canopy, "land": spot, "height": h, "ammo": ammo, "n": n,
-		"hit_r": 2.4 if meteor else 1.6, "sway": float(id) * 1.7})
+		"hit_r": 2.4 if meteor else 1.6, "sway": float(id) * 1.7,
+		"hide": hide_on_land, "star": star_node, "prop": null})
 	if meteor:
 		if Turn.cam != null:
 			Turn.cam.focus_on(spot + Vector3(0, 22, 0), 75.0, 30.0)         # a short look at the newcomer
 		Events.banner.emit(I18n.t("crate.banner"), "unlock")
 		Events.toast.emit(I18n.t("crate.toast"))
 		Sfx.play("crate_epic", Vector3.INF, 0.9, 5)
+
+## After the landing the crate is a normal physics prop: it slides down slopes, tips over, gets pushed and smashed
+static func _land(c: Dictionary) -> void:
+	if c["prop"] != null:
+		return
+	for hn in (c["hide"] as Array):
+		if is_instance_valid(hn):
+			(hn as Node3D).visible = false
+	var spot: Vector3 = c["land"] as Vector3
+	var prop: Structure = Props.spawn("crate", spot, float(c["sway"]), -1, Game.rng_battle, Color.WHITE, 0.15)
+	c["prop"] = prop
+	var star: Node3D = c["star"] as Node3D
+	if star != null:
+		star.visible = true
+
+static func _follow_prop(c: Dictionary) -> void:
+	var prop: Structure = c["prop"] as Structure
+	var node: Node3D = c["node"] as Node3D
+	if prop == null or prop.parts.is_empty():
+		return
+	var part: Part = prop.parts[0]
+	if part.state == Part.State.DEAD or not PhysWorld.bodies.has(part.body_id):
+		# smashed (explosion, fall into water ...): whoever damaged it last gets the content
+		var src: Dictionary = prop.last_source
+		var pid: int = int(src["player_id"]) if src.has("player_id") else -1
+		var id: int = int(c["id"])
+		collect(id, pid)
+		if Net.is_host:
+			Net.send_all({"k": "cratego", "id": id, "pid": pid})
+		return
+	var pos: Vector3 = PhysWorld.get_transform(part.body_id).origin
+	c["land"] = pos - Vector3(0, 0.4, 0)
+	node.position = pos - Vector3(0, 0.4, 0)
+	var star: Node3D = c["star"] as Node3D
+	if star != null:
+		star.position = Vector3(0, 1.6 + sin(_t * 2.0) * 0.12, 0)
+		star.rotation.y = _t * 2.0
 
 static func tick(dt: float) -> void:
 	if crates.is_empty():
@@ -267,6 +315,8 @@ static func tick(dt: float) -> void:
 			continue
 		var land: Vector3 = c["land"] as Vector3
 		var h: float = float(c["height"])
+		if h <= 0.0 and c["prop"] != null:
+			_follow_prop(c)
 		if h > 0.0:
 			h = maxf(0.0, h - (METEOR_SPEED if c["kind"] == "meteor" else SMALL_SPEED) * dt)
 			c["height"] = h
@@ -278,6 +328,7 @@ static func tick(dt: float) -> void:
 				(c["canopy"] as Node3D).visible = false
 				node.rotation = Vector3.ZERO
 				node.position = land
+				_land(c)
 				Fx.burst("dust", land + Vector3.UP * 0.4, Color(0, 0, 0, -1), 0.6 if c["kind"] == "small" else 0.8)
 				Sfx.play("thunk", land, 0.5 if c["kind"] == "small" else 0.8, 2)
 	if _beam_mat != null:
@@ -292,7 +343,7 @@ static func try_hit(pos: Vector3, r: float, source: Dictionary) -> bool:
 		if node == null or not is_instance_valid(node):
 			continue
 		var top: float = 6.4 if c["kind"] == "meteor" else 4.2
-		var hit: bool = (node.position + Vector3(0, 0.7, 0)).distance_to(pos) < float(c["hit_r"]) + r
+		var hit: bool = (node.position + Vector3(0, 0.7 if c["prop"] == null else 0.4, 0)).distance_to(pos) < float(c["hit_r"]) + r
 		var cn: Node3D = c["canopy"] as Node3D
 		if not hit and cn.visible:
 			hit = (node.position + Vector3(0, top, 0)).distance_to(pos) < float(c["hit_r"]) + 1.2 + r
@@ -320,7 +371,12 @@ static func collect(id: int, pid: int) -> void:
 		Fx.comic_kind("explosion", at + Vector3.UP * 2.0)
 		Sfx.play("fanfare", Vector3.INF, 1.0, 5)
 		meteor_next_turn = Game.turn_number + _gap()
+	var prop: Structure = c["prop"] as Structure
+	if prop != null:
+		for pt in prop.parts.duplicate():
+			if pt.state != Part.State.DEAD:
+				Breakable.break_part(pt, {}, Vector3.UP, false)
 	node.queue_free()
 	crates.erase(c)
-	if not Net.is_client():
+	if not Net.is_client() and pid >= 0:
 		Unlocks.grant(pid, str(c["ammo"]), int(c["n"]), "crate" if meteor else "crate_small")

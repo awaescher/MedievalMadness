@@ -182,22 +182,21 @@ static func post_spawn(s: Structure, kind: String) -> void:
 		var bed: Part = s.parts[0]
 		for i in range(1, 3):
 			var w: Part = s.parts[i]
-			var j: RID = PhysicsServer3D.joint_create()
+			var j: RID = PhysWorld.new_joint()
 			# frames: hinge axis of the frame is local Z in Godot; wheel local axis after its rotation is its own Y (cyl axis)
 			var wheel_local_pos: Vector3 = bed.xf.affine_inverse() * w.xf.origin
 			var fa := Transform3D(Basis(), wheel_local_pos)
 			var fb := Transform3D(Basis(Vector3(1, 0, 0), -PI * 0.5), Vector3.ZERO)
 			# frame basis: wheel local axes are (X, Z, -Y) -> hinge (Z of frame) matches wheel cylinder axis
 			PhysicsServer3D.joint_make_hinge(j, PhysWorld.body_rid(bed.body_id), fa, PhysWorld.body_rid(w.body_id), fb)
+			PhysWorld.attach_joint(j, [bed.body_id, w.body_id])
 			s.extras.append({"joint": j})
 
 static func free_joints(s: Structure) -> void:
 	for e in s.extras:
 		if e is Dictionary and (e as Dictionary).has("joint"):
 			var j: RID = (e as Dictionary)["joint"] as RID
-			if j.is_valid():
-				PhysicsServer3D.joint_clear(j)      # detach from the bodies first: freeing a live hinge crashed Jolt
-				PhysicsServer3D.free_rid(j)
+			PhysWorld.free_joint(j)
 	s.extras = s.extras.filter(func(e: Variant) -> bool: return not (e is Dictionary and (e as Dictionary).has("joint")))
 
 # ------------------------------------------------------------------ break / special behavior

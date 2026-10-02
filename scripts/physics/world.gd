@@ -221,6 +221,10 @@ static func remove_body(id: int) -> void:
 	if not bodies.has(id):
 		return
 	var pb: PBody = bodies[id] as PBody
+	if _joint_of_body.has(id):
+		for jj in (_joint_of_body[id] as Array):
+			free_joint(jj as RID)
+		_joint_of_body.erase(id)
 	bodies.erase(id)
 	buoyant.erase(id)
 	rid_map.erase(pb.rid.get_id())
@@ -253,7 +257,35 @@ static func owner_of(rid: RID) -> Object:
 	var pb: PBody = rid_map.get(rid.get_id()) as PBody
 	return pb.owner if pb != null else null
 
+## Joints: every joint is created / freed through here, so that clear_all() can free all of them BEFORE their bodies go
+## (freeing a joint whose body is already gone crashes Jolt).
+static var _joints: Dictionary = {}
+
+static func new_joint() -> RID:
+	var j: RID = PhysicsServer3D.joint_create()
+	_joints[j.get_id()] = j
+	return j
+
+static var _joint_of_body: Dictionary = {}     # body id -> Array[RID] of joints to free before that body goes
+
+## Registers that `j` hangs on these bodies: removing one of them frees the joint first
+static func attach_joint(j: RID, body_ids: Array) -> void:
+	for id in body_ids:
+		var arr: Array = _joint_of_body.get(int(id), []) as Array
+		arr.append(j)
+		_joint_of_body[int(id)] = arr
+
+static func free_joint(j: RID) -> void:
+	if not j.is_valid() or not _joints.has(j.get_id()):
+		return
+	_joints.erase(j.get_id())
+	PhysicsServer3D.free_rid(j)
+
 static func clear_all() -> void:
+	for jid in _joints.keys():
+		PhysicsServer3D.free_rid(_joints[jid] as RID)
+	_joints.clear()
+	_joint_of_body.clear()
 	for id in bodies.keys():
 		remove_body(int(id))
 	bodies.clear()

@@ -97,7 +97,7 @@ func test_ammo_table() -> void:
 	TestBase.check(not AmmoDef.ids().has("waterbomb") and not AmmoDef.ids().has("cheese"), "water balloon and cheese are gone")
 	TestBase.eq(AmmoDef.get_def("cow").mass, 250.0, "cow mass")
 	TestBase.near(AmmoDef.get_def("cow").wind_factor, 0.15, 0.001, "cow wind factor")
-	TestBase.near(AmmoDef.get_def("chain").radius, 0.4, 0.001, "chain ball radius")
+	TestBase.near(AmmoDef.get_def("chain").radius, 0.56, 0.001, "chain ball radius")
 	TestBase.eq(AmmoDef.get_def("quad").base, "stone", "the stone hail behaves like stones")
 
 func test_constants() -> void:

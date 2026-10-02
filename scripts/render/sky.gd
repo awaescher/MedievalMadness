@@ -105,7 +105,7 @@ func apply_lighting(mode: String) -> void:
 	env.adjustment_enabled = rich
 	env.adjustment_saturation = 1.18
 	env.adjustment_contrast = 1.06
-	env.glow_enabled = rich
+	env.glow_enabled = false          # (bloom was behind the blocky yellow squares around flames: no glow at all)
 	env.glow_intensity = 0.55
 	env.glow_bloom = 0.05
 	env.glow_hdr_threshold = 1.2

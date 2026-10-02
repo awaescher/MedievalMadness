@@ -3,6 +3,15 @@
 Rough release notes, newest first. Versions before 1.10.0 are reconstructed from the specification and are approximate.
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
+## 1.10.13
+- Fixed a crash after "same map" / restart: all physics joints (cart wheels, ragdolls, ...) are now tracked and freed before their bodies.
+- Church & co: a roof no longer hangs in the air from one tower - roof panels only stay if a wall / post is under them or they rest on a held panel.
+- Chain shot: 40 % bigger, twice the mass (twice the punch).
+- Supply crates turn into real physics crates after landing (slide down slopes, tip over, get pushed or smashed; smashed = content to whoever hit it last).
+- Announcement banner no longer creeps upwards out of the screen when several banners come quickly.
+- The fast-forward / skip / sound buttons are narrower and sit at the bottom edge.
+- Bloom (glow) is switched off in all lighting modes: it was the suspect behind the blocky yellow squares around fires (report back if they still show up).
+
 ## 1.10.9
 - Small plain supply crates (3 boulders or 5 logs) land quietly near the villages, as many as there are players (+30 % Powerplay, +50 % Chaos). New option "Supply crates" switches all crates off. Meteor crate: epic sound + camera look when it comes, fanfare when somebody hits it.
 - Unlock rules are now tiered by game mode: Standard/Quarry = core, Powerplay adds power rules, Chaos adds chaos rules, Quarry has its own. New menu row "Unlock rules" (tier choosable for Custom) with a "?" that lists the rules. Locked weapons explain how to get them in their tooltip.

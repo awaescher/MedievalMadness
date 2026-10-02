@@ -220,7 +220,7 @@ func _voice() -> void:
 
 func _free_bodies() -> void:
 	if _joint.is_valid():
-		PhysicsServer3D.free_rid(_joint)
+		PhysWorld.free_joint(_joint)
 		_joint = RID()
 	for id in _bodies:
 		if PhysWorld.bodies.has(id):
@@ -278,7 +278,7 @@ func _to_ragdoll(velocity: Vector3) -> void:
 	hd.damp_ang = 0.5
 	var h_id: int = PhysWorld.add_body(hd)
 	_bodies = [b_id, h_id]
-	_joint = PhysicsServer3D.joint_create()
+	_joint = PhysWorld.new_joint()
 	var neck_a: Vector3 = boff + Vector3(0, _size.y * 0.35, _size.z * 0.5)
 	if kind == "horse":
 		neck_a = boff + Vector3(0, 0.6, 0.6)

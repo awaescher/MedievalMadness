@@ -7,8 +7,8 @@ extends RefCounted
 
 const IMPACT_K := 14.0            # crushing factor: kinetic momentum -> effective impact impulse for parts
 const OWN_CATAPULT_GRACE := 0.3
-const CHAIN_HALF := 1.15          # distance of each ball from the middle of the chain shot
-const CHAIN_SPIN := 26.0          # rad/s (about 4 turns per second): the balls whirl at ~30 m/s
+const CHAIN_HALF := 1.61          # distance of each ball from the middle of the chain shot
+const CHAIN_SPIN := 18.6          # rad/s (about 4 turns per second): the balls whirl at ~30 m/s
 const LOG_TIP_COS := 0.3         # how squarely the pointed end has to arrive to count as a spear hit
 const LOG_TILT := 0.5            # random start tilt (rad) of a log that flies end over end
 const LOG_SIDE_CHANCE := 0.28    # share of logs that lie across the flight and roll: they land flat (about 70% of all logs stick)
@@ -336,7 +336,7 @@ func _create_cow_head(_pos: Vector3, vel: Vector3) -> void:
 	world_root.add_child(head_visual)
 	d.visual = head_visual
 	head_id = PhysWorld.add_body(d)
-	joint = PhysicsServer3D.joint_create()
+	joint = PhysWorld.new_joint()
 	PhysicsServer3D.joint_make_cone_twist(joint, PhysWorld.body_rid(body_id), Transform3D(Basis(), Vector3(0.75, 0.25, 0)), PhysWorld.body_rid(head_id), Transform3D(Basis(), Vector3(-0.2, 0.0, 0)))
 
 # ------------------------------------------------------------------ visuals
@@ -913,7 +913,7 @@ func _cleanup(keep_body: bool) -> void:
 		if head_id != 0 and PhysWorld.bodies.has(head_id):
 			PhysWorld.remove_later(head_id)
 	if joint.is_valid():
-		PhysicsServer3D.free_rid(joint)
+		PhysWorld.free_joint(joint)
 		joint = RID()
 	all_live.erase(self)
 	if primary == self:
@@ -1032,8 +1032,8 @@ func _tick_chain(dt: float, pos: Vector3, vel: Vector3) -> void:
 			var bv: Vector3 = vel + w.cross(off)
 			var bs: float = bv.length()
 			if bs > 8.0 and bp.y - Terrain.h(bp.x, bp.z) < 1.6:
-				Damage.impact_at(bp, 1.2, ammo.mass * bs * 0.4 * IMPACT_K, bv / bs, source)
-				Damage.damage_settlers_in_radius(bp, 1.4, clampf(bs * 4.0, 30.0, 140.0), source, bv / bs, 0.7)
+				Damage.impact_at(bp, 1.7, ammo.mass * bs * 0.4 * IMPACT_K, bv / bs, source)
+				Damage.damage_settlers_in_radius(bp, 2.0, clampf(bs * 4.0, 30.0, 140.0), source, bv / bs, 0.7)
 	if roll_age >= 5.0 or (roll_age > 1.0 and vel.length() < 1.0):
 		_finish(pos, false)
 

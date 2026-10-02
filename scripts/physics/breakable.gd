@@ -389,6 +389,7 @@ static func support_check(s: Structure) -> void:
 			var bb: AABB = p.world_aabb()
 			p._bot = bb.position.y
 			p._top = bb.position.y + bb.size.y
+			p._fp = Rect2(bb.position.x, bb.position.z, bb.size.x, bb.size.z)
 			p.sup_depth = 99
 	var q: Array[Part] = []
 	for p in s.parts:
@@ -416,9 +417,43 @@ static func support_check(s: Structure) -> void:
 				n.sup_depth = d
 				n.stamp = _stamp
 				q.append(n)
+	_roof_sag(s)
 	for p2 in s.parts:
 		if p2.state == Part.State.FROZEN and p2.stamp != _stamp:
 			release_part(p2)
+
+## Roofs need something under them: a roof panel only stays if a wall / post / tower top is right below it, or it rests on a
+## panel that has that. (The glue links alone could carry a whole roof from one tower, a ridge beam over the gap.)
+static func _roof_sag(s: Structure) -> void:
+	var roofs: Array[Part] = []
+	for p in s.parts:
+		if p.state == Part.State.FROZEN and p.stamp == _stamp and p.tag == "roof":
+			roofs.append(p)
+	if roofs.is_empty():
+		return
+	var held: Dictionary = {}
+	for r in roofs:
+		for q in s.parts:
+			if q.state == Part.State.FROZEN and q.stamp == _stamp and q.tag != "roof" and q._top <= r._top and q._top >= r._bot - 1.2 \
+					and r._fp.intersection(q._fp).size.x > 0.06 and r._fp.intersection(q._fp).size.y > 0.06:
+				held[r] = true
+				break
+	var grew: bool = true
+	var guard: int = 0
+	while grew and guard < 12:
+		grew = false
+		guard += 1
+		for r2 in roofs:
+			if held.has(r2):
+				continue
+			for n in r2.links:
+				if held.has(n) and r2._bot >= n._top - 0.5 and r2._fp.intersection(n._fp).size.x > 0.06 and r2._fp.intersection(n._fp).size.y > 0.06:
+					held[r2] = true
+					grew = true
+					break
+	for r3 in roofs:
+		if not held.has(r3):
+			r3.stamp = 0         # not held: the caller releases everything without the current stamp
 
 # ------------------------------------------------------------------ breaking
 static func discard_part(p: Part) -> void:

@@ -381,7 +381,7 @@ static func _make_ghost_tex() -> ImageTexture:
 func _free_bodies() -> void:
 	for j in _joints:
 		if j.is_valid():
-			PhysicsServer3D.free_rid(j)
+			PhysWorld.free_joint(j)
 	_joints.clear()
 	for id in _bodies:
 		if PhysWorld.bodies.has(id):
@@ -470,7 +470,7 @@ func _to_ragdoll(velocity: Vector3, source: Dictionary = {}) -> void:
 		var b_local: Vector3 = pv[2] as Vector3
 		# arm/leg meshes hang below their pivot: the collider is offset -0.2 / -0.22 from the limb origin (= pivot)
 		var b_pivot: Vector3 = b_local + (Vector3(0, 0.2, 0) if li in [2, 3] else (Vector3(0, 0.22, 0) if li in [4, 5] else Vector3.ZERO))
-		var j: RID = PhysicsServer3D.joint_create()
+		var j: RID = PhysWorld.new_joint()
 		PhysicsServer3D.joint_make_cone_twist(j, t_rid, Transform3D(Basis(), a_local), PhysWorld.body_rid(ids[li]), Transform3D(Basis(), b_pivot))
 		_joints.append(j)
 	# recompute: head's collider is centered on its node origin, torso pivot above the torso center
