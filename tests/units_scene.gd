@@ -386,6 +386,28 @@ static func _test_unlocks() -> void:
 	TestBase.check(Unlocks.how("meteor").size() == 1 and Unlocks.how("powderkeg").size() == 2, "core rules listed for the locked weapon tooltips")
 	TestBase.check(Unlocks.rules_of_mode(2, false).size() > Unlocks.rules_of_mode(0, false).size() - 1, "chaos lists at least the core rules")
 	TestBase.eq(Settings.effective_rule_level(), 0, "Standard uses the core rules")
+	# team gifts: a mate offers a weapon for the turn of the player on turn
+	var gt0: int = a.team
+	var gt1: int = b.team
+	var gcur: int = Game.current_player
+	var gph: int = Turn.phase
+	a.team = 9
+	b.team = 9
+	Game.current_player = Game.players.find(b)
+	Turn.phase = Turn.Phase.AIMING
+	a.ammo["boulder"] = 2
+	TestBase.check(Turn.set_gift(a.id, "boulder", true), "a team mate can offer a weapon")
+	TestBase.eq(int(Turn.gifts.get("boulder", -1)), a.id, "the offer is registered for this turn")
+	TestBase.check(not Turn.set_gift(a.id, "stone", true), "the stone cannot be offered")
+	TestBase.check(not Turn.set_gift(b.id, "boulder", true), "you cannot offer to yourself")
+	TestBase.check(Turn.set_gift(a.id, "boulder", false) and Turn.gifts.is_empty(), "an offer can be taken back")
+	a.team = 8
+	TestBase.check(not Turn.set_gift(a.id, "boulder", true), "an enemy cannot offer")
+	a.team = gt0
+	b.team = gt1
+	Game.current_player = gcur
+	Turn.phase = gph
+	Turn.gifts.clear()
 	# the supply crate: appears only after 5 shots of everybody, sinks, is hit by a shot -> meteor marker
 	if RandomEvents.fx_root != null:
 		SupplyCrate.reset()

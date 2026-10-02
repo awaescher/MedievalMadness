@@ -316,6 +316,12 @@ const DATA := {
 		"banner": "Nachschub-Kiste im Anflug!",
 		"toast": "Triff die grüne Kiste mit einem Schuss: Meteor-Markierung!",
 	},
+	"gift": {
+		"title": "{name} anbieten:",
+		"offered": "{name} bietet dir {ammo} an - nur für diesen Zug!",
+		"used": "{from} gibt {to} eine {ammo}",
+		"badge": "Geschenk von {name}: nur für diesen Zug",
+	},
 	"unlock": {
 		"crate_small": "Du hast eine kleine Nachschub-Kiste getroffen",
 		"got": "{name} erhält {n}x {ammo}: {why}",

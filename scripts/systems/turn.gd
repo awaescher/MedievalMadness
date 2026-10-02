@@ -15,6 +15,9 @@ static var aim_yaw: float = 0.0            # radians (0 = facing -Z)
 static var aim_elev: float = Cfg.DEFAULT_ELEVATION   # degrees
 static var aim_power: float = 0.0          # 0..1
 static var aim_ammo: String = "stone"
+## Team gifts: a team mate offers a weapon of theirs to the player whose turn it is (ammo id -> offerer's player id).
+## Only for this turn; the offerer pays one unit when the weapon is actually fired, otherwise it stays with them.
+static var gifts: Dictionary = {}
 static var has_aimed: bool = false
 static var time_left: float = 0.0
 static var timer_on: bool = false
@@ -116,6 +119,7 @@ static func net_turn_start(d: Dictionary) -> void:
 static func _begin_turn() -> void:
 	var p: PlayerData = Game.cur()
 	impact_points.clear()
+	gifts.clear()
 	has_aimed = false
 	shots_this_turn = 0
 	_hit_reported = false
@@ -178,9 +182,34 @@ static func action_mode() -> String:
 static func is_action_mode() -> bool:
 	return AmmoDef.is_action_id(aim_ammo)
 
+## Offer (on) or take back (off) one unit of a weapon for the player whose turn it is. Returns whether it was applied.
+## `force`: online clients apply what the host decided.
+static func set_gift(offerer_id: int, ammo_id: String, on: bool, force: bool = false) -> bool:
+	var cur_p: PlayerData = Game.cur()
+	var o: PlayerData = Game.player(offerer_id)
+	if cur_p == null or o == null:
+		return false
+	if not force:
+		var a: AmmoDef = AmmoDef.get_def(ammo_id)
+		if phase != Phase.AIMING or not o.is_ally(cur_p) or o.eliminated or a == null or a.is_action() or ammo_id == "stone":
+			return false
+		if on and (o.ammo_count(ammo_id) <= 0 or (gifts.has(ammo_id) and int(gifts[ammo_id]) != offerer_id)):
+			return false
+		if not on and int(gifts.get(ammo_id, -1)) != offerer_id:
+			return false
+	if on:
+		gifts[ammo_id] = offerer_id
+		if cur_p.is_human():
+			Events.toast.emit(I18n.t("gift.offered", {"name": o.name, "ammo": I18n.t("ammo." + ammo_id)}))
+			Sfx.play("stinger_event", Vector3.INF, 0.35, 5)
+	else:
+		gifts.erase(ammo_id)
+	Events.gifts_changed.emit()
+	return true
+
 static func set_ammo(id: String) -> void:
 	var p: PlayerData = Game.cur()
-	if p == null or not p.has_ammo(id):
+	if p == null or not (p.has_ammo(id) or gifts.has(id)):
 		return
 	var action: bool = AmmoDef.is_action_id(id)
 	aim_ammo = id
@@ -223,7 +252,7 @@ static func fire() -> void:
 	if not sel.ensure_grounded():
 		return
 	var p: PlayerData = Game.cur()
-	if not p.has_ammo(aim_ammo):
+	if not p.has_ammo(aim_ammo) and not gifts.has(aim_ammo):
 		aim_ammo = "stone"
 	p.ammo_sel = aim_ammo
 	shot_ammo = aim_ammo
@@ -232,7 +261,15 @@ static func fire() -> void:
 	var vel: Vector3 = launch_velocity(aim_yaw, aim_elev, aim_power)
 	var origin: Vector3 = launch_origin(sel, aim_elev, aim_yaw)
 	_pending_shot = {"vel": vel, "origin": origin, "ammo": shot_ammo}
-	p.use_ammo(shot_ammo)
+	var giver: PlayerData = Game.player(int(gifts.get(shot_ammo, -1)))
+	if giver != null and giver.ammo_count(shot_ammo) > 0:
+		giver.use_ammo(shot_ammo)            # a gift from a team mate is used first: the giver has one less
+		Events.kill_feed.emit(I18n.t("gift.used", {"from": giver.name, "to": p.name, "ammo": I18n.t("ammo." + shot_ammo)}))
+		Events.ammo_changed.emit(giver.id)
+	else:
+		p.use_ammo(shot_ammo)
+	gifts.clear()
+	Events.gifts_changed.emit()
 	Events.ammo_changed.emit(p.id)
 	shots_this_turn += 1
 	_epic_done = false

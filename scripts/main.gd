@@ -219,6 +219,7 @@ func _build_ui() -> void:
 	hud.pause_pressed.connect(_open_pause)
 	hud.skip_requested.connect(func() -> void: Turn.skip_turn())
 	hud.ammo_clicked.connect(func(id: String) -> void: Turn.set_ammo(id))
+	hud.offer_toggled.connect(func(id: String, on: bool) -> void: NetGame.offer(id, on))
 	pause_menu.resume.connect(_close_pause)
 	pause_menu.restart.connect(func() -> void:
 		_close_pause()

@@ -316,6 +316,12 @@ const DATA := {
 		"banner": "Supply crate incoming!",
 		"toast": "Hit the green crate with a shot: Meteor Marker!",
 	},
+	"gift": {
+		"title": "Offer to {name}:",
+		"offered": "{name} offers you a {ammo} - for this turn only!",
+		"used": "{from} hands a {ammo} to {to}",
+		"badge": "Gift from {name}: this turn only",
+	},
 	"unlock": {
 		"crate_small": "You hit a small supply crate",
 		"got": "{name} earned {n}x {ammo}: {why}",

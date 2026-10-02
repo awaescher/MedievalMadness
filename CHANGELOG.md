@@ -3,6 +3,9 @@
 Rough release notes, newest first. Versions before 1.10.0 are reconstructed from the specification and are approximate.
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
+## 1.10.14
+- Team gifts (online): while a team mate is on turn you get an "Offer to <name>" strip at the bottom left with your weapons; click one to offer a unit. The player on turn sees a gift ribbon on that weapon (tooltip: who gives it, this turn only) and can fire it; the giver then has one less. Not used = it stays with the giver; offers end with the turn and can be taken back.
+
 ## 1.10.13
 - Fixed a crash after "same map" / restart: all physics joints (cart wheels, ragdolls, ...) are now tracked and freed before their bodies.
 - Church & co: a roof no longer hangs in the air from one tower - roof panels only stay if a wall / post is under them or they rest on a held panel.

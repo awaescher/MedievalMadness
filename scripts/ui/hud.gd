@@ -9,6 +9,7 @@ signal fast_pressed
 signal pause_pressed
 signal skip_requested
 signal ammo_clicked(id: String)
+signal offer_toggled(id: String, on: bool)
 
 # ------------------------------------------------------------------ small custom controls
 class TimerRing extends Control:
@@ -68,6 +69,7 @@ class AmmoSlot extends Control:
 	var selected: bool = false
 	var hovered: bool = false
 	var enabled: bool = true
+	var gift_from: String = ""         # a team mate offers this weapon for this turn
 	signal clicked
 	func _init() -> void:
 		custom_minimum_size = Vector2(52, 52)
@@ -103,6 +105,8 @@ class AmmoSlot extends Control:
 			v.add_child(_tip_line("🔒 " + I18n.t("hud.unlock_how"), 12, Color("#8a5a00"), true))
 			for ln in Unlocks.how(for_text):
 				v.add_child(_tip_line("• " + ln, 12, Color("#8a5a00"), false))
+		if gift_from != "":
+			v.add_child(_tip_line("🎁 " + I18n.t("gift.badge", {"name": gift_from}), 12, Color("#1f6f3a"), true))
 		return v
 	func _tip_line(text: String, size_px: int, col: Color, bold: bool) -> Label:
 		var l := Label.new()
@@ -147,7 +151,15 @@ class AmmoSlot extends Control:
 		draw_circle(Vector2(9, 9 + off), 7.0, Color("#3b2a1a"))
 		var kw: float = f.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 		draw_string(f, Vector2(9 - kw * 0.5, 13.0 + off), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#f4e4bc"))
-		if count == 0 and not action:
+		if gift_from != "":
+			# a gift ribbon: small green box with a red bow
+			var gc := Vector2(size.x - 12.0, 11.0 + off)
+			draw_rect(Rect2(gc + Vector2(-7, -5), Vector2(14, 12)), Color("#2e9e52"))
+			draw_rect(Rect2(gc + Vector2(-7, -5), Vector2(14, 12)), Color("#1a1220"), false, 1.5)
+			draw_rect(Rect2(gc + Vector2(-1.5, -5), Vector2(3, 12)), Color("#ffd400"))
+			draw_circle(gc + Vector2(-2.5, -7), 2.5, Color("#e74c3c"))
+			draw_circle(gc + Vector2(2.5, -7), 2.5, Color("#e74c3c"))
+		elif count == 0 and not action:
 			# locked: a padlock until the weapon has been earned
 			var lc := Vector2(size.x - 11.0, 11.0 + off)
 			draw_arc(lc + Vector2(0, -1), 5.0, PI, TAU, 10, Color("#3b2a1a"), 2.5, true)
@@ -503,6 +515,9 @@ var wind_label: Label
 var weather_label: Label
 var ammo_box: HBoxContainer
 var ammo_slots: Array[AmmoSlot] = []
+var offer_box: PanelContainer
+var offer_slots: Array[AmmoSlot] = []
+var offer_label: Label
 var aim_panel: PanelContainer
 var aim_labels: Dictionary = {}
 const BANNER_TOP := 128.0
@@ -629,6 +644,35 @@ func _build() -> void:
 		slot.tooltip_text = a.id          # the real text is built in AmmoSlot._make_custom_tooltip
 		ammo_box.add_child(slot)
 		ammo_slots.append(slot)
+	# ---- bottom left: offer weapons to a team mate who is on turn
+	offer_box = PanelContainer.new()
+	offer_box.anchor_top = 1.0
+	offer_box.anchor_bottom = 1.0
+	offer_box.offset_left = 12
+	offer_box.offset_top = -214
+	offer_box.offset_bottom = -140
+	offer_box.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	offer_box.visible = false
+	add_child(offer_box)
+	var ov := VBoxContainer.new()
+	ov.add_theme_constant_override("separation", 2)
+	offer_box.add_child(ov)
+	offer_label = UITheme.label("", 14, UITheme.INK, true)
+	ov.add_child(offer_label)
+	var orow := HBoxContainer.new()
+	orow.add_theme_constant_override("separation", 4)
+	ov.add_child(orow)
+	for oa in AmmoDef.all():
+		if oa.is_action() or oa.id == "stone":
+			continue
+		var os := AmmoSlot.new()
+		os.ammo = oa
+		os.custom_minimum_size = Vector2(44, 52)
+		var oid: String = oa.id
+		os.clicked.connect(func() -> void: offer_toggled.emit(oid, not (Turn.gifts.get(oid, -1) == (Game.viewer().id if Game.viewer() != null else -2))))
+		os.tooltip_text = oa.id
+		orow.add_child(os)
+		offer_slots.append(os)
 	# ---- bottom left: aim info
 	aim_panel = PanelContainer.new()
 	aim_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
@@ -798,6 +842,23 @@ func _rebuild_texts() -> void:
 	_dirty_players = true
 
 # ------------------------------------------------------------------ events
+## The offer strip: shown to a team mate while the player whose turn it is could use one of their weapons
+func _update_gifts(cur: PlayerData) -> void:
+	var v: PlayerData = Game.viewer()
+	var show: bool = Net.active and v != null and v.id != cur.id and v.is_ally(cur) and not v.eliminated and Turn.phase == Turn.Phase.AIMING
+	offer_box.visible = show
+	if not show:
+		return
+	offer_label.text = I18n.t("gift.title", {"name": cur.name})
+	for s in offer_slots:
+		var c: int = v.ammo_count(s.ammo.id)
+		var mine: bool = int(Turn.gifts.get(s.ammo.id, -1)) == v.id
+		s.count = c
+		s.selected = mine
+		s.visible = c > 0
+		s.enabled = c > 0 and (mine or not Turn.gifts.has(s.ammo.id))
+		s.queue_redraw()
+
 func _on_banner(text: String, kind: String) -> void:
 	if not visible and kind != "win":
 		pass
@@ -926,11 +987,16 @@ func _process(delta: float) -> void:
 		var human_turn: bool = p.is_human()
 		for s in ammo_slots:
 			var c: int = p.ammo_count(s.ammo.id)
+			var giver: PlayerData = Game.player(int(Turn.gifts.get(s.ammo.id, -1)))
+			s.gift_from = giver.name if giver != null else ""
+			if giver != null and c >= 0:
+				c += 1                       # the offered unit counts for this turn
 			s.count = c
 			s.enabled = c != 0 and human_turn
 			s.selected = s.ammo.id == Turn.aim_ammo and Turn.phase != Turn.Phase.TURN_START
 			s.modulate.a = 1.0 if c != 0 else 0.6
 			s.queue_redraw()
+		_update_gifts(p)
 		# aim info
 		(aim_labels["power"] as Label).text = "%s: %d%%" % [I18n.t("hud.power"), int(round(Turn.aim_power * 100.0))]
 		(aim_labels["elevation"] as Label).text = "%s: %d°" % [I18n.t("hud.elevation"), int(round(Turn.aim_elev))]

@@ -29,6 +29,8 @@ static func setup(main_node: Node) -> void:
 	Net.on("aim", _on_aim)
 	Net.on("fire_req", _on_fire_req)
 	Net.on("shot", _on_shot)
+	Net.on("offer", _on_offer)
+	Net.on("gift", _on_gift)
 	Net.on("lobby", _on_lobby)
 	Net.on("lobby_set", _on_lobby_set)
 	Net.on("marker", _on_marker)
@@ -225,6 +227,32 @@ static func request_fire() -> void:
 		awaiting_shot = true
 		m["k"] = "fire_req"
 		Net.send_host(m)
+
+## A team mate offers (or takes back) a weapon for the player whose turn it is
+static func offer(ammo_id: String, on: bool) -> void:
+	var v: PlayerData = Game.viewer()
+	if v == null:
+		return
+	if Net.is_host:
+		_host_offer(v.id, ammo_id, on)
+	else:
+		Net.send_host({"k": "offer", "ammo": ammo_id, "on": on})
+
+static func _on_offer(from: int, d: Dictionary) -> void:
+	if not Net.is_host:
+		return
+	for p in Game.players:
+		if p.net_peer == from and p.type == "human":
+			_host_offer(p.id, str(d["ammo"]), bool(d["on"]))
+			return
+
+static func _host_offer(pid: int, ammo_id: String, on: bool) -> void:
+	if Turn.set_gift(pid, ammo_id, on):
+		Net.send_all({"k": "gift", "pid": pid, "ammo": ammo_id, "on": on})
+
+static func _on_gift(_from: int, d: Dictionary) -> void:
+	if not Net.is_host:
+		Turn.set_gift(int(d["pid"]), str(d["ammo"]), bool(d["on"]), true)
 
 static func _on_fire_req(from: int, d: Dictionary) -> void:
 	var p: PlayerData = Game.cur()

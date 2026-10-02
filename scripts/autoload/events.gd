@@ -26,6 +26,7 @@ signal quality_changed(tier: String)
 signal state_changed(state: int)
 signal banner(text: String, kind: String)
 signal toast(text: String)
+signal gifts_changed
 signal kill_feed(text: String)
 signal shot_scored(player_id: int, score: float)
 signal points_awarded(player_id: int, points: int, text: String)
