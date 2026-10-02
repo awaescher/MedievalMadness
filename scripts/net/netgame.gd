@@ -51,13 +51,15 @@ static func setup(main_node: Node) -> void:
 	Net.on("hello", _on_hello)
 	Net.joined.connect(_on_joined)
 
-static func reset() -> void:
+## `keep_room`: back to the lobby after a match - the relay room and the accepted players stay
+static func reset(keep_room: bool = false) -> void:
 	queued_shot = {}
 	awaiting_shot = false
 	_aim_acc = 0.0
 	_placed_pending.clear()
 	hash_mismatches = 0
-	accepted.clear()
+	if not keep_room:
+		accepted.clear()
 	fixed_parts = 0
 	missing_parts = 0
 	in_game = false

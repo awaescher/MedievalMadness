@@ -3,6 +3,10 @@
 Rough release notes, newest first. Versions before 1.10.0 are reconstructed from the specification and are approximate.
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
+## 1.10.15
+- Online: "Main menu" after a finished match keeps the relay room and its players (before, everybody was kicked out and the guest seats turned into "CPU"). Leaving the room still works with "Leave / Close lobby" or via the pause menu.
+- Linux (Ubuntu) now uses the Compatibility (OpenGL) renderer by default: a user saw garbled textures and a magenta 3D view with the Vulkan Forward+ renderer. Override: `--rendering-method forward_plus`. Not testable here (only checked that Compatibility and Mobile render fine on the Mac).
+
 ## 1.10.14
 - Team gifts (online): while a team mate is on turn you get an "Offer to <name>" strip at the bottom left with your weapons; click one to offer a unit. The player on turn sees a gift ribbon on that weapon (tooltip: who gives it, this turn only) and can fire it; the giver then has one less. Not used = it stays with the giver; offers end with the turn and can be taken back.
 

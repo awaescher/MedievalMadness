@@ -238,7 +238,7 @@ func _build_ui() -> void:
 			_restart_game(_last_seed, true))
 	results.main_menu.connect(func() -> void:
 		results.hide_results()
-		_show_menu(false))
+		_show_menu(false, Net.active))          # online: the room (and its players) stays open for the next match
 	placement.finished.connect(_on_placement_done)
 
 func _build_loading() -> void:
@@ -387,10 +387,13 @@ func _on_net_closed(reason: String) -> void:
 	if Game.state != Game.State.MENU:
 		_show_menu(false)
 
-func _show_menu(first: bool) -> void:
+func _show_menu(first: bool, keep_room: bool = false) -> void:
 	if not first:
-		Net.leave()
-		NetGame.reset()
+		if keep_room and Net.active:
+			NetGame.reset(true)
+		else:
+			Net.leave()
+			NetGame.reset()
 	_attract = true
 	Game.set_state(Game.State.MENU)
 	results.hide_results()
@@ -400,6 +403,8 @@ func _show_menu(first: bool) -> void:
 	if not first:
 		_clear_match()
 	menu.visible = true
+	if keep_room and Net.active:
+		menu._on_net_changed()                  # rebuild the lobby rows with the players that are still connected
 	menu.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# attract world behind the menu (two villages, settlers wander, chimneys smoke)
 	var dummy: Array[PlayerData] = []
