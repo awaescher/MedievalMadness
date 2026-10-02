@@ -9,6 +9,12 @@ signal roster_changed
 signal closed(reason: String)
 
 const PING_EVERY := 15.0
+## Version of the relay envelope (hi / hello / peer / msg / err) and of its URL prefix. Raise it together with the relay
+## (relay/cloudflare/worker.js RELAY_PROTO) only when that envelope changes in a way old relays / games cannot read.
+const RELAY_PROTO := 1
+## Version of the game-level sync (message kinds, shot / placement / snapshot formats, RNG usage). Raise it whenever a
+## change would make two players on different builds drift apart. Players with different values cannot play together.
+const NET_VERSION := 1
 
 var active: bool = false            # in a room (handshake done)
 var is_host: bool = false
@@ -37,10 +43,10 @@ func on(kind: String, cb: Callable) -> void:
 	_handlers[kind] = cb
 
 func host_game(relay_url: String, player_name: String) -> void:
-	_open(relay_url.rstrip("/") + "/host", {"t": "hi", "role": "host", "name": player_name, "ver": Cfg.game_version()})
+	_open(relay_url.rstrip("/") + "/v1/host", {"t": "hi", "role": "host", "name": player_name, "ver": Cfg.game_version()})
 
 func join_game(relay_url: String, room_code: String, player_name: String) -> void:
-	_open(relay_url.rstrip("/") + "/room/" + room_code.to_upper(), {"t": "hi", "role": "join", "code": room_code.to_upper(), "name": player_name, "ver": Cfg.game_version()})
+	_open(relay_url.rstrip("/") + "/v1/room/" + room_code.to_upper(), {"t": "hi", "role": "join", "code": room_code.to_upper(), "name": player_name, "ver": Cfg.game_version()})
 
 func _open(url: String, hi: Dictionary) -> void:
 	leave()
@@ -129,6 +135,12 @@ func _process(delta: float) -> void:
 func _on_frame(m: Dictionary) -> void:
 	match str(m.get("t", "")):
 		"hello":
+			if int(m.get("relay", 0)) != RELAY_PROTO:
+				# an old (or too new) relay: leave with a clear message
+				last_error = "relay_version"
+				if _ws != null:
+					_ws.close()
+				return
 			my_id = int(m["id"])
 			code = str(m["code"])
 			is_host = bool(m["host"])

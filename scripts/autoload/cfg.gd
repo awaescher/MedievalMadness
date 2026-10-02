@@ -43,6 +43,9 @@ const DEFAULT_ELEVATION := 30.0
 const MIN_ELEVATION := 5.0
 const MAX_ELEVATION := 80.0
 ## The version lives in the VERSION file (single source of truth, bumped by tools/release.sh, exported with the game)
+## The relay every build connects to by default (set after deploying relay/cloudflare/worker.js); players can change it in the lobby
+const DEFAULT_RELAY := ""
+
 static func game_version() -> String:
 	var f: FileAccess = FileAccess.open("res://VERSION", FileAccess.READ)
 	if f == null:

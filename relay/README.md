@@ -6,20 +6,35 @@ Players join with a 4 letter **room code**.
 
 ## Option A: Cloudflare Workers (nothing to operate, free plan)
 
-One-time setup (needs a free Cloudflare account and Node.js):
+The file that runs on Cloudflare is **`relay/cloudflare/worker.js`** (plus `wrangler.toml`, which tells Cloudflare about the
+Durable Object that holds a room). One-time setup, needs a free Cloudflare account and Node.js:
 
 ```bash
 cd relay/cloudflare
-npx wrangler login
-npx wrangler deploy
+npx wrangler login      # opens the browser: "Allow"
+npx wrangler deploy     # first time it asks for a name for your workers.dev address
 ```
 
-`wrangler` prints the address of your worker, e.g. `https://mm-relay.yourname.workers.dev`. In the game open
-**Play online** and enter it as the relay server, but with `wss://` instead of `https://`:
-`wss://mm-relay.yourname.workers.dev`. Everybody who plays with you enters the same address once (it is remembered).
+`wrangler` prints the address of your worker, e.g. `https://mm-relay.yourname.workers.dev`. In the game open **Play online**
+and enter it with `wss://` instead of `https://`: `wss://mm-relay.yourname.workers.dev`. Everybody who plays with you needs
+the same address once (it is remembered; it can also be built in as the default: `Cfg.DEFAULT_RELAY`).
 
-Note: `relay/cloudflare/worker.js` was written against the same protocol as the Godot relay below, which is what the
-automated tests use. It has not been run on Cloudflare from this repository, so check the first deploy with one friend.
+Check it: open the address in a browser, it answers `{"service":"medieval-madness-relay","proto":1}`. Logs: `npx wrangler tail`.
+`npm test` in `relay/cloudflare` runs the relay logic against a mock of the Cloudflare runtime (12 checks).
+
+*Dashboard instead of wrangler:* Workers & Pages -> Create -> Worker -> paste `worker.js` -> Deploy, then Settings ->
+Bindings -> Durable Object (variable `ROOMS`, class `Room`, a new SQLite class). The wrangler route is the tested one.
+
+Free plan: a room costs about 450 GB-s of Durable Object time per hour (the daily allowance is 13,000), so 14+ room-hours a
+day are free; a re-deploy drops running rooms, so deploy while nobody plays.
+
+## Versions: when does what have to be updated?
+
+| What changed | What you must do |
+|---|---|
+| Anything inside the game (weapons, rules, new message kinds, sync) | Nothing for the relay: it forwards the payload untouched. Players on different **game versions** can still play together (the host shows a warning). |
+| A change that makes two builds drift apart (message formats, shot / placement / snapshot, RNG use) | Raise `Net.NET_VERSION` in `scripts/autoload/net.gd`. Players with different values are refused at joining ("please update the game"). |
+| The relay envelope (`hi`, `hello`, `peer`, `msg`, `err`) | Raise `RELAY_PROTO` in `worker.js` **and** in `net.gd`, and serve the new URL prefix (`/v2/...`) next to `/v1` in the same worker, so old builds keep working. A game that meets a relay with another protocol says "relay outdated, deploy the current worker.js". |
 
 ## Option B: self-hosted relay (any machine that can run Godot)
 
