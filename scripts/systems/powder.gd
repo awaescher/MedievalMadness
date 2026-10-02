@@ -158,7 +158,7 @@ static func stain(pos: Vector3, radius: float, source: Dictionary) -> void:
 			nd.source = source
 			_add(nd)
 			if p.mesh != null:
-				p.mesh.set_instance_shader_parameter("tint", p.color.lerp(Color(0.1, 0.1, 0.1), 0.55))
+				Toon.set_tint(p.mesh, p.color.lerp(Color(0.1, 0.1, 0.1), 0.55))
 			n += 1
 			if n >= 14:
 				return

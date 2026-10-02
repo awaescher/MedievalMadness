@@ -294,7 +294,7 @@ static func _make_part_body(p: Part, mode: String, sleeping: bool = false) -> vo
 		mi.material_override = Toon.emissive(p.color, 1.2)
 	else:
 		mi.material_override = Toon.main()
-		mi.set_instance_shader_parameter("tint", Color.WHITE if p.shape == "compound" else p.color)
+		Toon.set_tint(mi, Color.WHITE if p.shape == "compound" else p.color)
 	s.root.add_child(mi)
 	p.mesh = mi
 	var desc := PhysWorld.BodyDesc.new()
@@ -572,7 +572,7 @@ static func _spawn_shards(p: Part, dir: Vector3, vel: Vector3) -> void:
 		mi.mesh = MeshGen.box_mesh(sz)
 		mi.material_override = Toon.main()
 		var col: Color = p.color.lerp(Color(0.08, 0.06, 0.05), clampf(p.charred, 0.0, 1.0) * 0.85)
-		mi.set_instance_shader_parameter("tint", col)
+		Toon.set_tint(mi, col)
 		s.root.add_child(mi)
 		var off := Vector3(rng.range_f(-0.5, 0.5), rng.range_f(-0.5, 0.5), rng.range_f(-0.5, 0.5)) * base_size * 0.5
 		var desc := PhysWorld.BodyDesc.new()

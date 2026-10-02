@@ -36,7 +36,7 @@ static func damage_part(p: Part, amount: float, source: Dictionary, dir: Vector3
 		if p.mesh != null and p.shape != "compound":
 			var f: float = clampf(p.hp / p.max_hp, 0.0, 1.0)
 			var col: Color = p.color.lerp(Color(0.25, 0.2, 0.18), (1.0 - f) * 0.35 + p.charred * 0.6)
-			p.mesh.set_instance_shader_parameter("tint", col)
+			Toon.set_tint(p.mesh, col)
 		if s.behavior != null:
 			s.behavior.call("on_hit", s, p, amount)
 

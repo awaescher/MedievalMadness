@@ -3,6 +3,11 @@
 Rough release notes, newest first. Versions before 1.10.0 are reconstructed from the specification and are approximate.
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
+## 1.10.17
+- Linux / OpenGL: the Compatibility renderer only has 4096 slots for per-instance shader values and the toon shader used three per object, so thousands of objects got garbage colours (orange / purple) and the console flooded with "Too many instances using shader instance variables". The toon shader is now a constant-value copy in the OpenGL renderer; part colours come from cached materials, glow / wet are skipped there. Forward+ / Mobile are unchanged.
+- VSync is off by default (much faster on Linux). Saved settings stay as they are; "Reset options" applies the new default.
+- `DEBUG=1 ./export.sh` additionally builds a debug macOS app (prints a script backtrace on engine crashes).
+
 ## 1.10.16
 - Online: weather / random events / supply crates (like timer, catapults, palisades, terrain, arsenal, unlock rules) can only be changed by the host; guests see the host's values (and get their own back when they leave). (Weather and random events are switched off in online matches anyway.)
 - The owner's name floats above every village flag (small, visible up to ~140 m), so you always see whose village you are hitting.

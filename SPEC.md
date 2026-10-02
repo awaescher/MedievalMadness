@@ -1238,6 +1238,7 @@ Both use the **Mobile renderer** (`renderer/rendering_method.mobile`); the deskt
 **Build** — patch number in `VERSION` increases with every export; relay help files are bundled; `relay/*` and `*.md` are not exported.
 **Tests / autotest scenarios added** — `actions`, `teams`, `ram`, `logroof`, `lograte` (80 logs), `powderfire`, `cows`, `menu_arsenal` (menu, lobby steps, arsenals, relay help files) next to the existing ones; `tests/` count 3445+ assertions.
 
+**1.10.17** — OpenGL renderer: toon shader without instance uniforms (`Toon.use_instance_params`, `set_tint` / `set_glow` / `set_wet`), VSync default off, optional debug export.
 **1.10.16** — host-only match options in the online lobby (weather, events, crates also synced / restored), owner name label above the village flag (`Flag.add_owner_name`).
 **1.10.15** — online room stays open after a match (`NetGame.reset(keep_room)`, results -> main menu returns to the lobby), Linux defaults to the Compatibility renderer (`rendering_method.linuxbsd`).
 **1.10.14** — team gifts: `Turn.gifts` (ammo id -> giver id, this turn only), `Turn.set_gift`, messages `offer` (client -> host) / `gift` (host -> all), offer strip + gift ribbon in the HUD; the gift is used before the shooter's own stock and costs the giver one unit when fired. Online only (in hot-seat the viewer is always the player on turn).

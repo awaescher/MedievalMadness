@@ -67,6 +67,14 @@ if [ -f build/macos/MedievalMadness.zip ]; then
   echo "macOS app: build/macos/Medieval Madness.app"
 fi
 
+# optional: a DEBUG macOS build that prints a script backtrace when the engine crashes (DEBUG=1 ./export.sh)
+if [ "${DEBUG:-0}" = "1" ]; then
+  mkdir -p build/macos-debug
+  echo "==> exporting macOS debug build -> build/macos-debug"
+  "$GODOT" --headless --path . --export-debug "macOS" build/macos-debug/MedievalMadness.zip && unzip -q -o build/macos-debug/MedievalMadness.zip -d build/macos-debug \
+    && echo "run it from a terminal:  build/macos-debug/\"Medieval Madness.app\"/Contents/MacOS/\"Medieval Madness\" 2>&1 | tee crash.log"
+fi
+
 echo
 echo "Sizes:"
 for f in build/windows/MedievalMadness.exe build/macos/MedievalMadness.zip build/linux/MedievalMadness.x86_64; do

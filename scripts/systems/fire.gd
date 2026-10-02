@@ -162,7 +162,7 @@ static func _stop_fire(p: Part, by_water: bool) -> void:
 				Fx.inst.release_flame(f)
 		p.fire_slot = -1
 	if p.mesh != null:
-		p.mesh.set_instance_shader_parameter("glow", 0.0)
+		Toon.set_glow(p.mesh, 0.0)
 	if was_on:
 		Events.fire_out.emit(p.xf.origin, by_water)
 
@@ -220,7 +220,7 @@ static func set_wet(center: Vector3, r: float, seconds: float) -> void:
 			if p.state != Part.State.DEAD and p.mat.flammability > 0.0 and (p.xf.origin - center).length() <= r:
 				p.wet = maxf(p.wet, seconds)
 				if p.mesh != null:
-					p.mesh.set_instance_shader_parameter("wet", 1.0)
+					Toon.set_wet(p.mesh, 1.0)
 
 ## Ignite all flammable parts within radius (falloff optional)
 static func ignite_in_radius(center: Vector3, r: float, amount: float, source: Dictionary = {}, falloff: bool = true) -> void:
@@ -391,8 +391,8 @@ static func _fire_tick(step: float) -> void:
 		burn_grid[Vector2i(floori(p2.xf.origin.x / 3.0), floori(p2.xf.origin.z / 3.0))] = true
 		p2.charred = minf(p2.charred + step * 0.12, 1.0)
 		if p2.mesh != null and p2.shape != "compound":
-			p2.mesh.set_instance_shader_parameter("tint", p2.color.lerp(Color(0.06, 0.05, 0.05), p2.charred * 0.85))
-			p2.mesh.set_instance_shader_parameter("glow", 0.35 + 0.25 * sin(_time * 9.0 + float(p2.id)))
+			Toon.set_tint(p2.mesh, p2.color.lerp(Color(0.06, 0.05, 0.05), p2.charred * 0.85))
+			Toon.set_glow(p2.mesh, 0.35 + 0.25 * sin(_time * 9.0 + float(p2.id)))
 		var dmg: float = p2.mat.burn_hp * BURN_MULT * step
 		if p2.mat.burn_hp > 0.0:
 			Damage.damage_part(p2, dmg, Damage.source_for(p2.structure), Vector3.UP)
@@ -425,7 +425,7 @@ static func _fire_tick(step: float) -> void:
 			if p3.wet > 0.0:
 				p3.wet = maxf(p3.wet - step, 0.0)
 				if p3.wet <= 0.0 and p3.mesh != null:
-					p3.mesh.set_instance_shader_parameter("wet", 0.0)
+					Toon.set_wet(p3.mesh, 0.0)
 	# ---- ground fires
 	var gi: int = ground_fires.size() - 1
 	while gi >= 0:
