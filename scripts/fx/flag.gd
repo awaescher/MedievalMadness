@@ -65,6 +65,28 @@ static func spawn(pos: Vector3, color: Color, s: Structure) -> Flag:
 	all.append(f)
 	return f
 
+## The owner's name floats above the village flag (small, no outline box, gone beyond ~140 m): you always see whose
+## village you are hitting without the loud labels of the overview
+func add_owner_name(owner_name: String, col: Color, flag_scale: float) -> void:
+	var l := Label3D.new()
+	l.font = Speech.ui_font()
+	l.text = owner_name
+	l.font_size = 56
+	l.pixel_size = 0.0094 / maxf(flag_scale, 0.1)       # (the flag node is scaled up)
+	l.outline_size = 16
+	l.outline_modulate = Color(0.08, 0.05, 0.1, 1.0)
+	l.modulate = col.lightened(0.6)
+	l.modulate.a = 1.0
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.shaded = false
+	l.no_depth_test = true          # never hidden behind a roof
+	l.double_sided = true
+	l.position = Vector3(0.7, 0.9, 0.0)
+	l.visibility_range_end = 140.0
+	l.visibility_range_end_margin = 30.0
+	l.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+	add_child(l)
+
 static func update_all(wind: Vector2, dt: float) -> void:
 	var speed: float = wind.length()
 	var yaw_t: float = atan2(wind.x, wind.y) - PI * 0.5 if speed > 0.1 else 0.0

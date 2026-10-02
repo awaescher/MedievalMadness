@@ -114,7 +114,7 @@ var _stash: Dictionary = {}
 func _snapshot() -> Dictionary:
 	return {"player_count": player_count, "players": players.duplicate(true), "seed_text": seed_text, "timer": timer,
 		"catapult_count": catapult_count, "palisade_count": palisade_count, "terrain_hills": terrain_hills,
-		"crates_on": crates_on, "arsenal_preset": arsenal_preset, "rules_level": rules_level, "arsenal_edit": arsenal_edit.duplicate(), "arsenal_edit_preset": arsenal_edit_preset}
+		"crates_on": crates_on, "weather_on": weather_on, "events_on": events_on, "arsenal_preset": arsenal_preset, "rules_level": rules_level, "arsenal_edit": arsenal_edit.duplicate(), "arsenal_edit_preset": arsenal_edit_preset}
 
 func _apply_snapshot(d: Dictionary) -> void:
 	player_count = int(d["player_count"])
@@ -127,6 +127,8 @@ func _apply_snapshot(d: Dictionary) -> void:
 	arsenal_preset = str(d["arsenal_preset"])
 	rules_level = int(d["rules_level"])
 	crates_on = bool(d["crates_on"])
+	weather_on = bool(d["weather_on"])
+	events_on = bool(d["events_on"])
 	arsenal_edit = (d["arsenal_edit"] as Dictionary).duplicate()
 	arsenal_edit_preset = str(d["arsenal_edit_preset"])
 

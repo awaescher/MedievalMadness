@@ -128,7 +128,7 @@ func lobby_state() -> Dictionary:
 		out_rows.append({"name": Net.peer_name(pid) if pid >= 0 else str(d["name"]), "color": int(d["color"]), "type": tp, "peer": pid})
 	return {"count": count, "rows": out_rows, "seed": seed_edit.text.strip_edges() if seed_edit != null else Settings.seed_text,
 		"timer": Settings.timer, "cats": Settings.catapult_count, "posts": Settings.palisade_count, "hills": Settings.terrain_hills,
-		"arsenal_preset": Settings.arsenal_preset, "rules": Settings.rules_level, "crates": Settings.crates_on, "arsenal": Settings.arsenal}
+		"arsenal_preset": Settings.arsenal_preset, "rules": Settings.rules_level, "crates": Settings.crates_on, "weather": Settings.weather_on, "events": Settings.events_on, "arsenal": Settings.arsenal}
 
 ## Guest: show what the host has set up (a temporary overlay, see Settings.push_lobby)
 func net_lobby_apply(d: Dictionary) -> void:
@@ -157,6 +157,8 @@ func net_lobby_apply(d: Dictionary) -> void:
 	Settings.arsenal_preset = str(d["arsenal_preset"])
 	Settings.rules_level = int(d.get("rules", 0))
 	Settings.crates_on = bool(d.get("crates", true))
+	Settings.weather_on = bool(d.get("weather", Settings.weather_on))
+	Settings.events_on = bool(d.get("events", Settings.events_on))
 	Settings.arsenal_edit_preset = Settings.arsenal_preset
 	Settings.arsenal_edit.clear()
 	for k in (d["arsenal"] as Dictionary):
@@ -616,9 +618,15 @@ func _options_panel() -> Control:
 		Settings.lighting = Settings.LIGHTING_MODES[idx]
 		Events.quality_changed.emit(Settings.quality))
 	vb.add_child(_opt_row(I18n.t("menu.lighting"), lt))
-	vb.add_child(_check(I18n.t("menu.weather"), Settings.weather_on, func(v: bool) -> void: Settings.weather_on = v))
-	vb.add_child(_check(I18n.t("menu.events"), Settings.events_on, func(v: bool) -> void: Settings.events_on = v))
-	vb.add_child(_check(I18n.t("menu.crates"), Settings.crates_on, func(v: bool) -> void: Settings.crates_on = v))
+	var chk_weather: Control = _check(I18n.t("menu.weather"), Settings.weather_on, func(v: bool) -> void: Settings.weather_on = v)
+	_host_only(chk_weather)          # match rule: online only the host decides
+	vb.add_child(chk_weather)
+	var chk_events: Control = _check(I18n.t("menu.events"), Settings.events_on, func(v: bool) -> void: Settings.events_on = v)
+	_host_only(chk_events)          # match rule: online only the host decides
+	vb.add_child(chk_events)
+	var chk_crates: Control = _check(I18n.t("menu.crates"), Settings.crates_on, func(v: bool) -> void: Settings.crates_on = v)
+	_host_only(chk_crates)          # match rule: online only the host decides
+	vb.add_child(chk_crates)
 	vb.add_child(_check(I18n.t("menu.shake"), Settings.shake, func(v: bool) -> void: Settings.shake = v))
 	vb.add_child(_check(I18n.t("menu.autoquality"), Settings.auto_quality, func(v: bool) -> void: Settings.auto_quality = v))
 	vb.add_child(_check(I18n.t("menu.vsync"), Settings.vsync, func(v: bool) -> void:

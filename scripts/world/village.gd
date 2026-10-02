@@ -316,6 +316,8 @@ static func _process_extras(s: Structure, res: BuildResult, base: Transform3D, p
 				var fl: Flag = Flag.spawn(wp, col, s)
 				if ex.has("scale"):
 					fl.scale = Vector3.ONE * float(ex["scale"])
+				if s.kind == "flagpole" and player != null:
+					fl.add_owner_name(player.name, player.color, fl.scale.x)
 			"prop":
 				var pk: String = str(ex["prop"])
 				var lift: float = float(ex.get("lift", 0.0))

@@ -3,6 +3,10 @@
 Rough release notes, newest first. Versions before 1.10.0 are reconstructed from the specification and are approximate.
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
+## 1.10.16
+- Online: weather / random events / supply crates (like timer, catapults, palisades, terrain, arsenal, unlock rules) can only be changed by the host; guests see the host's values (and get their own back when they leave). (Weather and random events are switched off in online matches anyway.)
+- The owner's name floats above every village flag (small, visible up to ~140 m), so you always see whose village you are hitting.
+
 ## 1.10.15
 - Online: "Main menu" after a finished match keeps the relay room and its players (before, everybody was kicked out and the guest seats turned into "CPU"). Leaving the room still works with "Leave / Close lobby" or via the pause menu.
 - Linux (Ubuntu) now uses the Compatibility (OpenGL) renderer by default: a user saw garbled textures and a magenta 3D view with the Vulkan Forward+ renderer. Override: `--rendering-method forward_plus`. Not testable here (only checked that Compatibility and Mobile render fine on the Mac).
