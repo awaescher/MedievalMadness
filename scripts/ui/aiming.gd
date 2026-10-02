@@ -214,6 +214,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not _human_aiming():
 		return
+	if Turn.is_action_mode():
+		# relocate / wall: Actions handles the mouse and the movement keys; only the weapon / catapult keys work here
+		if event is InputEventKey and event.pressed and not event.echo:
+			_select_key(event as InputEventKey)
+		return
 	if event is InputEventMouseButton:
 		var mb2: InputEventMouseButton = event
 		if mb2.button_index == MOUSE_BUTTON_LEFT:
@@ -269,16 +274,33 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_M:
 				_face_marker()
 				accept_event()
-			KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_SLASH, 223:
-				var idx: int = int(k.keycode) - int(KEY_1)
-				if k.keycode == KEY_0:
-					idx = 9
-				elif k.keycode == KEY_MINUS or k.keycode == KEY_SLASH or int(k.keycode) == 223:
-					idx = 10
-				var list: Array[AmmoDef] = AmmoDef.all()
-				if idx < list.size():
-					Turn.set_ammo(list[idx].id)
-				accept_event()
+			_:
+				_select_key(k)
+
+## Weapon / action keys (1-9, 0, -, U, B) and Tab: shared by the aiming and the action modes
+func _select_key(k: InputEventKey) -> void:
+	var idx: int = -1
+	match k.keycode:
+		KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9:
+			idx = int(k.keycode) - int(KEY_1)
+		KEY_0:
+			idx = 9
+		KEY_MINUS, KEY_SLASH, 223:
+			idx = 10
+		KEY_U:
+			idx = 11
+		KEY_B:
+			idx = 12
+		KEY_TAB:
+			Turn.cycle_catapult(-1 if k.shift_pressed else 1)
+			accept_event()
+			return
+		_:
+			return
+	var list: Array[AmmoDef] = AmmoDef.all()
+	if idx < list.size():
+		Turn.set_ammo(list[idx].id)
+	accept_event()
 
 func _apply_drag(pos: Vector2) -> void:
 	var sc: float = _scale()
@@ -355,6 +377,13 @@ func _process(delta: float) -> void:
 		elif _overlay_on:
 			_overlay_on = false
 			queue_redraw()
+		return
+	if Turn.is_action_mode():
+		if _preview != null:
+			_preview.visible = false
+		if dragging:
+			cancel_drag()
+		_overlay_on = false
 		return
 	_overlay_on = true
 	queue_redraw()

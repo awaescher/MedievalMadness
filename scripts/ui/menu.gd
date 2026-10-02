@@ -397,6 +397,8 @@ func _open_arsenal() -> void:
 	vb.add_child(hint)
 	for a in AmmoDef.all():
 		var ammo: AmmoDef = a
+		if ammo.is_action():
+			continue
 		var hb := HBoxContainer.new()
 		hb.add_theme_constant_override("separation", 10)
 		var dot := ColorRect.new()

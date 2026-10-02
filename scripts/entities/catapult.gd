@@ -232,6 +232,9 @@ func _update_bar() -> void:
 var _ammo_id: String = ""
 
 func set_ammo_visual(ammo_id: String) -> void:
+	if AmmoDef.is_action_id(ammo_id):
+		hide_ammo_visual()
+		return
 	if ammo_id == _ammo_id and _ammo_vis.get_child_count() > 0:
 		_ammo_vis.visible = true
 		return
@@ -252,6 +255,16 @@ func set_yaw(yaw_rad: float) -> void:
 	yaw = yaw_rad
 	var xf: Transform3D = PhysWorld.get_transform(body_id)
 	xf.basis = Basis(Vector3.UP, d) * xf.basis
+	PhysWorld.set_transform(body_id, xf)
+	PhysWorld.set_velocity(body_id, Vector3.ZERO, Vector3.ZERO)
+	_pos_cache = xf.origin
+
+## Put the catapult on the ground at `pos` facing `yaw_rad` (relocation; also applied from the network)
+func place_at(pos: Vector3, yaw_rad: float) -> void:
+	if destroyed or body_id == 0:
+		return
+	yaw = yaw_rad
+	var xf := Transform3D(Basis(Vector3.UP, yaw_rad), Vector3(pos.x, Terrain.h(pos.x, pos.z) + 0.03, pos.z))
 	PhysWorld.set_transform(body_id, xf)
 	PhysWorld.set_velocity(body_id, Vector3.ZERO, Vector3.ZERO)
 	_pos_cache = xf.origin

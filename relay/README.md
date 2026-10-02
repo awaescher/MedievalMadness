@@ -17,7 +17,7 @@ npx wrangler deploy     # first time it asks for a name for your workers.dev add
 
 `wrangler` prints the address of your worker, e.g. `https://mm-relay.yourname.workers.dev`. In the game open **Play online**
 and enter it with `wss://` instead of `https://`: `wss://mm-relay.yourname.workers.dev`. Everybody who plays with you needs
-the same address once (it is remembered; it can also be built in as the default: `Cfg.DEFAULT_RELAY`).
+the same address once (it is remembered; the default is built in: `Cfg.DEFAULT_RELAY`, currently `wss://mm-relay.twilight-mouse-b997.workers.dev`).
 
 Check it: open the address in a browser, it answers `{"service":"medieval-madness-relay","proto":1}`. Logs: `npx wrangler tail`.
 `npm test` in `relay/cloudflare` runs the relay logic against a mock of the Cloudflare runtime (12 checks).
