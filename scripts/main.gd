@@ -13,6 +13,7 @@ var ui_root: Control
 var menu: Menu
 var hud: Hud
 var aiming: Aiming
+var actions: Actions
 var placement: Placement
 var results: Results
 var pause_menu: PauseMenu
@@ -176,6 +177,11 @@ func _build_ui() -> void:
 	aiming.cam = cam_rig
 	ui_root.add_child(aiming)
 	aiming.attach_preview(world_root)
+	actions = Actions.new()
+	actions.name = "Actions"
+	actions.cam = cam_rig
+	ui_root.add_child(actions)
+	actions.attach(world_root)
 	hud = Hud.new()
 	hud.name = "Hud"
 	ui_root.add_child(hud)
@@ -282,7 +288,8 @@ func _connect_events() -> void:
 	Events.turn_start.connect(func(_id: int) -> void:
 		_overview = false
 		hud.overview_on = false
-		aiming.overview_active = false)
+		aiming.overview_active = false
+		actions.overview_active = false)
 
 func _feed_throttle(key: String, seconds: float = 0.5) -> bool:
 	var now: float = Time.get_ticks_msec() * 0.001
@@ -601,6 +608,7 @@ func _toggle_overview() -> void:
 		return
 	_overview = not _overview
 	aiming.overview_active = _overview
+	actions.overview_active = _overview
 	hud.overview_on = _overview
 	if _overview:
 		# the whole playfield: map center, far enough out to see every village (spec 18.2)

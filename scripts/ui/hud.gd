@@ -68,7 +68,7 @@ class AmmoSlot extends Control:
 	var enabled: bool = true
 	signal clicked
 	func _init() -> void:
-		custom_minimum_size = Vector2(74, 90)
+		custom_minimum_size = Vector2(56, 72)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 	func _gui_input(ev: InputEvent) -> void:
 		if ev is InputEventMouseButton:
@@ -83,40 +83,47 @@ class AmmoSlot extends Control:
 		elif what == NOTIFICATION_MOUSE_EXIT:
 			hovered = false
 			queue_redraw()
+	const ICON_SCALE := 0.78
 	func _draw() -> void:
 		if ammo == null:
 			return
-		var r := Rect2(Vector2.ZERO, size)
+		var action: bool = ammo.is_action()
 		var bg: Color = Color("#f4e4bc") if enabled else Color("#b9a98a")
-		var border: Color = Color("#e74c3c") if selected else Color("#3b2a1a")
+		# weapons: slightly reddish rim, turn actions (relocate / build): grey rim
+		var border: Color = Color("#9a4535") if not action else Color("#8a8a94")
+		if selected:
+			border = Color("#e74c3c") if not action else Color("#4a4a58")
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = bg
 		sb.border_color = border
-		sb.set_border_width_all(4 if selected else 3)
-		sb.set_corner_radius_all(12)
-		sb.shadow_color = Color(0, 0, 0, 0.35)
-		sb.shadow_size = 4
+		sb.set_border_width_all(3 if selected else 2)
+		sb.set_corner_radius_all(10)
+		sb.shadow_color = Color(0, 0, 0, 0.3)
+		sb.shadow_size = 3
 		sb.shadow_offset = Vector2(0, 2)
-		draw_style_box(sb, Rect2(Vector2(0, -6.0 if selected else (-2.0 if hovered else 0.0)), size))
-		var off: float = -6.0 if selected else (-2.0 if hovered else 0.0)
-		var c := Vector2(size.x * 0.5, 36.0 + off)
-		_draw_icon(c, enabled)
+		var off: float = -5.0 if selected else (-2.0 if hovered else 0.0)
+		draw_style_box(sb, Rect2(Vector2(0, off), size))
+		var c := Vector2(size.x * 0.5, 28.0 + off)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(ICON_SCALE, ICON_SCALE))
+		_draw_icon(c / ICON_SCALE, enabled)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		var f: Font = UITheme.font_bold()
-		var cnt: String = "inf" if count < 0 else "x" + str(count)
-		if count < 0:
-			cnt = "∞"
-		var w: float = f.get_string_size(cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-		draw_string(f, Vector2(size.x * 0.5 - w * 0.5, 76.0 + off), cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("#3b2a1a"))
+		var w0: float = f.get_string_size(ammo.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		draw_string(f, Vector2(size.x * 0.5 - w0 * 0.5, 52.0 + off), ammo.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#3b2a1a"))
+		if not action:
+			var cnt: String = "∞" if count < 0 else "x" + str(count)
+			var w: float = f.get_string_size(cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+			draw_string(f, Vector2(size.x * 0.5 - w * 0.5, 67.0 + off), cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#3b2a1a"))
 		var key: String = ammo.key_label()
-		draw_circle(Vector2(12, 12 + off), 9.0, Color("#3b2a1a"))
-		var kw: float = f.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
-		draw_string(f, Vector2(12 - kw * 0.5, 17 + off), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#f4e4bc"))
-		if count == 0:
+		draw_circle(Vector2(10, 10 + off), 8.0, Color("#3b2a1a"))
+		var kw: float = f.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+		draw_string(f, Vector2(10 - kw * 0.5, 14.5 + off), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#f4e4bc"))
+		if count == 0 and not action:
 			# locked: a padlock until the weapon has been earned
-			var lc := Vector2(size.x - 16.0, 16.0 + off)
-			draw_arc(lc + Vector2(0, -1), 6.0, PI, TAU, 10, Color("#3b2a1a"), 3.0, true)
-			draw_rect(Rect2(lc + Vector2(-8, 0), Vector2(16, 12)), Color("#3b2a1a"))
-			draw_circle(lc + Vector2(0, 6), 2.0, Color("#f4e4bc"))
+			var lc := Vector2(size.x - 13.0, 13.0 + off)
+			draw_arc(lc + Vector2(0, -1), 5.0, PI, TAU, 10, Color("#3b2a1a"), 2.5, true)
+			draw_rect(Rect2(lc + Vector2(-6.5, 0), Vector2(13, 10)), Color("#3b2a1a"))
+			draw_circle(lc + Vector2(0, 5), 1.7, Color("#f4e4bc"))
 	# ---- icon helpers (all drawn with primitives; `_on` dims everything of a locked weapon)
 	var _on: bool = true
 	func _k(col: Color) -> Color:
@@ -216,7 +223,7 @@ class AmmoSlot extends Control:
 				draw_line(c + Vector2(-8, 4), c + Vector2(-2, 11), _k(Color("#4a4a52")), 1.8)
 				draw_circle(c + Vector2(8, 11), 2.5, _k(Color("#70707a")))
 			"log":
-				draw_set_transform(c, -0.32, Vector2.ONE)
+				draw_set_transform(c * ICON_SCALE, -0.32, Vector2(ICON_SCALE, ICON_SCALE))
 				var lg := PackedVector2Array([Vector2(-26, 0), Vector2(-19, -8), Vector2(18, -8), Vector2(26, 0), Vector2(18, 8), Vector2(-19, 8)])
 				_poly(lg, Color("#8a5a2f"), dark, 2.5)
 				draw_colored_polygon(PackedVector2Array([Vector2(-19, -8), Vector2(18, -8), Vector2(18, -4), Vector2(-19, -4)]), _k(Color("#a9763f")))
@@ -224,7 +231,7 @@ class AmmoSlot extends Control:
 					draw_line(Vector2(float(bx), -2), Vector2(float(bx) + 4, 6), _k(Color("#5a3a1c")), 1.6)
 				_poly(PackedVector2Array([Vector2(-26, 0), Vector2(-22, -4), Vector2(-19, -8), Vector2(-19, 8), Vector2(-22, 4)]), Color("#e0bd84"), dark, 1.5)
 				_poly(PackedVector2Array([Vector2(26, 0), Vector2(22, -4), Vector2(18, -8), Vector2(18, 8), Vector2(22, 4)]), Color("#e0bd84"), dark, 1.5)
-				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+				draw_set_transform(Vector2.ZERO, 0.0, Vector2(ICON_SCALE, ICON_SCALE))
 				# rotation arrows
 				draw_arc(c + Vector2(0, -2), 25.0, -2.3, -0.9, 10, _k(Color("#6a5a48")), 1.6, true)
 				draw_arc(c + Vector2(0, 2), 25.0, 0.85, 2.25, 10, _k(Color("#6a5a48")), 1.6, true)
@@ -292,9 +299,57 @@ class AmmoSlot extends Control:
 				draw_circle(c + Vector2(21, -23), 5.0, dark)
 				draw_circle(c + Vector2(21, -23), 3.6, _k(Color("#ff7a1a")))
 				draw_circle(c + Vector2(20, -24), 1.5, _k(Color("#ffe27a")))
+
+## One compact line of "what can I do now": [key cap] label  [key cap] label ... on a parchment strip
+class KeyHints extends Control:
+	var items: Array = []          # [[key, label], ...]; key "" = plain note
+	var _sig: String = ""
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		custom_minimum_size = Vector2(0, 34)
+	func set_items(list: Array) -> void:
+		var sig: String = str(list)
+		if sig == _sig:
+			return
+		_sig = sig
+		items = list
+		queue_redraw()
+	func _draw() -> void:
+		if items.is_empty():
+			return
 		var f: Font = UITheme.font_bold()
-		var w: float = f.get_string_size(ammo.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-		draw_string(f, c + Vector2(-w * 0.5, 30), ammo.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3b2a1a"))
+		var fs: int = 14
+		var total: float = 8.0
+		for it in items:
+			var key: String = str((it as Array)[0])
+			var lab: String = str((it as Array)[1])
+			var kw: float = (maxf(f.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 14.0, 22.0)) if key != "" else 0.0
+			total += kw + (6.0 if key != "" else 0.0) + f.get_string_size(lab, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 16.0
+		var x0: float = (size.x - total) * 0.5
+		var strip := StyleBoxFlat.new()
+		strip.bg_color = Color("#f4e4bc")
+		strip.border_color = Color("#3b2a1a")
+		strip.set_border_width_all(2)
+		strip.set_corner_radius_all(10)
+		strip.shadow_color = Color(0, 0, 0, 0.3)
+		strip.shadow_size = 3
+		draw_style_box(strip, Rect2(Vector2(x0, 2), Vector2(total, size.y - 6)))
+		var x: float = x0 + 12.0
+		var cy: float = 2.0 + (size.y - 6.0) * 0.5
+		for i in items.size():
+			var key2: String = str((items[i] as Array)[0])
+			var lab2: String = str((items[i] as Array)[1])
+			if key2 != "":
+				var tw: float = f.get_string_size(key2, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+				var kw2: float = maxf(tw + 14.0, 22.0)
+				var cap := StyleBoxFlat.new()
+				cap.bg_color = Color("#3b2a1a")
+				cap.set_corner_radius_all(6)
+				draw_style_box(cap, Rect2(Vector2(x, cy - 10.0), Vector2(kw2, 20.0)))
+				draw_string(f, Vector2(x + (kw2 - tw) * 0.5, cy + 4.5), key2, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#f4e4bc"))
+				x += kw2 + 6.0
+			draw_string(f, Vector2(x, cy + 5.0), lab2, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#3b2a1a"))
+			x += f.get_string_size(lab2, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 16.0
 
 ## Clickable catapult selector (also reachable with Tab / Shift+Tab)
 class CatSelect extends Control:
@@ -379,6 +434,7 @@ var _toast_t: float = 0.0
 var _dirty_players: bool = true
 var _players_sig: String = ""
 var hint_label: Label
+var hints: KeyHints
 var _distance_label: Label
 var btn_fast: Button
 var cat_select: CatSelect
@@ -473,7 +529,7 @@ func _build() -> void:
 	ab.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(ab)
 	ammo_box = HBoxContainer.new()
-	ammo_box.add_theme_constant_override("separation", 6)
+	ammo_box.add_theme_constant_override("separation", 4)
 	ammo_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	ab.add_child(ammo_box)
 	for a in AmmoDef.all():
@@ -519,7 +575,7 @@ func _build() -> void:
 	br.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	br.add_theme_constant_override("separation", 6)
 	add_child(br)
-	btn_fast = UITheme.button("", "ParchButton", Vector2(0, 36), 15)
+	btn_fast = UITheme.button("", "ParchButton", Vector2(0, 32), 14)
 	btn_fast.pressed.connect(func() -> void: fast_pressed.emit())
 	br.add_child(btn_fast)
 	cat_select = CatSelect.new()
@@ -536,10 +592,10 @@ func _build() -> void:
 			Turn.select_catapult(c)
 			Sfx.play("ui_click", Vector3.INF, 0.7, 0))
 	add_child(cat_select)
-	btn_overview = UITheme.button("", "GoldButton", Vector2(0, 36), 15)
+	btn_overview = UITheme.button("", "ParchButton", Vector2(0, 32), 14)
 	btn_overview.pressed.connect(func() -> void: overview_pressed.emit())
 	br.add_child(btn_overview)
-	btn_skip = UITheme.button("", "ParchButton", Vector2(0, 36), 15)
+	btn_skip = UITheme.button("", "ParchButton", Vector2(0, 32), 14)
 	btn_skip.button_down.connect(func() -> void: _skip_hold = 0.001)
 	btn_skip.button_up.connect(func() -> void: _skip_hold = 0.0)
 	br.add_child(btn_skip)
@@ -549,7 +605,7 @@ func _build() -> void:
 	skip_bar.max_value = 1.0
 	skip_bar.visible = false
 	br.add_child(skip_bar)
-	btn_sound = UITheme.button("", "ParchButton", Vector2(0, 36), 15)
+	btn_sound = UITheme.button("", "ParchButton", Vector2(0, 32), 14)
 	btn_sound.pressed.connect(func() -> void:
 		Settings.volume = 0.0 if Settings.volume > 0.01 else 0.8
 		Settings.apply_volume()
@@ -607,6 +663,19 @@ func _build() -> void:
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(hint_label)
+	hint_label.visible = false
+	hints = KeyHints.new()
+	hints.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	hints.anchor_left = 0.5
+	hints.anchor_right = 0.5
+	hints.anchor_top = 1.0
+	hints.anchor_bottom = 1.0
+	hints.offset_left = -520
+	hints.offset_right = 520
+	hints.offset_top = -176
+	hints.offset_bottom = -142
+	hints.visible = false
+	add_child(hints)
 	_rebuild_texts()
 
 func _rebuild_texts() -> void:
@@ -759,15 +828,11 @@ func _process(delta: float) -> void:
 		else:
 			_distance_label.text = ""
 		var aiming_human: bool = Turn.phase == Turn.Phase.AIMING and not p.is_cpu()
-		aim_panel.visible = aiming_human or p.is_human()
+		aim_panel.visible = (aiming_human or p.is_human()) and Turn.action_mode() == ""
 		var aftermath: bool = Turn.phase == Turn.Phase.AFTERMATH and not overview_on
-		hint_label.visible = aiming_human or overview_on or aftermath
-		if aftermath:
-			hint_label.text = I18n.t("hud.skip_hint")
-		elif overview_on:
-			hint_label.text = I18n.t("hud.overview_hint")
-		elif aiming_human:
-			hint_label.text = I18n.t("hud.aim_hint") + "   |   " + I18n.t("hud.aim_hint_keys")
+		var list: Array = _hint_items(aiming_human, aftermath)
+		hints.visible = not list.is_empty()
+		hints.set_items(list)
 	btn_fast.modulate = Color(1, 0.85, 0.3) if fast_on else Color.WHITE
 	var cs_p: PlayerData = Game.cur()
 	cat_select.visible = cs_p != null and cs_p.is_human() and Turn.phase == Turn.Phase.AIMING and cs_p.catapults.size() > 1
@@ -808,6 +873,21 @@ func _process(delta: float) -> void:
 		else:
 			lab.modulate.a = clampf(float(it["t"]) / 0.6, 0.0, 1.0)
 		i -= 1
+
+## What the player can do right now (short, same key-cap style everywhere)
+func _hint_items(aiming_human: bool, aftermath: bool) -> Array:
+	if aftermath:
+		return [["", I18n.t("hint.next_turn")]]
+	if overview_on:
+		return [[I18n.t("hint.k_click"), I18n.t("hint.marker")], [I18n.t("hint.k_rmb"), I18n.t("hint.camera")], ["V", I18n.t("hint.back")]]
+	if not aiming_human:
+		return []
+	match Turn.action_mode():
+		"relocate":
+			return [["W/S", I18n.t("hint.drive")], ["A/D", I18n.t("hint.steer")], [I18n.t("hint.k_space"), I18n.t("hint.done")], ["", I18n.t("hint.driven", {"u": int(round(Turn.move_used)), "m": int(Turn.MOVE_MAX)})], ["1-9", I18n.t("hint.weapon")]]
+		"wall":
+			return [[I18n.t("hint.k_click"), I18n.t("hint.build")], ["Q/E", I18n.t("hint.turn")], [I18n.t("hint.k_on_wall"), I18n.t("hint.stack")], ["1-9", I18n.t("hint.weapon")]]
+	return [[I18n.t("hint.k_drag"), I18n.t("hint.fire")], ["Q/E", I18n.t("hint.turn")], ["↑↓", I18n.t("hint.elevation")], ["Tab", I18n.t("hint.catapult")], ["R", I18n.t("hint.enemy")], ["M", I18n.t("hint.marker_key")], ["U", I18n.t("hint.relocate")], ["B", I18n.t("hint.wall")]]
 
 func _cam_yaw() -> float:
 	var cam: Camera3D = get_viewport().get_camera_3d()

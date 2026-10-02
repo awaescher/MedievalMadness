@@ -88,7 +88,7 @@ func test_material_table() -> void:
 
 func test_ammo_table() -> void:
 	var all: Array[AmmoDef] = AmmoDef.all()
-	TestBase.eq(all.size(), 11, "eleven ammo types")
+	TestBase.eq(all.size(), 13, "eleven weapons plus the two turn actions (relocate, wall)")
 	TestBase.eq(AmmoDef.get_def("stone").start_count, -1, "stone is unlimited")
 	TestBase.eq(AmmoDef.get_def("firebarrel").start_count, 2, "only two fire barrels at the start")
 	for id in ["boulder", "powderkeg", "scatter", "cow", "quad", "chain", "log", "meteor", "powdertrail"]:

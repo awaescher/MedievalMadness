@@ -14,6 +14,7 @@ var color: Color = Color("#8d8d94")
 var label: String = "ST"
 var base: String = ""             # behaves like this ammo (the stone volley is made of stones)
 var earnable: bool = false       # must be unlocked during the match (or pre-granted in the menu)
+var kind: String = "shot"        # "shot" = fires a projectile | "action" = something else a turn can be spent on (relocate, build)
 
 static var _all: Array[AmmoDef] = []
 static var _by_id: Dictionary = {}
@@ -48,12 +49,33 @@ static func _ensure() -> void:
 	_mk("cow", 9, 0, 250.0, 0.90, 0.15, 0.030, "#f2f2f2", "MU")
 	_mk("powdertrail", 10, 0, 28.0, 0.3, 0.25, 0.012, "#2a2a30", "PT")
 	_mk("meteor", 11, 0, 30.0, 0.30, 0.30, 0.010, "#35ff86", "MT")
+	# turn actions instead of a shot: always available, never earned
+	_mk("relocate", 12, -1, 0.0, 0.0, 0.0, 0.0, "#8a8a94", "MV")
+	_mk("wall", 13, -1, 0.0, 0.0, 0.0, 0.0, "#8a9096", "WL")
+	for aid in ["relocate", "wall"]:
+		(_by_id[aid] as AmmoDef).kind = "action"
 	for a in _all:
-		a.earnable = a.id != "stone"
+		a.earnable = a.id != "stone" and a.kind == "shot"
 
-## Label of the key that selects this slot (1-9, 0, -)
+## Label of the key that selects this slot (1-9, 0, -, U, B)
 func key_label() -> String:
-	return "0" if slot == 10 else ("-" if slot == 11 else str(slot))
+	match slot:
+		10:
+			return "0"
+		11:
+			return "-"
+		12:
+			return "U"
+		13:
+			return "B"
+	return str(slot)
+
+func is_action() -> bool:
+	return kind == "action"
+
+static func is_action_id(id: String) -> bool:
+	_ensure()
+	return _by_id.has(id) and (_by_id[id] as AmmoDef).kind == "action"
 
 static func all() -> Array[AmmoDef]:
 	_ensure()

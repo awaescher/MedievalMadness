@@ -29,6 +29,8 @@ static func setup(main_node: Node) -> void:
 	Net.on("aim", _on_aim)
 	Net.on("fire_req", _on_fire_req)
 	Net.on("shot", _on_shot)
+	Net.on("act_req", _on_act_req)
+	Net.on("act", _on_act)
 	Net.on("skip", _on_skip)
 	Net.on("turn_start", _on_turn_start)
 	Net.on("turn_end", _on_turn_end)
@@ -240,6 +242,32 @@ static func _on_shot(_from: int, d: Dictionary) -> void:
 		Turn.net_fire(d)
 	else:
 		queued_shot = d
+
+## A turn action (build a wall / relocate a catapult) in an online game: same route as a shot
+static func request_act(d: Dictionary) -> void:
+	d["seat"] = Game.current_player
+	if Net.is_host:
+		_broadcast_act(d)
+	elif Game.cur().is_human() and not awaiting_shot:
+		awaiting_shot = true
+		Net.send_host(d.merged({"k": "act_req"}))
+
+static func _on_act_req(from: int, d: Dictionary) -> void:
+	var p: PlayerData = Game.cur()
+	if not Net.is_host or p == null or p.net_peer != from or Turn.phase != Turn.Phase.AIMING or int(d["seat"]) != Game.current_player:
+		return
+	_broadcast_act(d)
+
+static func _broadcast_act(d: Dictionary) -> void:
+	d["k"] = "act"
+	d["seed"] = randi() & 0x7fffffff
+	Net.send_all(d)
+	_on_act(1, d)
+
+static func _on_act(_from: int, d: Dictionary) -> void:
+	awaiting_shot = false
+	if Turn.phase == Turn.Phase.AIMING:
+		Turn.net_act(d)
 
 ## Same RNG state everywhere before a shot is simulated
 static func reseed(seed_value: int) -> void:

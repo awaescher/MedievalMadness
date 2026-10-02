@@ -39,6 +39,9 @@ static var _frozen_time: float = 0.0
 static var _end_hold: float = 0.6
 static var _epic_done: bool = false
 static var _net_firing: bool = false
+static var move_used: float = 0.0          # relocate action: metres driven so far this turn (set by the Actions UI)
+static var move_max: float = 14.0
+const MOVE_MAX := 14.0
 
 # ------------------------------------------------------------------ ballistic prediction (also used by the CPU)
 static func launch_velocity(yaw: float, elev_deg: float, power: float) -> Vector3:
@@ -168,14 +171,28 @@ static func cycle_catapult(dir: int = 1) -> void:
 	i = (i + dir + list.size()) % list.size() if i >= 0 else 0
 	select_catapult(list[i] as Catapult)
 
+## "" while a weapon is selected, "relocate" / "wall" while a turn action is selected
+static func action_mode() -> String:
+	return aim_ammo if AmmoDef.is_action_id(aim_ammo) else ""
+
+static func is_action_mode() -> bool:
+	return AmmoDef.is_action_id(aim_ammo)
+
 static func set_ammo(id: String) -> void:
 	var p: PlayerData = Game.cur()
 	if p == null or not p.has_ammo(id):
 		return
+	var action: bool = AmmoDef.is_action_id(id)
 	aim_ammo = id
-	p.ammo_sel = id
+	if not action:
+		p.ammo_sel = id
 	if sel != null and phase == Phase.AIMING:
 		sel.set_ammo_visual(id)
+		if action:
+			set_aim(aim_yaw, aim_elev, 0.0)
+			sel.rest_arm()
+			if id == "wall" and cam != null:
+				cam.focus_on(p.village_center, 46.0, 40.0)
 	Sfx.play("ui_click", Vector3.INF, 0.5, 0)
 
 static func set_aim(yaw: float, elev_deg: float, power: float) -> void:
@@ -198,7 +215,7 @@ static func current_velocity() -> Vector3:
 
 ## Fire with the current aim (human release / space / timeout / CPU)
 static func fire() -> void:
-	if phase != Phase.AIMING or sel == null or sel.destroyed:
+	if phase != Phase.AIMING or sel == null or sel.destroyed or is_action_mode():
 		return
 	if Net.active and not _net_firing:
 		NetGame.request_fire()          # host: broadcast the shot; client: ask the host
@@ -226,6 +243,46 @@ static func fire() -> void:
 	sel.play_fire()
 	_set_phase(Phase.FIRING)
 	Sfx.play("creak", sel.global_pos(), 0.5, 0)
+
+## A turn action instead of a shot (local human): {t: "wall", c: [x,y,z], y: yaw, stack: bool} or
+## {t: "move", cat: index, p: [x,y,z], y: yaw}. Online the host stamps it and everybody applies it.
+static func do_action(d: Dictionary) -> void:
+	if phase != Phase.AIMING or sel == null or sel.destroyed:
+		return
+	if Net.active:
+		NetGame.request_act(d)
+	else:
+		d["seed"] = randi() & 0x7fffffff
+		net_act(d)
+
+## Runs on every machine: the action happens and the turn is spent
+static func net_act(d: Dictionary) -> void:
+	var p: PlayerData = Game.cur()
+	if p == null or phase != Phase.AIMING or int(d.get("seat", Game.current_player)) != Game.current_player:
+		return
+	match str(d["t"]):
+		"wall":
+			var c: Array = d["c"] as Array
+			var pos := Vector3(float(c[0]), float(c[1]), float(c[2]))
+			if Walls.apply(p, d, Rng.new(int(d.get("seed", 1)))):
+				Sfx.play("thunk", pos, 1.0, 3)
+				Fx.burst("dust", pos + Vector3.UP * 0.4, Color("#9a9a9a"), 1.0)
+				Scoring.award(p.id, 20, "wall", true)
+		"move":
+			for c2 in p.living_catapults():
+				if (c2 as Catapult).index == int(d["cat"]):
+					var a: Array = d["p"] as Array
+					(c2 as Catapult).place_at(Vector3(float(a[0]), float(a[1]), float(a[2])), float(d["y"]))
+	if sel != null:
+		sel.set_selected(false)
+		sel.rest_arm()
+	Scoring.begin_shot(p.id)
+	shot_ammo = ""
+	shots_this_turn = 0
+	timer_on = false
+	aftermath_time = 0.0
+	settle_acc = 0.0
+	_set_phase(Phase.AFTERMATH)
 
 ## Online: the host sent a shot (seat, catapult, aim, ammo, RNG seed): everybody fires exactly that
 static func net_fire(d: Dictionary) -> void:
@@ -308,7 +365,7 @@ static func update(dt: float) -> void:
 					_timeout()
 			if cpu_active:
 				CpuAI.update(dt)
-			elif sel != null and cam != null and cam.mode != CameraRig.Mode.OVERVIEW:
+			elif sel != null and cam != null and cam.mode != CameraRig.Mode.OVERVIEW and action_mode() != "wall":
 				cam.aim_at(sel.global_pos(), aim_yaw, deg_to_rad(aim_elev))
 			if Net.active and Game.cur() != null and Game.cur().is_human():
 				NetGame.tick_aim(dt)
@@ -350,6 +407,10 @@ static func _begin_aiming() -> void:
 	timer_on = Game.turn_timer > 0 and p.is_human()
 	time_left = float(Game.turn_timer)
 
+static func p_ammo_fallback() -> String:
+	var p: PlayerData = Game.cur()
+	return p.ammo_sel if p != null and p.has_ammo(p.ammo_sel) else "stone"
+
 static func _timeout() -> void:
 	timer_on = false
 	Events.banner.emit(I18n.t("banner.timeout"), "info")
@@ -359,6 +420,8 @@ static func _timeout() -> void:
 			_finish_turn()
 			return
 		select_catapult(l[0] as Catapult)
+	if is_action_mode():
+		aim_ammo = p_ammo_fallback()
 	if not has_aimed or aim_power < 0.08:
 		# never aimed: random angle at 50% power with a stone
 		aim_ammo = "stone"
