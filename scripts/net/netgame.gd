@@ -18,6 +18,7 @@ static var hash_mismatches: int = 0
 static var last_host_hash: int = 0
 static var shot_serial: int = 0
 static var in_game: bool = false
+static var accepted: Dictionary = {}      # host: peer id -> true once its hello with a matching NET_VERSION arrived
 static var fixed_parts: int = 0           # parts that stood here but not on the host: removed after a turn
 static var missing_parts: int = 0         # parts that stand on the host but fell here: put back after the turn
 
@@ -38,6 +39,8 @@ static func setup(main_node: Node) -> void:
 	Net.on("over", _on_over)
 	Net.on("peer", _on_peer)
 	Net.on("reject", _on_reject)
+	Net.on("hello", _on_hello)
+	Net.joined.connect(_on_joined)
 
 static func reset() -> void:
 	queued_shot = {}
@@ -45,6 +48,7 @@ static func reset() -> void:
 	_aim_acc = 0.0
 	_placed_pending.clear()
 	hash_mismatches = 0
+	accepted.clear()
 	fixed_parts = 0
 	missing_parts = 0
 	in_game = false
@@ -54,7 +58,7 @@ static func reset() -> void:
 static func make_cfg(rows_cfg: Array, seat_count: int) -> Dictionary:
 	var peers: Array = []
 	for id in Net.roster:
-		if int(id) != 1:
+		if int(id) != 1 and accepted.has(int(id)):
 			peers.append(int(id))
 	peers.sort()
 	var total: int = clampi(maxi(seat_count, 1 + peers.size()), Cfg.MIN_PLAYERS, Cfg.MAX_PLAYERS)
@@ -90,8 +94,24 @@ static func _on_start(_from: int, d: Dictionary) -> void:
 	in_game = true
 	main.call("net_start", d)
 
+## A client introduces itself to the host right after joining
+static func _on_joined(_code: String) -> void:
+	if Net.is_client():
+		Net.send_host({"k": "hello", "net": Net.NET_VERSION, "ver": Cfg.game_version()})
+
+static func _on_hello(from: int, d: Dictionary) -> void:
+	if not Net.is_host:
+		return
+	if int(d.get("net", -1)) != Net.NET_VERSION:
+		Net.send_to(from, {"k": "reject", "why": "netver", "ver": Cfg.game_version()})
+		return
+	accepted[from] = true
+	if str(d.get("ver", "")) != Cfg.game_version():
+		Events.toast.emit(I18n.t("net.version", {"host": Cfg.game_version(), "me": str(d.get("ver", "?"))}))
+	Net.roster_changed.emit()
+
 static func _on_reject(_from: int, d: Dictionary) -> void:
-	Events.toast.emit(I18n.t("net." + str(d.get("why", "busy"))))
+	Events.toast.emit(I18n.t("net." + str(d.get("why", "busy")), {"host": str(d.get("ver", "?")), "me": Cfg.game_version()}))
 	Net.leave()
 
 # ------------------------------------------------------------------ placement
@@ -425,6 +445,7 @@ static func _on_grant(_from: int, d: Dictionary) -> void:
 static func _on_peer(pid: int, d: Dictionary) -> void:
 	if not Net.is_host:
 		return
+	accepted.erase(pid)
 	if bool(d["on"]):
 		if in_game:
 			Net.send_to(pid, {"k": "reject", "why": "running"})

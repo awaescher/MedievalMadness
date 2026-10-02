@@ -1,13 +1,17 @@
 // Medieval Madness relay on Cloudflare Workers + Durable Objects (free plan, nothing to operate).
 // Same protocol as tools/relay_server.gd: JSON text frames, rooms with a 4 letter code, star topology.
-//   GET /host           (WebSocket)  -> opens a new room, the first frame answers with the code
-//   GET /room/<CODE>    (WebSocket)  -> joins a room
+//   GET /v1/host        (WebSocket)  -> opens a new room, the first frame answers with the code
+//   GET /v1/room/<CODE> (WebSocket)  -> joins a room
+// The path prefix is the relay API version (RELAY_PROTO): a breaking change of the envelope gets a new prefix (/v2 ...)
+// served by the same worker, so old and new game builds keep working side by side. Game level changes (new message kinds,
+// new sync rules) never need a relay update: the relay forwards the payload "d" untouched.
 // Client -> relay: {"t":"hi","role":"host|join","name":"..","ver":".."}, {"t":"msg","to":<id>,"d":{...}}
 // Relay -> client: {"t":"hello","id":..,"code":..,"host":..,"roster":{..}}, {"t":"peer","id":..,"name":..,"on":bool},
 //                  {"t":"msg","from":<id>,"d":{...}}, {"t":"err","m":".."}
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MAX_PEERS = 8;
+const RELAY_PROTO = 1;
 
 function newCode() {
   let c = "";
@@ -21,9 +25,9 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.headers.get("Upgrade") !== "websocket") {
-      return new Response("Medieval Madness relay: connect with a WebSocket.", { status: 200 });
+      return new Response(JSON.stringify({ service: "medieval-madness-relay", proto: RELAY_PROTO }), { status: 200, headers: { "content-type": "application/json" } });
     }
-    if (url.pathname === "/host") {
+    if (url.pathname === "/v1/host") {
       for (let attempt = 0; attempt < 8; attempt++) {
         const code = newCode();
         const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
@@ -32,7 +36,7 @@ export default {
       }
       return new Response("no free room code", { status: 503 });
     }
-    const m = url.pathname.match(/^\/room\/([A-Za-z0-9]{4})$/);
+    const m = url.pathname.match(/^\/v1\/room\/([A-Za-z0-9]{4})$/);
     if (m) {
       const code = m[1].toUpperCase();
       const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
@@ -79,13 +83,13 @@ export class Room {
           this.hostWs = server;
           this.code = code;
           this.peers.set(server, { id: 1, name });
-          this.send(server, { t: "hello", id: 1, code, host: true, roster: this.roster() });
+          this.send(server, { t: "hello", id: 1, code, host: true, relay: RELAY_PROTO, roster: this.roster() });
         } else {
           if (!this.hostWs) { this.send(server, { t: "err", m: "room_not_found" }); server.close(1000, "room_not_found"); return; }
           if (this.peers.size >= MAX_PEERS) { this.send(server, { t: "err", m: "room_full" }); server.close(1000, "room_full"); return; }
           const id = this.next++;
           this.peers.set(server, { id, name });
-          this.send(server, { t: "hello", id, code, host: false, roster: this.roster() });
+          this.send(server, { t: "hello", id, code, host: false, relay: RELAY_PROTO, roster: this.roster() });
           for (const [ws, p] of this.peers) if (ws !== server) this.send(ws, { t: "peer", id, name, on: true });
         }
         joined = true;

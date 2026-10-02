@@ -9,7 +9,7 @@ const LIGHTING_MODES: Array[String] = ["basic", "enhanced", "rt"]
 var language: String = "en"
 var volume: float = 0.8
 var quality: String = "medium"
-var relay_url: String = ""             # online play: wss://<your worker>.workers.dev (see relay/README.md)
+var relay_url: String = Cfg.DEFAULT_RELAY             # online play: wss://<your worker>.workers.dev (see relay/README.md)
 var net_name: String = ""
 var lighting: String = "enhanced"      # basic | enhanced | rt (needs the Forward+ renderer)
 var shake: bool = true
@@ -50,6 +50,8 @@ func load_settings() -> void:
 	if not LIGHTING_MODES.has(lighting):
 		lighting = "enhanced"
 	relay_url = str(cf.get_value("main", "relay_url", relay_url))
+	if relay_url.strip_edges() == "":
+		relay_url = Cfg.DEFAULT_RELAY
 	net_name = str(cf.get_value("main", "net_name", net_name))
 	shake = bool(cf.get_value("main", "shake", shake))
 	timer = int(cf.get_value("main", "timer", timer))

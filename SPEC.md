@@ -1155,6 +1155,8 @@ Web export, mobile, gamepad, online multiplayer, code signing/notarization, auto
 - Pause does not stop the world online; rematch / same map are not offered online.
 - Seats: `PlayerData.net_peer`; `is_human()` means "a human on THIS machine", `is_remote()` a human elsewhere.
 
+**Versions**: `Net.RELAY_PROTO` (relay envelope + URL prefix `/v1`, reported in `hello` as `relay`; a mismatch ends the connection with "relay outdated") and `Net.NET_VERSION` (game-level sync). A client introduces itself with `hello {net, ver}`; the host refuses a different `NET_VERSION` (`reject` / `netver`) and only seats accepted peers, a different game version only produces a warning. `Cfg.DEFAULT_RELAY` is the built-in relay address. The Cloudflare worker has a mock-runtime test (`relay/cloudflare/test.mjs`).
+
 **Tests**: `--autotest=nethost` / `--autotest=netjoin` (see `relay/README.md`) play a whole match with several headless processes; their `NETLOG` lines must agree.
 
 ## 20. Mobile (iOS / Android)

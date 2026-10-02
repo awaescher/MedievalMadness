@@ -193,6 +193,8 @@ const DATA := {
 		"err_room_full": "Der Raum ist voll (max. 8).",
 		"err_host_left": "Der Host hat das Spiel verlassen.",
 		"err_connect_failed": "Relay-Server nicht erreichbar.",
+		"netver": "Inkompatible Online-Version (Host {host}, du {me}): bitte das Spiel aktualisieren.",
+		"err_relay_version": "Das Relay ist zu alt oder zu neu für dieses Spiel: deploye die aktuelle relay/cloudflare/worker.js erneut.",
 		"err_closed": "Verbindung verloren.",
 		"start_online": "ONLINE-SPIEL STARTEN",
 		"only_host": "Nur der Host kann starten.",

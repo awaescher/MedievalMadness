@@ -7,6 +7,7 @@ extends SceneTree
 ## {"t":"peer","id":..,"name":..,"on":true|false}, {"t":"msg","from":<id>,"d":{...}}, {"t":"err","m":".."}.
 
 const MAX_PEERS := 8
+const RELAY_PROTO := 1
 const ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 var server := TCPServer.new()
@@ -90,7 +91,7 @@ func _hi(ws: WebSocketPeer, m: Dictionary) -> void:
 	if role == "host":
 		var code: String = _new_code()
 		rooms[code] = {"peers": {1: {"ws": ws, "name": nm}}, "next": 2}
-		_send(ws, {"t": "hello", "id": 1, "code": code, "host": true, "roster": {"1": nm}})
+		_send(ws, {"t": "hello", "id": 1, "code": code, "host": true, "relay": RELAY_PROTO, "roster": {"1": nm}})
 		print("room %s opened by %s" % [code, nm])
 		return
 	var code2: String = str(m.get("code", "")).to_upper()
@@ -107,7 +108,7 @@ func _hi(ws: WebSocketPeer, m: Dictionary) -> void:
 	var id: int = int(room["next"])
 	room["next"] = id + 1
 	peers[id] = {"ws": ws, "name": nm}
-	_send(ws, {"t": "hello", "id": id, "code": code2, "host": false, "roster": _roster(room)})
+	_send(ws, {"t": "hello", "id": id, "code": code2, "host": false, "relay": RELAY_PROTO, "roster": _roster(room)})
 	for pid in peers:
 		if int(pid) != id:
 			_send((peers[pid] as Dictionary)["ws"] as WebSocketPeer, {"t": "peer", "id": id, "name": nm, "on": true})
