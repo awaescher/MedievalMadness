@@ -1,4 +1,4 @@
-# MEDIEVAL MADNESS (native, Godot 4)
+# Medieval Madness
 
 A turn-based, physics-heavy 3D artillery game for 2-8 players (humans and/or CPU bots), on one screen or online, alone or in teams.
 Everybody owns a medieval village and 5 catapults. Take turns firing one shot at any other village.

@@ -1,4 +1,4 @@
-# MEDIEVAL MADNESS (NATIVE) — Implementation Specification
+# Medieval Madness — Implementation Specification
 
 Version 2.0 (Godot edition). Audience: an implementing developer or LLM. Everything needed is defined here. When something is not specified, choose the simplest option that satisfies the acceptance criteria. Do NOT add features not listed here until all phases are done.
 
