@@ -11,18 +11,54 @@ const HORN := Color("#e8dcb0")
 static func _e(buf: MeshGen.Buf, root: Transform3D, radii: Vector3, pos: Vector3, col: Color, ow: float = 0.02, basis: Basis = Basis()) -> void:
 	MeshGen.add_ellipsoid(buf, radii, root * Transform3D(basis, pos), col, ow, 6, 10)
 
+## Body ellipsoids (centre, radii) a spot can sit on; the spot is projected onto the outermost one along `dir`
+const _SKIN := [
+	[Vector3(0, 1.0, 0), Vector3(0.5, 0.48, 0.88)],
+	[Vector3(0, 1.06, 0.55), Vector3(0.44, 0.46, 0.4)],
+	[Vector3(0, 1.04, -0.55), Vector3(0.45, 0.45, 0.4)],
+]
+
+## A thin disc on the body surface in direction `dir` (seen from the body centre), `size` = its two radii.
+## Its middle sits just above the skin and its rim dips into the body, so it reads as paint, not as a bump.
+static func _spot(buf: MeshGen.Buf, root: Transform3D, dir: Vector3, size: Vector2) -> void:
+	var o := Vector3(0, 1.0, 0)
+	var d := dir.normalized()
+	var best_t := 0.0
+	var normal := d
+	for sk in _SKIN:
+		var c: Vector3 = sk[0]
+		var r: Vector3 = sk[1]
+		var po := (o - c) / r
+		var pd := d / r
+		var a := pd.dot(pd)
+		var b := 2.0 * po.dot(pd)
+		var k := po.dot(po) - 1.0
+		var disc := b * b - 4.0 * a * k
+		if disc < 0.0:
+			continue
+		var t := (-b + sqrt(disc)) / (2.0 * a)
+		if t > best_t:
+			best_t = t
+			var hit := (o + d * t - c) / (r * r)
+			normal = hit.normalized()
+	var thick := 0.05
+	var pos := o + d * best_t + normal * (0.012 - thick)
+	var up := Vector3.UP if absf(normal.y) < 0.95 else Vector3.FORWARD
+	var basis := Basis.looking_at(-normal, up)
+	MeshGen.add_ellipsoid(buf, Vector3(size.x, size.y, thick), root * Transform3D(basis, pos), BLACK, 0.004, 8, 14)
+
 static func body(buf: MeshGen.Buf, root: Transform3D) -> void:
 	# barrel, shoulders, rump, a soft neck into the head
 	_e(buf, root, Vector3(0.5, 0.48, 0.88), Vector3(0, 1.0, 0), WHITE, 0.03)
 	_e(buf, root, Vector3(0.44, 0.46, 0.4), Vector3(0, 1.06, 0.55), WHITE, 0.02)
 	_e(buf, root, Vector3(0.45, 0.45, 0.4), Vector3(0, 1.04, -0.55), WHITE, 0.02)
 	_e(buf, root, Vector3(0.27, 0.3, 0.34), Vector3(0, 1.2, 0.95), WHITE, 0.02, Basis(Vector3.RIGHT, -0.5))
-	# black spots (flattened, sitting on the skin)
-	_e(buf, root, Vector3(0.08, 0.22, 0.3), Vector3(0.45, 1.1, -0.2), BLACK, 0.008)
-	_e(buf, root, Vector3(0.08, 0.2, 0.22), Vector3(-0.46, 1.02, 0.3), BLACK, 0.008)
-	_e(buf, root, Vector3(0.3, 0.07, 0.3), Vector3(0.12, 1.46, 0.1), BLACK, 0.008)
-	_e(buf, root, Vector3(0.2, 0.07, 0.2), Vector3(-0.25, 1.4, -0.5), BLACK, 0.008)
-	_e(buf, root, Vector3(0.08, 0.17, 0.2), Vector3(0.43, 1.12, 0.6), BLACK, 0.008)
+	# black spots: thin discs lying on the skin, tilted to the surface normal so they do not stick out
+	_spot(buf, root, Vector3(0.45, 0.1, -0.2), Vector2(0.3, 0.22))
+	_spot(buf, root, Vector3(-0.46, 0.02, 0.3), Vector2(0.22, 0.2))
+	_spot(buf, root, Vector3(0.12, 0.46, 0.1), Vector2(0.3, 0.3))
+	_spot(buf, root, Vector3(-0.25, 0.4, -0.5), Vector2(0.2, 0.2))
+	_spot(buf, root, Vector3(0.43, 0.12, 0.6), Vector2(0.2, 0.17))
 	# legs (tapered) with dark hooves
 	for lx in [-0.27, 0.27]:
 		for lz in [-0.55, 0.55]:

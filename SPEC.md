@@ -599,7 +599,7 @@ Composed of 1–3 bodies with simple joints (pin/cone-twist joint), pure procedu
 | duck | Duck | pond only, floats | "QUACK!" |
 Animals: HP 15/20/60/60/8. When HP ≤ 0 or hit by an impulse > 200, switch from wander-AI to ragdoll (all bodies dynamic).
 Fire panic: burning animals run randomly with flame particles for 4 s.
-**Cows**: every village starts with **exactly two cows**, placed on open ground (clear of buildings, not in water, slope ≤ 14°; `GameWorld._free_animal_spot`). They use the shared model `render/cow_mesh.gd` (`CowMesh.body/head`): rounded barrel, shoulders and rump (ellipsoids), black spots, tapered legs with dark hooves, udder with teats, tail with a dark tuft; the head is a separate mesh (ragdoll head) with skull, pink muzzle, nostrils, eyes, ears (one black), horns and a tuft. The flying Moo-nition uses the same model.
+**Cows**: every village starts with **exactly two cows**, placed on open ground (clear of buildings, not in water, slope ≤ 14°; `GameWorld._free_animal_spot`). They use the shared model `render/cow_mesh.gd` (`CowMesh.body/head`): rounded barrel, shoulders and rump (ellipsoids), black spots (thin discs projected onto the body surface along its normal, middle 1.2 cm above the skin, rim dipping into the body, so they never stick out), tapered legs with dark hooves, udder with teats, tail with a dark tuft; the head is a separate mesh (ragdoll head) with skull, pink muzzle, nostrils, eyes, ears (one black), horns and a tuft. The flying Moo-nition uses the same model.
 
 ---
 
