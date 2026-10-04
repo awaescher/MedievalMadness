@@ -240,6 +240,21 @@ static func run(main: Node, name: String) -> void:
 			await shot("cpugame_end")
 			await seconds(3.5)
 			await shot("cpugame_results")
+		"results_ui":
+			# fills the stats with made-up numbers and shows the results screen (layout check, shots "results_ui_*")
+			await wait_loaded()
+			var rt: Array = str(m.get("_autotest_types")).split(",")
+			await start_match(str(m.get("_autotest_seed")), rt)
+			for ri in Game.players.size():
+				var rp: PlayerData = Game.players[ri]
+				rp.points = [25589, 5180, 12475, 1963, 887][ri % 5]
+				rp.stats.shots = 31 - ri
+				rp.stats.hits = [21, 5, 24, 1, 0][ri % 5]
+				rp.stats.damage_dealt = [176658.0, 10677.0, 131550.0, 664.0, 0.0][ri % 5]
+				rp.stats.longest_shot = [413.0, 416.0, 237.0, 542.0, 642.0][ri % 5]
+			(m.get("results") as Results).show_results(0, false)
+			await seconds(2.5)
+			await shot("results_ui")
 		"restart":
 			# plays CPU games and restarts the same map several times (the results screen button "same map")
 			await wait_loaded()
