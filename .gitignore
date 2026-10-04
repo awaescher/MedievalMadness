@@ -8,3 +8,4 @@ export_credentials.cfg
 build/
 # OS junk
 .DS_Store
+.style_shots/
