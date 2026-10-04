@@ -4,7 +4,7 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
-- New app icon: bigger catapult, the flaming boulder has just left the bucket (flame tail now trails behind the flight direction), simpler scene with the tower as the target, readable down to 64 px.
+- New app icon: view from a flying boulder at a village at noon - a castle tower with battlements on a hill, a church in the background, differently built houses standing on the ground (foundation + ground shadow), smoke from chimneys, no fire.
 - Cow: the black spots no longer stick out. They are now thin discs projected onto the body surface and tilted to its normal (`CowMesh._spot`), so they lie on the skin like paint.
 - GitHub Actions (`.github/workflows/build.yml`): build + export (Windows, macOS, Linux via `export.sh`) now runs on every push to any branch and on pull requests (before: only `main` and `v*` tags); a newer push cancels the running build of the same ref. Release files are still only attached for `v*` tags.
 
