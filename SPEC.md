@@ -46,7 +46,7 @@ medieval-madness-native/
   README.md                 short: how to run, build, controls
   project.godot             all engine settings (section 1.2)
   export_presets.cfg        Windows / macOS / Linux presets (section 25)
-  icon.svg                  tiny hand-written SVG (a catapult silhouette); only allowed "asset"
+  icon.svg                  hand-written SVG (a catapult launching a flaming boulder at a tower); only allowed "asset"
   export.sh  export.bat     build scripts (section 25)
   run.sh     run.bat        launch from source: godot --path .
   assets/                   reserved, empty (.gdkeep)

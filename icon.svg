@@ -1,82 +1,118 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2d7cf0"/>
-      <stop offset="0.55" stop-color="#63c0ff"/>
-      <stop offset="1" stop-color="#ffe9a8"/>
+      <stop offset="0" stop-color="#2468e0"/>
+      <stop offset="0.5" stop-color="#4fb0ff"/>
+      <stop offset="0.85" stop-color="#bfe8ff"/>
+      <stop offset="1" stop-color="#fff0c0"/>
     </linearGradient>
-    <radialGradient id="burst" cx="0.62" cy="0.34" r="0.6">
-      <stop offset="0" stop-color="#fff6c8" stop-opacity="0.95"/>
-      <stop offset="1" stop-color="#fff6c8" stop-opacity="0"/>
+    <radialGradient id="glow" cx="0.68" cy="0.3" r="0.5">
+      <stop offset="0" stop-color="#fff3b0" stop-opacity="1"/>
+      <stop offset="0.45" stop-color="#ffd870" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffd870" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="hill1" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#6fd35a"/>
-      <stop offset="1" stop-color="#3f9c3a"/>
+    <linearGradient id="hillBack" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7fdc5e"/>
+      <stop offset="1" stop-color="#4aa84a"/>
+    </linearGradient>
+    <linearGradient id="hillFront" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5fcf45"/>
+      <stop offset="1" stop-color="#2f8f3a"/>
     </linearGradient>
     <linearGradient id="stone" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#d7dbe2"/>
-      <stop offset="1" stop-color="#9aa1ad"/>
+      <stop offset="0" stop-color="#eef0f4"/>
+      <stop offset="1" stop-color="#a3abb8"/>
+    </linearGradient>
+    <radialGradient id="rock" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#d6dbe3"/>
+      <stop offset="0.6" stop-color="#8f98a6"/>
+      <stop offset="1" stop-color="#5f6877"/>
+    </radialGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e0a35a"/>
+      <stop offset="1" stop-color="#b06f35"/>
     </linearGradient>
     <clipPath id="tile"><rect x="100" y="100" width="824" height="824" rx="190"/></clipPath>
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
       <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.35"/>
     </filter>
   </defs>
-  <g filter="url(#shadow)"><rect x="100" y="100" width="824" height="824" rx="190" fill="#2d7cf0"/></g>
+  <g filter="url(#shadow)"><rect x="100" y="100" width="824" height="824" rx="190" fill="#2468e0"/></g>
   <g clip-path="url(#tile)">
     <rect x="100" y="100" width="824" height="824" fill="url(#sky)"/>
-    <rect x="100" y="100" width="824" height="824" fill="url(#burst)"/>
-    <!-- sun rays -->
-    <g fill="#ffffff" opacity="0.16">
-      <path d="M640 330 L1000 90 L1000 220Z"/><path d="M640 330 L1000 330 L1000 440Z"/>
-      <path d="M640 330 L400 80 L520 70Z"/><path d="M640 330 L1000 520 L1000 620Z"/>
+    <rect x="100" y="100" width="824" height="824" fill="url(#glow)"/>
+    <!-- sun rays from the boulder -->
+    <g fill="#ffffff" opacity="0.2">
+      <path d="M770 230 L1000 80 L1000 190Z"/><path d="M770 230 L1000 250 L1000 360Z"/>
+      <path d="M770 230 L560 90 L650 80Z"/><path d="M770 230 L420 190 L430 270Z"/>
     </g>
-    <!-- far hill + castle -->
-    <path d="M100 700 Q330 600 520 660 T924 640 V924 H100Z" fill="#4fae48" stroke="#2a170f" stroke-width="0"/>
+
+    <!-- back hill -->
+    <path d="M100 720 Q300 650 520 700 T924 660 V924 H100Z" fill="url(#hillBack)"/>
+
+    <!-- tower -->
     <g stroke="#2a170f" stroke-width="20" stroke-linejoin="round" stroke-linecap="round">
-      <rect x="720" y="470" width="170" height="250" fill="url(#stone)"/>
-      <path d="M706 470 H904 V430 H872 V452 H846 V430 H814 V452 H788 V430 H756 V452 H730 V430 H706Z" fill="url(#stone)"/>
-      <path d="M778 720 V640 Q805 600 832 640 V720Z" fill="#5a3a22"/>
-      <path d="M798 430 V350" fill="none"/>
-      <path d="M798 350 L870 372 L798 396Z" fill="#e0382b"/>
-      <path d="M744 530 h22 M830 530 h22" fill="none" stroke-width="16"/>
+      <rect x="745" y="470" width="150" height="250" fill="url(#stone)"/>
+      <path d="M730 470 V420 H765 V445 H795 V420 H845 V445 H875 V420 H910 V470Z" fill="#c4cad4"/>
+      <path d="M820 420 V350" fill="none"/>
+      <path d="M820 350 L890 372 L820 396Z" fill="#e0382b"/>
+      <path d="M790 720 V620 Q820 585 850 620 V720Z" fill="#6b4222"/>
+      <path d="M780 540 h20 M840 540 h20" fill="none" stroke-width="14"/>
     </g>
-    <!-- near hill -->
-    <path d="M40 760 Q300 690 520 740 T924 720 V990 H40Z" fill="url(#hill1)" stroke="#2a170f" stroke-width="20" stroke-linejoin="round"/>
-    <!-- trajectory -->
-    <path d="M430 560 Q560 150 660 290" fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-dasharray="4 30" opacity="0.9"/>
+
+    <!-- front hill -->
+    <path d="M100 840 Q330 800 560 835 T924 820 V990 H100Z" fill="url(#hillFront)" stroke="#2a170f" stroke-width="20" stroke-linejoin="round"/>
+    <ellipse cx="410" cy="846" rx="230" ry="16" fill="#1d5a24" opacity="0.5"/>
+
     <!-- catapult -->
     <g stroke="#2a170f" stroke-width="22" stroke-linejoin="round" stroke-linecap="round">
-      <!-- frame -->
-      <path d="M170 790 L560 790 L520 720 L215 720Z" fill="#b5763a"/>
-      <path d="M300 720 L350 560 M430 720 L380 560" fill="none" stroke-width="30" stroke="#8a5a2a"/>
-      <path d="M300 720 L350 560 M430 720 L380 560" fill="none" stroke-width="12" stroke="#c58a4a"/>
-      <!-- arm + bucket -->
-      <path d="M300 640 L610 310" fill="none" stroke-width="46" stroke="#2a170f"/>
-      <path d="M300 640 L610 310" fill="none" stroke-width="24" stroke="#d9a15a"/>
-      <path d="M560 360 L690 318 L650 262 L534 310Z" fill="#8a5a2a"/>
+      <!-- base beam -->
+      <path d="M215 705 L610 705 L585 755 L240 755Z" fill="url(#wood)"/>
+      <!-- A-frame -->
+      <path d="M335 705 L402 560 M485 705 L418 560" fill="none" stroke-width="34" stroke="#2a170f"/>
+      <path d="M335 705 L402 560 M485 705 L418 560" fill="none" stroke-width="14" stroke="#d99a52"/>
+      <!-- arm -->
+      <path d="M312 660 L585 355" fill="none" stroke-width="52" stroke="#2a170f"/>
+      <path d="M312 660 L585 355" fill="none" stroke-width="28" stroke="#e8b06a"/>
+      <!-- bucket -->
+      <path d="M545 385 L630 345 L650 290 L575 300 L520 340Z" fill="#8a5a2a"/>
       <!-- counterweight -->
-      <rect x="236" y="640" width="90" height="100" rx="14" fill="#7d848c" transform="rotate(-12 281 690)"/>
+      <rect x="248" y="640" width="96" height="112" rx="16" fill="#7d848c" transform="rotate(-14 296 696)"/>
+      <path d="M270 675 l50 -12" fill="none" stroke="#c9ced6" stroke-width="12" transform="rotate(-14 296 696)"/>
       <!-- pivot -->
-      <circle cx="365" cy="585" r="26" fill="#6a7480"/>
+      <circle cx="410" cy="565" r="28" fill="#8a94a2"/>
+      <circle cx="410" cy="565" r="9" fill="#2a170f" stroke="none"/>
       <!-- wheels -->
-      <circle cx="260" cy="795" r="68" fill="#8a5a2a"/>
-      <circle cx="260" cy="795" r="22" fill="#c9ced6" stroke-width="14"/>
-      <circle cx="500" cy="795" r="68" fill="#8a5a2a"/>
-      <circle cx="500" cy="795" r="22" fill="#c9ced6" stroke-width="14"/>
+      <g>
+        <circle cx="300" cy="770" r="70" fill="#8a5a2a"/>
+        <circle cx="300" cy="770" r="26" fill="#d9dde4" stroke-width="16"/>
+        <path d="M300 705 V835 M235 770 H365" stroke-width="10" fill="none"/>
+      </g>
+      <g>
+        <circle cx="530" cy="770" r="70" fill="#8a5a2a"/>
+        <circle cx="530" cy="770" r="26" fill="#d9dde4" stroke-width="16"/>
+        <path d="M530 705 V835 M465 770 H595" stroke-width="10" fill="none"/>
+      </g>
     </g>
-    <!-- flaming boulder -->
-    <g stroke="#2a170f" stroke-width="20" stroke-linejoin="round" stroke-linecap="round">
-      <path d="M620 240 C560 200 470 215 400 262 C450 268 470 285 478 306 C440 318 430 345 440 372 C490 340 520 345 548 380 C560 350 590 335 625 345Z" fill="#ff7a1c"/>
-      <path d="M610 275 C560 250 510 262 470 292 C505 296 520 312 524 330 C550 318 575 318 600 335Z" fill="#ffd23a" stroke-width="12"/>
-      <circle cx="690" cy="300" r="92" fill="#9aa1ad"/>
-      <path d="M640 255 Q690 230 740 262" fill="none" stroke="#e6e9ee" stroke-width="22"/>
-      <path d="M700 330 l30 -24 M668 346 l16 28" fill="none" stroke="#6a7480" stroke-width="14"/>
+
+    <!-- flame tail (trails behind the flight direction) -->
+    <g transform="translate(745 245) rotate(146) scale(1.3)" stroke="#2a170f" stroke-width="18" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M0 -84 C50 -96 82 -70 124 -82 C116 -52 152 -46 180 -40 C162 -24 198 -8 238 4 C200 16 168 28 184 50 C152 48 128 54 126 82 C96 66 60 88 0 84Z" fill="#ff6a1a"/>
+      <path d="M0 -58 C40 -66 66 -48 100 -56 C96 -34 124 -28 148 -22 C134 -10 160 2 188 8 C158 16 134 24 144 40 C120 36 100 42 98 60 C74 48 40 62 0 58Z" fill="#ffc21f" stroke-width="12"/>
+      <path d="M0 -30 C30 -34 50 -22 76 -26 C72 -12 92 -6 108 0 C90 8 76 14 80 26 C60 20 36 30 0 30Z" fill="#fff4b8" stroke="none"/>
     </g>
-    <!-- sparks -->
+
+    <!-- boulder -->
+    <g stroke="#2a170f" stroke-width="22" stroke-linejoin="round" stroke-linecap="round">
+      <circle cx="745" cy="245" r="92" fill="url(#rock)"/>
+      <path d="M690 205 Q740 170 790 200" fill="none" stroke="#f4f6fa" stroke-width="20" opacity="0.9"/>
+      <path d="M763 270 l32 -26 M727 288 l18 30" fill="none" stroke="#4d5664" stroke-width="14"/>
+    </g>
+
+    <!-- sparkles -->
     <g fill="#fff6c8" stroke="#2a170f" stroke-width="8" stroke-linejoin="round">
-      <path d="M850 250 l12 28 l28 12 l-28 12 l-12 28 l-12 -28 l-28 -12 l28 -12Z"/>
-      <path d="M520 190 l8 18 l18 8 l-18 8 l-8 18 l-8 -18 l-18 -8 l18 -8Z"/>
+      <path d="M868 150 l12 28 l28 12 l-28 12 l-12 28 l-12 -28 l-28 -12 l28 -12Z"/>
+      <path d="M590 170 l8 18 l18 8 l-18 8 l-8 18 l-8 -18 l-18 -8 l18 -8Z"/>
     </g>
   </g>
 </svg>
