@@ -30,9 +30,10 @@ func show_results(winner: int, replay_available: bool) -> void:
 	dim.color = Color(0.05, 0.03, 0.08, 0.55)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
+	var vp_w: float = get_viewport_rect().size.x
 	panel = PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.custom_minimum_size = Vector2(1060, 0)
+	panel.add_theme_stylebox_override("panel", _panel_style())
+	panel.custom_minimum_size = Vector2(minf(1480.0, vp_w - 40.0), 0)
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
 	panel.anchor_top = 0.5
@@ -41,35 +42,40 @@ func show_results(winner: int, replay_available: bool) -> void:
 	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	add_child(panel)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
+	v.add_theme_constant_override("separation", 10)
 	panel.add_child(v)
-	# header: winner + crown
+	# header: dark banner with winner + crowns, crown title below
+	var banner := PanelContainer.new()
+	banner.add_theme_stylebox_override("panel", _row_style(Color("#2a1b33"), Color("#ffd400") if winner >= 0 else Color("#e74c3c"), 3, 14, 12))
+	v.add_child(banner)
 	var head := HBoxContainer.new()
 	head.alignment = BoxContainer.ALIGNMENT_CENTER
-	head.add_theme_constant_override("separation", 14)
-	v.add_child(head)
+	head.add_theme_constant_override("separation", 16)
+	banner.add_child(head)
 	if winner >= 0:
 		var wp: PlayerData = Game.player(winner)
 		head.add_child(_crown(wp.color))
-		var col := VBoxContainer.new()
-		head.add_child(col)
 		var crew_names: Array[String] = []
 		for tm in Game.team_members(wp.team):
 			crew_names.append(tm.name)
-		var t: Label = UITheme.label(I18n.t("banner.team_win", {"names": " + ".join(crew_names)}) if crew_names.size() > 1 else I18n.t("banner.win", {"name": wp.name}), 40, Color("#ffd400"), true, 10)
+		var wtxt: String = I18n.t("banner.team_win", {"names": " + ".join(crew_names)}) if crew_names.size() > 1 else I18n.t("banner.win", {"name": wp.name})
+		var t: Label = UITheme.label(wtxt, 40 if wtxt.length() < 44 else 30, Color("#ffd400"), true, 10)
 		t.add_theme_font_override("font", ComicText.comic_font())
-		col.add_child(t)
+		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(t)
+		head.add_child(_crown(wp.color))
 		var crown_titles: Array = I18n.tr_list("title.crown")
 		var ct: String = str(crown_titles[Rng.new(Rng.fnv1a(Game.seed_str)).range_i(0, crown_titles.size() - 1)]) if not crown_titles.is_empty() else ""
-		var sub: Label = UITheme.label(ct, 22, UITheme.INK, true)
+		var sub: Label = UITheme.label(ct, 24, UITheme.INK, true)
 		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		col.add_child(sub)
-		head.add_child(_crown(wp.color))
+		v.add_child(sub)
 	else:
 		var t2: Label = UITheme.label(I18n.t("banner.everybody_loses"), 44, Color("#e74c3c"), true, 10)
 		t2.add_theme_font_override("font", ComicText.comic_font())
 		head.add_child(t2)
-	# stats table
+	# titles per player
 	var titles: Array = Scoring.compute_titles(winner)
 	var title_map: Dictionary = {}
 	for tt in titles:
@@ -79,33 +85,96 @@ func show_results(winner: int, replay_available: bool) -> void:
 			title_map[pid] = []
 		(title_map[pid] as Array).append(I18n.t("title." + str(td["title_id"])))
 	var ranking: Array[PlayerData] = _ranking(winner)
-	var grid := GridContainer.new()
-	grid.columns = 13
-	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 4)
-	v.add_child(grid)
-	var heads: Array[String] = ["rank", "player", "points", "shots", "hits", "damage", "launched", "killed", "catapults", "buildings", "fires", "longest", "left"]
-	for hd in heads:
-		var hl: Label = UITheme.label(I18n.t("stats." + hd), 14, UITheme.RED, true)
-		grid.add_child(hl)
+	# stats table: header row + one card per player, fixed column widths so numbers line up
+	var cols: Array[Dictionary] = [
+		{"k": "points", "w": 104}, {"k": "shots", "w": 66}, {"k": "hits", "w": 66}, {"k": "damage", "w": 96}, {"k": "launched", "w": 104},
+		{"k": "killed", "w": 80}, {"k": "catapults", "w": 84}, {"k": "buildings", "w": 84}, {"k": "fires", "w": 62}, {"k": "longest", "w": 124}, {"k": "left", "w": 62}]
+	var best: Array[float] = []
+	for c in cols:
+		best.append(0.0)
+	var rows_vals: Array = []
+	for p0 in ranking:
+		var s0: PlayerData.Stats = p0.stats
+		var vals: Array[float] = [float(p0.points), float(s0.shots), float(s0.hits), s0.damage_dealt, float(s0.settlers_launched), float(s0.settlers_killed),
+			float(s0.catapults_destroyed), float(s0.buildings_destroyed), float(s0.fires_started), s0.longest_shot, float(p0.catapults_left())]
+		rows_vals.append(vals)
+		for ci in vals.size():
+			best[ci] = maxf(best[ci], vals[ci])
+	var hdr := HBoxContainer.new()
+	hdr.add_theme_constant_override("separation", 4)
+	var hm := MarginContainer.new()
+	hm.add_theme_constant_override("margin_left", 12)
+	hm.add_theme_constant_override("margin_right", 12)
+	hm.add_child(hdr)
+	v.add_child(hm)
+	hdr.add_child(_cell(I18n.t("stats.rank"), 44, 14, UITheme.RED, true, HORIZONTAL_ALIGNMENT_CENTER))
+	var hn: Label = _cell(I18n.t("stats.player"), 0, 14, UITheme.RED, true, HORIZONTAL_ALIGNMENT_LEFT)
+	hn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hn.custom_minimum_size = Vector2(150, 0)
+	hdr.add_child(hn)
+	for c in cols:
+		hdr.add_child(_cell(I18n.t("stats." + str(c["k"])), int(c["w"]), 13, UITheme.RED, true, HORIZONTAL_ALIGNMENT_RIGHT))
+	var wteam: int = Game.player(winner).team if Game.player(winner) != null else -1
+	var count_labels: Array = []
+	var row_nodes: Array[Control] = []
 	for i in ranking.size():
 		var p: PlayerData = ranking[i]
-		var st: PlayerData.Stats = p.stats
-		var cells: Array = [str(i + 1), p.name, Hud._fmt_points(p.points), str(st.shots), str(st.hits), Util.format_int(int(st.damage_dealt)), str(st.settlers_launched), str(st.settlers_killed),
-			str(st.catapults_destroyed), str(st.buildings_destroyed), str(st.fires_started), I18n.t("stats.unit_m", {"d": int(st.longest_shot)}), str(p.catapults_left())]
-		for ci in cells.size():
-			var l: Label = UITheme.label(str(cells[ci]), 16, p.color.darkened(0.3) if ci == 1 else UITheme.INK, ci == 1 or p.id == winner)
-			if ci == 1:
-				l.custom_minimum_size = Vector2(230, 0)
-				l.clip_text = true
-			grid.add_child(l)
-	# titles
-	if not title_map.is_empty():
-		v.add_child(UITheme.label(I18n.t("stats.titles"), 20, UITheme.RED, true))
-		for p2 in ranking:
-			if title_map.has(p2.id):
-				var tl: Label = UITheme.label("%s: %s" % [p2.name, " / ".join(PackedStringArray(title_map[p2.id] as Array))], 16, UITheme.INK, false)
-				v.add_child(tl)
+		var is_win: bool = winner >= 0 and p.team == wteam
+		var card := PanelContainer.new()
+		var bg: Color = Color("#ffe58a") if is_win else (Color("#ecd9ab") if i % 2 == 0 else Color("#f0dfb6"))
+		card.add_theme_stylebox_override("panel", _row_style(bg, Color("#d4a017") if is_win else Color(0, 0, 0, 0), 3 if is_win else 0, 12, 7))
+		v.add_child(card)
+		row_nodes.append(card)
+		var cv := VBoxContainer.new()
+		cv.add_theme_constant_override("separation", 2)
+		card.add_child(cv)
+		var r := HBoxContainer.new()
+		r.add_theme_constant_override("separation", 4)
+		cv.add_child(r)
+		r.add_child(_medal(i + 1, is_win))
+		var nb := HBoxContainer.new()
+		nb.add_theme_constant_override("separation", 8)
+		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nb.custom_minimum_size = Vector2(150, 0)
+		var sw := ColorRect.new()
+		sw.color = p.color
+		sw.custom_minimum_size = Vector2(10, 28)
+		nb.add_child(sw)
+		var nl: Label = UITheme.label(p.name, 20, p.color.darkened(0.45), true)
+		nl.clip_text = true
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nb.add_child(nl)
+		r.add_child(nb)
+		var vals2: Array = rows_vals[i]
+		for ci in cols.size():
+			var val: float = vals2[ci]
+			var is_best: bool = best[ci] > 0.0 and is_equal_approx(val, best[ci]) and ci != 1 and ci != 10
+			var txt: String
+			match ci:
+				0: txt = Hud._fmt_points(int(val))
+				3: txt = Util.format_int(int(val))
+				9: txt = I18n.t("stats.unit_m", {"d": int(val)})
+				_: txt = str(int(val))
+			var cl: Label = _cell(txt, int(cols[ci]["w"]), 18 if ci == 0 else 16, Color("#b45f06") if is_best else UITheme.INK, is_best or ci == 0, HORIZONTAL_ALIGNMENT_RIGHT)
+			if ci == 0:
+				count_labels.append([cl, int(val)])
+			r.add_child(cl)
+		if title_map.has(p.id):
+			var flow := HFlowContainer.new()
+			flow.add_theme_constant_override("h_separation", 6)
+			flow.add_theme_constant_override("v_separation", 4)
+			var pad := MarginContainer.new()
+			pad.add_theme_constant_override("margin_left", 48)
+			pad.add_child(flow)
+			cv.add_child(pad)
+			for tn in (title_map[p.id] as Array):
+				var chip := PanelContainer.new()
+				chip.add_theme_stylebox_override("panel", _row_style(Color("#e8943a"), Color("#8a4b0a"), 2, 10, 3))
+				var cl2: Label = UITheme.label("★ " + str(tn), 14, Color("#ffffff"), true, 4, Color("#6a3a05"))
+				chip.add_child(cl2)
+				flow.add_child(chip)
+		if not is_win and winner >= 0:
+			card.modulate = Color(1, 1, 1, 0.92)
 	# buttons
 	var h := HBoxContainer.new()
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -125,6 +194,74 @@ func show_results(winner: int, replay_available: bool) -> void:
 	h.add_child(b3)
 	if winner >= 0:
 		_confetti_timer = 0.0
+	_animate_in(row_nodes, count_labels)
+
+func _panel_style() -> StyleBoxFlat:
+	var sb: StyleBoxFlat = UITheme.box(UITheme.PARCH, UITheme.INK, 4, 20, 16)
+	sb.content_margin_left = 24
+	sb.content_margin_right = 24
+	sb.content_margin_top = 20
+	sb.content_margin_bottom = 20
+	return sb
+
+func _row_style(bg: Color, border: Color, bw: int, radius: int, vpad: int) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = border
+	sb.set_border_width_all(bw)
+	sb.set_corner_radius_all(radius)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = vpad
+	sb.content_margin_bottom = vpad
+	return sb
+
+func _cell(text: String, w: int, size: int, col: Color, bold: bool, align: HorizontalAlignment) -> Label:
+	var l: Label = UITheme.label(text, size, col, bold)
+	l.horizontal_alignment = align
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.custom_minimum_size = Vector2(w, 0)
+	return l
+
+## Round rank badge: gold / silver / bronze for the first three, plain number below.
+func _medal(rank: int, is_win: bool) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(44, 40)
+	c.draw.connect(func() -> void:
+		var cols: Array[Color] = [Color("#ffd700"), Color("#c9d1d9"), Color("#cd7f32")]
+		var ctr := Vector2(22, 20)
+		if rank <= 3:
+			c.draw_circle(ctr, 17.0, cols[rank - 1])
+			c.draw_arc(ctr, 17.0, 0.0, TAU, 28, Color("#1a1220"), 3.0, true)
+		var f: Font = UITheme.font_bold()
+		var s: String = str(rank)
+		var sz: Vector2 = f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 20)
+		c.draw_string(f, ctr + Vector2(-sz.x * 0.5, 7.0), s, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, UITheme.INK if rank <= 3 or is_win else Color(UITheme.INK, 0.7)))
+	return c
+
+## Pop the panel in, fade the rows in one after another and count the points up.
+func _animate_in(rows: Array[Control], counts: Array) -> void:
+	panel.modulate.a = 0.0
+	panel.scale = Vector2(0.9, 0.9)
+	panel.resized.connect(func() -> void: panel.pivot_offset = panel.size * 0.5)
+	panel.pivot_offset = panel.size * 0.5
+	var tw: Tween = create_tween().set_parallel(true)
+	tw.tween_property(panel, "modulate:a", 1.0, 0.25)
+	tw.tween_property(panel, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	for i in rows.size():
+		var r: Control = rows[i]
+		var target: float = r.modulate.a
+		r.modulate.a = 0.0
+		var rt: Tween = create_tween()
+		rt.tween_interval(0.25 + 0.12 * i)
+		rt.tween_property(r, "modulate:a", target, 0.25)
+	for entry in counts:
+		var lbl: Label = (entry as Array)[0]
+		var total: int = int((entry as Array)[1])
+		lbl.text = Hud._fmt_points(0)
+		var ct: Tween = create_tween()
+		ct.tween_interval(0.35)
+		ct.tween_method(func(x: float) -> void: lbl.text = Hud._fmt_points(int(x)), 0.0, float(total), 1.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 func hide_results() -> void:
 	visible = false

@@ -221,7 +221,7 @@ Eliminations are checked at `TURN_END` only (not mid-flight) so simultaneous kil
 **Teams**: elimination is per player; the game ends when only one team has living players. All members of that team win (1000 points each); the "most remaining building HP" tie rule above applies to the players eliminated in the same turn.
 
 ### 2.6 GAME_OVER
-Results screen: winner with confetti and silly crown, ranking, stats table, titles (section 13), buttons `Rematch (same settings, new seed)`, `Play again same map`, `Main menu`. With teams the header names the whole winning team (`{names} win!`) and the ranking lists the winning team first.
+Results screen: dark banner with the winner and two silly crowns (long names wrap), crown title, ranking as one card per player (rank medal, team colour bar, fixed right-aligned stat columns, winning team highlighted gold, best value per column orange, titles as chips under the player), entrance animation (panel pop, rows fade in, points count up), confetti, buttons `Rematch (same settings, new seed)`, `Play again same map`, `Main menu`. With teams the header names the whole winning team (`{names} win!`) and the ranking lists the winning team first.
 
 ---
 
