@@ -4,6 +4,7 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
+- Aim elevation is limited to **15°–60°** (before 5°–80°); the CPU bots sample 20°–60°.
 - Results screen redesigned: dark winner banner with crowns (long team names wrap), wider panel, header row plus one card per player with fixed right-aligned columns (so the numbers line up), gold / silver / bronze rank medals, team colour bar, winning team highlighted in gold, best value per column in orange, titles as orange star chips under the player instead of a text list, panel pops in, rows fade in one after another and the points count up. New autotest `--autotest=results_ui` shows the screen with made-up stats.
 - New app icon: view from a flying boulder at a village at noon - a castle tower with battlements on a hill, a church in the background, differently built houses standing on the ground (foundation + ground shadow), smoke from chimneys, no fire.
 - Cow: the black spots no longer stick out. They are now thin discs projected onto the body surface and tilted to its normal (`CowMesh._spot`), so they lie on the skin like paint.

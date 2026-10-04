@@ -40,8 +40,8 @@ const OUTLINE_COLOR := Color(0.10, 0.07, 0.13)
 const AIM_DEG_PER_PX := 0.25
 const ELEV_DEG_PER_PX := 0.3
 const DEFAULT_ELEVATION := 30.0
-const MIN_ELEVATION := 5.0
-const MAX_ELEVATION := 80.0
+const MIN_ELEVATION := 15.0
+const MAX_ELEVATION := 60.0
 ## The version lives in the VERSION file (single source of truth, bumped by tools/release.sh, exported with the game)
 ## The relay every build connects to by default (set after deploying relay/cloudflare/worker.js); players can change it in the lobby
 const DEFAULT_RELAY := "wss://mm-relay.twilight-mouse-b997.workers.dev"

@@ -370,7 +370,7 @@ static func _solve_slice(wind: Vector2, n: int) -> void:
 			elev = rng.range_f(28.0, 60.0)
 			jitter = 0.0
 		else:
-			elev = rng.range_f(20.0, 70.0)
+			elev = rng.range_f(20.0, 60.0)
 			jitter = deg_to_rad(rng.range_f(-3.0, 3.0))
 		var r: Dictionary = solve_sample(Callable(CpuAI, "_origin_fn"), shooter.global_pos(), aim_point, ammo_id, wind, elev, jitter)
 		if best.is_empty() or float(r["err"]) < float(best["err"]):
