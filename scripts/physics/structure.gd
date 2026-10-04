@@ -29,6 +29,7 @@ var last_source_time: float = -1000.0
 var free_parts: bool = false          # props: bodies exist from the start, no glue/support logic
 var shard_count: int = 0
 var name_key: String = ""
+var undermined: bool = false       # the ground under it gave way: the support check is much stricter (no cantilevers)
 var extras: Array = []                # extra nodes / helper objects owned by this structure (flags, rotor...)
 var behavior: RefCounted = null       # Specials.Behavior (hooks: on_hit, on_break, on_fire, tick, on_destroyed)
 var tag_counts: Dictionary = {}

@@ -19,6 +19,9 @@ static var ground_hook: Callable = Callable()
 static var wake_hook: Callable = Callable()          # called with an AABB after the collider changed: wake what lies there
 var _wake_box: AABB = AABB()
 var _wake_has: bool = false
+var change_box: AABB = AABB()          # everything changed since the last sweep (merged)
+var change_has: bool = false
+var change_stamp: int = 0              # counts every change of the soil (Breakable sweeps for things left hanging in the air)
 var dirt: PackedFloat32Array = PackedFloat32Array()
 var scorch: PackedFloat32Array = PackedFloat32Array()
 var chunks: Dictionary = {}          # Vector2i -> MeshInstance3D
@@ -321,10 +324,13 @@ func mark_dirty(ix0: int, iz0: int, ix1: int, iz1: int) -> void:
 		for cx in range(cx0, cx1 + 1):
 			_dirty_chunks[Vector2i(cx, cz)] = true
 	_collider_dirty = true
+	change_stamp += 1
 	var wx0: int = clampi(ix0, 0, n - 1)
 	var wz0: int = clampi(iz0, 0, n - 1)
 	var bx := AABB(Vector3(data.origin + float(wx0) * data.cell, -100.0, data.origin + float(wz0) * data.cell), Vector3(float(clampi(ix1, 0, n - 1) - wx0 + 1) * data.cell, 400.0, float(clampi(iz1, 0, n - 1) - wz0 + 1) * data.cell))
 	_wake_box = bx if not _wake_has else _wake_box.merge(bx)
+	change_box = bx if not change_has else change_box.merge(bx)
+	change_has = true
 	_wake_has = true
 
 ## Paint scorch/dirt without changing shape (fire ground marks, footpaths).

@@ -47,20 +47,90 @@ static func ground_changed(box: AABB) -> int:
 		if s.free_parts or s.destroyed or not s.aabb.grow(1.0).intersects(box):
 			continue
 		var any: bool = false
+		var drop: Array[Part] = []
 		for p in s.parts:
-			if p.anchor and p.state != Part.State.DEAD:
-				var bb: AABB = p.world_aabb()
-				var gh: float = minf(Terrain.h(bb.position.x + bb.size.x * 0.5, bb.position.z + bb.size.z * 0.5), Terrain.h(p.xf.origin.x, p.xf.origin.z))
-				if bb.position.y > gh + 0.7:
+			if p.state == Part.State.DEAD or p.state == Part.State.FREE:
+				continue
+			# the ground under ANY part of its footprint dropped away since it was built
+			if p.anchor:
+				if p.ground_gap() > p.gap0 + 0.7:
 					p.anchor = false
 					any = true
 					n += 1
+			elif p.gap0 < 0.35 and p.ground_gap() > p.gap0 + 1.0:
+				# a part that stood on the ground (foundation, post) cannot hang on its neighbours over a hole
+				drop.append(p)
+				any = true
+				n += 1
 		if any:
+			s.undermined = true
 			if not s.awake:
 				awaken(s)
+			for dp in drop:
+				if dp.state == Part.State.FROZEN:
+					release_part(dp)
 			s.support_dirty = true
 			s.support_timer = 0.0
 	return n
+
+static var _sweep_box: AABB = AABB()
+static var _sweep_has: bool = false
+static var _sweep_t: float = 0.0
+static var _sweep_grace: float = 0.0
+
+## Safety net after the soil moved (landslide, crater): every second, for a few seconds after the last change, look at the
+## changed area for anchored parts hovering over the new ground and for sleeping loose parts / props that were left in the air
+## (e.g. their body fell asleep before the collider changed), and let them fall.
+static func _sweep_hanging(dt: float) -> void:
+	if Terrain.current == null:
+		return
+	var tr: Terrain = Terrain.current
+	if tr.change_has:
+		_sweep_box = tr.change_box if not _sweep_has else _sweep_box.merge(tr.change_box)
+		_sweep_has = true
+		tr.change_has = false
+		_sweep_grace = 6.0
+	if not _sweep_has:
+		return
+	if _sweep_grace <= 0.0:
+		_sweep_has = false
+		return
+	_sweep_grace -= dt
+	_sweep_t += dt
+	if _sweep_t < 1.0:
+		return
+	_sweep_t = 0.0
+	ground_changed(_sweep_box)
+	# stacked posts / wall layers have no anchor of their own: one that hangs over nothing at all comes down
+	for s0 in structures:
+		if s0.free_parts or s0.destroyed or s0.awake or (s0.kind != "palisadepost" and s0.kind != "playerwall") or not s0.aabb.intersects(_sweep_box):
+			continue
+		var floating: bool = true
+		for p0 in s0.parts:
+			if p0.state == Part.State.DEAD:
+				continue
+			var bb0: AABB = p0.world_aabb()
+			var ex: Array[RID] = []
+			if s0.dormant_body != 0 and PhysWorld.bodies.has(s0.dormant_body):
+				ex.append(PhysWorld.body_rid(s0.dormant_body))
+			if p0.anchor or bb0.position.y <= Terrain.h(p0.xf.origin.x, p0.xf.origin.z) + 0.5 \
+					or not PhysWorld.raycast(Vector3(p0.xf.origin.x, bb0.position.y + 0.05, p0.xf.origin.z), Vector3.DOWN, 0.4, Cfg.LAYER_ALL, ex).is_empty():
+				floating = false
+				break
+		if floating:
+			awaken(s0)
+			for p1 in s0.parts:
+				if p1.state == Part.State.FROZEN:
+					release_part(p1)
+	for s in structures:
+		if not s.free_parts or s.destroyed:
+			continue
+		for p in s.parts:
+			if p.state != Part.State.FREE or not PhysWorld.bodies.has(p.body_id) or not PhysWorld.is_sleeping(p.body_id):
+				continue
+			var o: Vector3 = p.xf.origin
+			if _sweep_box.has_point(o) and o.y - p.size.y * 0.5 > Terrain.h(o.x, o.z) + 0.6:
+				PhysWorld.wake(p.body_id)
 
 ## Removes a structure that was just created (placement undo); never used during a battle
 static func remove_structure(s: Structure) -> void:
@@ -134,6 +204,7 @@ static func create(kind: String, owner_id: int, br: BuildResult, base: Transform
 				var bottom: float = p3.world_aabb().position.y
 				if bottom <= Terrain.h(p3.xf.origin.x, p3.xf.origin.z) + 0.15:
 					p3.anchor = true
+			p3.gap0 = p3.ground_gap()
 		_build_dormant(s)
 	structures.append(s)
 	Fire.build_grid_add(s)      # flammable parts join the fire spatial hash right away
@@ -199,6 +270,7 @@ static func shape_desc_for(p: Part, local: bool) -> PhysWorld.ShapeDesc:
 			return PhysWorld.box_desc(p.size, xf)
 
 static func add_def_to_buf(buf: MeshGen.Buf, sp: PartDef, xf: Transform3D, col: Color) -> void:
+	buf.mat = GfxTextures.layer(sp.material, sp.tag)
 	match sp.shape:
 		"cyl":
 			MeshGen.add_cyl(buf, sp.size.x * 0.5, sp.size.y, sp.segs, xf, col)
@@ -231,6 +303,7 @@ static func part_mesh(p: Part) -> Mesh:
 			return MeshGen.box_mesh(p.size)
 
 static func add_part_to_buf(buf: MeshGen.Buf, p: Part) -> void:
+	buf.mat = GfxTextures.layer(p.mat.id, p.tag)
 	match p.shape:
 		"compound":
 			for sp in p.subs:
@@ -276,7 +349,6 @@ static func _build_dormant(s: Structure) -> void:
 			desc.shapes.append(sd)
 			s.dormant_shape_parts.append(p)
 	if not buf.is_empty():
-	buf.mat = GfxTextures.layer(sp.material, sp.tag)
 		s.dormant_mesh = MeshInstance3D.new()
 		s.dormant_mesh.mesh = buf.to_mesh()
 		s.dormant_mesh.material_override = Toon.main()
@@ -302,6 +374,7 @@ static func _make_part_body(p: Part, mode: String, sleeping: bool = false) -> vo
 	else:
 		mi.material_override = Toon.main()
 		Toon.set_tint(mi, Color.WHITE if p.shape == "compound" else p.color)
+		Toon.set_mat(mi, GfxTextures.layer(p.mat.id, p.tag))
 	s.root.add_child(mi)
 	p.mesh = mi
 	var desc := PhysWorld.BodyDesc.new()
@@ -309,7 +382,6 @@ static func _make_part_body(p: Part, mode: String, sleeping: bool = false) -> vo
 		desc.shapes.append(sd2)
 	desc.xf = p.xf
 	desc.mass = p.mass
-	buf.mat = GfxTextures.layer(p.mat.id, p.tag)
 	desc.friction = p.mat.friction
 	desc.bounce = p.mat.restitution if p.bounce_override < 0.0 else p.bounce_override
 	desc.layer = Cfg.LAYER_PART if not s.free_parts else Cfg.LAYER_PROP
@@ -374,7 +446,6 @@ static func release_part(p: Part, extra_kick: Vector3 = Vector3.ZERO) -> void:
 	Debris.register_part(p)
 	Fire.register_mobile(p)
 	if p.structure.behavior != null:
-		Toon.set_mat(mi, GfxTextures.layer(p.mat.id, p.tag))
 		p.structure.behavior.call("on_release", p.structure, p)
 
 static func release_all(s: Structure, kick_from: Vector3 = Vector3.INF, strength: float = 0.0) -> void:
@@ -393,6 +464,7 @@ const CANTILEVER := 3
 
 static func support_check(s: Structure) -> void:
 	_stamp += 1
+	var cap: int = 0 if s.undermined else CANTILEVER
 	for p in s.parts:
 		if p.state == Part.State.FROZEN:
 			var bb: AABB = p.world_aabb()
@@ -414,15 +486,17 @@ static func support_check(s: Structure) -> void:
 			if n.state != Part.State.FROZEN:
 				continue
 			var d: int
-			if n._bot >= cur._top - 0.25:
+			if n._bot >= cur._top - 0.25 and (not s.undermined or n._fp.intersection(cur._fp).get_area() > 0.04):
 				d = 0                       # n rests on cur: fully supported
-				if cur.sup_depth > CANTILEVER:
+				if cur.sup_depth > cap:
 					continue
+				if s.undermined and cur.sup_depth > 0:
+					continue                # undermined: nothing rests on a part that itself only hangs
 			elif n._top <= cur._bot + 0.25:
 				d = cur.sup_depth + 1       # n hangs below cur
 			else:
 				d = cur.sup_depth + 1       # n sticks out sideways
-			if d <= CANTILEVER and d < n.sup_depth:
+			if d <= cap and d < n.sup_depth:
 				n.sup_depth = d
 				n.stamp = _stamp
 				q.append(n)
@@ -449,7 +523,7 @@ static func _roof_sag(s: Structure) -> void:
 				break
 	var grew: bool = true
 	var guard: int = 0
-	while grew and guard < 12:
+	while grew and guard < 12 and not s.undermined:
 		grew = false
 		guard += 1
 		for r2 in roofs:
@@ -582,6 +656,7 @@ static func _spawn_shards(p: Part, dir: Vector3, vel: Vector3) -> void:
 		mi.material_override = Toon.main()
 		var col: Color = p.color.lerp(Color(0.08, 0.06, 0.05), clampf(p.charred, 0.0, 1.0) * 0.85)
 		Toon.set_tint(mi, col)
+		Toon.set_mat(mi, GfxTextures.layer(p.mat.id, p.tag))
 		s.root.add_child(mi)
 		var off := Vector3(rng.range_f(-0.5, 0.5), rng.range_f(-0.5, 0.5), rng.range_f(-0.5, 0.5)) * base_size * 0.5
 		var desc := PhysWorld.BodyDesc.new()
@@ -656,7 +731,6 @@ static func _process_contacts() -> void:
 		for o in others:
 			if o == null:
 				continue
-		Toon.set_mat(mi, GfxTextures.layer(p.mat.id, p.tag))
 			if o is Catapult and imp > 400.0 and p.mass > 30.0:
 				Damage.damage_catapult(o as Catapult, maxf(imp - 500.0, 0.0) / 30.0, src, "debris")
 			elif o is Part:
@@ -671,6 +745,7 @@ static func _process_contacts() -> void:
 static func tick(dt: float) -> void:
 	time_now += dt
 	_process_contacts()
+	_sweep_hanging(dt)
 	var budget: int = 1
 	var count: int = awake_list.size()
 	if count > 0:

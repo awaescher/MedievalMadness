@@ -910,6 +910,50 @@ static func run(main: Node, name: String) -> void:
 				if hs16.live_count != live_prev:
 					live_prev = hs16.live_count
 			say("REPAIR after 90 s: parts %d -> %d -> %d (builders seen %s, hammer visible %s)" % [before16, hurt16, hs16.live_count, str(hammering), str(tool_seen)])
+		"hanging":
+			await wait_loaded()
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			await seconds(1.0)
+			var c18: Vector3 = Game.players[1].village_center
+			# the soil under half of the village sinks away (like after a big landslide)
+			for k18 in 6:
+				Terrain.current.dig(c18 + Vector3(float(k18) * 5.0 - 12.0, 0, 0), 9.0, 3.0, 0.0, 0.3)
+			for k20 in 60 * 12:
+				await tree.physics_frame
+			var hov18: Array[String] = []
+			for s19 in Breakable.structures:
+				if s19.destroyed or Util.dist_xz(s19.center, c18) > 45.0:
+					continue
+				for p19 in s19.parts:
+					if p19.state == Part.State.DEAD or p19.state == Part.State.DORMANT and s19.awake:
+						continue
+					var o19: Vector3 = p19.xf.origin
+					if p19.state == Part.State.FREE and PhysWorld.bodies.has(p19.body_id):
+						o19 = PhysWorld.get_transform(p19.body_id).origin
+					var bot19: float = o19.y - p19.size.y * 0.5
+					if bot19 - Terrain.h(o19.x, o19.z) < 0.8:
+						continue
+					var ex19: Array[RID] = []
+					if PhysWorld.bodies.has(p19.body_id):
+						ex19.append(PhysWorld.body_rid(p19.body_id))
+					if s19.dormant_body != 0 and PhysWorld.bodies.has(s19.dormant_body):
+						ex19.append(PhysWorld.body_rid(s19.dormant_body))
+					var hit19: Dictionary = PhysWorld.raycast(Vector3(o19.x, bot19 + 0.05, o19.z), Vector3.DOWN, 0.4, Cfg.LAYER_ALL, ex19)
+					if hit19.is_empty() and s19.dormant_body == 0:
+						hov18.append("%s/%s st=%d gap=%.1f" % [s19.kind, p19.tag, p19.state, bot19 - Terrain.h(o19.x, o19.z)])
+			say("HANGING unsupported parts: %s" % str(hov18))
+			var floating18: int = 0
+			for s18 in Breakable.structures:
+				if s18.destroyed or s18.kind == "tree":
+					continue
+				for p18 in s18.parts:
+					if p18.state == Part.State.DEAD:
+						continue
+					var o18: Vector3 = p18.xf.origin
+					if Util.dist_xz(o18, c18) < 30.0 and (p18.state == Part.State.FROZEN or p18.state == Part.State.DORMANT) and p18.xf.origin.y - p18.size.y * 0.5 > Terrain.h(o18.x, o18.z) + 1.5 and p18.anchor:
+						floating18 += 1
+			say("HANGING anchored parts still floating: %d" % floating18)
 		"kegburst":
 			await wait_loaded()
 			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])

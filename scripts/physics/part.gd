@@ -35,6 +35,7 @@ var fire_time: float = 0.0          # how long it has been burning (powder kegs 
 var fire_slot: int = -1
 var kick: Vector3 = Vector3.ZERO    # pending velocity applied at release (from explosions)
 var stamp: int = 0                  # BFS visit stamp
+var gap0: float = 0.0               # anchored parts: gap between the bottom and the lowest ground under the footprint when built
 var sup_depth: int = 0              # how many sideways / hanging links away from a part that really stands on something
 var _top: float = 0.0               # cached world-space top / bottom (support check)
 var _bot: float = 0.0
@@ -119,6 +120,16 @@ func is_flammable() -> bool:
 
 func alive() -> bool:
 	return state != State.DEAD
+
+## Height of the part's bottom above the LOWEST ground under its footprint (centre + four inset corners)
+func ground_gap() -> float:
+	var bb: AABB = world_aabb()
+	var low: float = 1e9
+	for f in [0.1, 0.9]:
+		for g in [0.1, 0.9]:
+			low = minf(low, Terrain.h(bb.position.x + bb.size.x * f, bb.position.z + bb.size.z * g))
+	low = minf(low, Terrain.h(bb.position.x + bb.size.x * 0.5, bb.position.z + bb.size.z * 0.5))
+	return bb.position.y - low
 
 func world_aabb() -> AABB:
 	var h: Vector3 = size * 0.5
