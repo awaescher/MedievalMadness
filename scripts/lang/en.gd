@@ -291,7 +291,7 @@ const DATA := {
 		"only_host": "Only the host can start.",
 	},
 	"unlock_how": {
-		"crate_small": "Hit a small supply crate that sank down near the villages (3 boulders or 5 logs inside).",
+		"crate_small": "Hit a small supply crate that sank down near the villages (3 boulders or 5 logs inside, late in the match sometimes a powder keg or fire barrel). Marked with a painted bomb.",
 		"shrapnel": "Wreck an enemy catapult.",
 		"revenge": "Lose a catapult.",
 		"landslide": "Your landslide wrecks an enemy building.",
@@ -500,6 +500,7 @@ const DATA := {
 		"barrel_water": "Water Barrel",
 		"barrel_powder": "Powder Keg",
 		"crate": "Wooden Crate",
+		"crate_supply": "Supply Crate",
 		"haybale": "Hay Bale",
 		"pumpkin": "Pumpkin",
 		"cart": "Farm Cart",

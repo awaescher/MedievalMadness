@@ -291,7 +291,7 @@ const DATA := {
 		"only_host": "Nur der Host kann starten.",
 	},
 	"unlock_how": {
-		"crate_small": "Triff eine kleine Kiste, die nahe der Dörfer niedergegangen ist (3 Felsen oder 5 Baumstämme darin).",
+		"crate_small": "Triff eine kleine Kiste, die nahe der Dörfer niedergegangen ist (3 Felsen oder 5 Baumstämme darin, spät im Spiel manchmal auch ein Pulver- oder Feuerfass). Erkennbar an der aufgemalten Bombe.",
 		"shrapnel": "Zerstöre ein gegnerisches Katapult.",
 		"revenge": "Verliere ein Katapult.",
 		"landslide": "Dein Erdrutsch zerstört ein gegnerisches Gebäude.",
@@ -500,6 +500,7 @@ const DATA := {
 		"barrel_water": "Wasserfass",
 		"barrel_powder": "Pulverfass",
 		"crate": "Holzkiste",
+		"crate_supply": "Nachschub-Kiste",
 		"haybale": "Heuballen",
 		"pumpkin": "Kürbis",
 		"cart": "Bauernkarren",

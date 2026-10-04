@@ -395,7 +395,7 @@ Powder barrels exploding earn **no** weapon (chain reactions still pay points). 
 
 **Supply crates** (`systems/supply_crate.gd`, `SupplyCrate`; all can be switched off with the `Supply crates` option, `Settings.crates_on` -> `Game.crates_on`, synced in the lobby / start messages as `crates`). They sink on parachutes, land and stay until a shot hits one (any projectile, `try_hit` from the projectile sweep; the hitter gets the content; confetti).
 - **Meteor crate**: the only source of the Meteor Marker. Green glow, green beam, label "Supply crate", sinks from 75 m at 2.2 m/s at a spot **between two villages** (>= zone radius + 10 m from every village, above water). Announced with banner, toast, a short camera look and the epic sound `crate_epic`; a **fanfare** (`fanfare`) plays when somebody hits it. Appears at the earliest after **every living player has fired 5 shots**, 45 % chance per turn end, at most **once per match (Standard / Quarry) or twice (Powerplay, Chaos)**, a new one 8 / 6 / 4 turns after the last was collected (core / power / chaos).
-- **Small crates**: plain wood, no glow, no announcement, no sound beyond a thud: **3 boulders or 5 logs** (50/50). They land **just outside the villages** (3-9 m beyond the zone radius, so you see them and may hit one by accident). As many at the same time as there are living players (**+30 % in Powerplay, +50 % in Chaos**), one new per turn end while below that number.
+- **Small crates**: plain wood, no glow, no announcement, no sound beyond a thud: **3 boulders or 5 logs** (50/50); **late in the match** (from turn 4 × players on) 20 % of them hold a **powder keg** and 20 % a **fire barrel** instead (`LATE_KEG_CHANCE`; kegs and barrels otherwise hardly ever show up). Supply crates are lighter wood with a **round black bomb with a fuse painted on every side** (prop `crate_supply`), so they cannot be mistaken for village crates. They land **just outside the villages** (3-9 m beyond the zone radius, so you see them and may hit one by accident). As many at the same time as there are living players (**+30 % in Powerplay, +50 % in Chaos**), one new per turn end while below that number.
 Online the host sends `crate` (id, kind, x, y, z, ammo, n) and `cratego` (id, player id).
 
 **No water weapon and no cheese weapon exist** (the old Water Balloon and Holy Cheese were removed). Goats and chickens are never ammunition. (The random event "Cheese Meteor" stays as a joke event, 11.5.)
@@ -576,6 +576,7 @@ Each prop builder returns 1+ physics bodies + meshes; props are dynamic but star
 | `barrel_water` | Water Barrel | as above, blue-ish bands | barrel_wood | 120 | on break: water splash, extinguish r4 |
 | `barrel_powder` | Powder Keg | small black barrel with skull | barrel_wood | 40 | explosion r5 dmg 500 when broken or burning > 2 s |
 | `crate` | Wooden Crate | 0.8³ box | wood | 30 | shatters |
+| `crate_supply` | Supply Crate | 0.8³ box with painted bomb discs (compound) | wood | 30 | shatters (small supply crates after landing) |
 | `haybale` | Hay Bale | 1×0.7×0.7 | hay | 25 | burns fast, bounce soft |
 | `pumpkin` | Pumpkin | sphere r0.3 | flesh-like (custom hp 12, restitution 0.5) | 6 | splat, orange particles |
 | `cart` | Farm Cart | box bed 2×0.2×1, 2 cylinder wheels (dynamic each, hinge joints (`joint_make_hinge`)), 2 shaft poles | wood | 80 | rolls downhill |
