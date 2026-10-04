@@ -97,6 +97,9 @@ func _build() -> void:
 			Events.quality_changed.emit(Settings.quality))
 		v.add_child(UITheme.label(I18n.t("menu.lighting"), 17, UITheme.INK, true))
 		v.add_child(lt)
+		var gst: OptionButton = GfxStyle.make_style_button()
+		v.add_child(UITheme.label(I18n.t("menu.gfx_style"), 17, UITheme.INK, true))
+		v.add_child(gst)
 		var shake := CheckButton.new()
 		shake.text = I18n.t("menu.shake")
 		shake.button_pressed = Settings.shake

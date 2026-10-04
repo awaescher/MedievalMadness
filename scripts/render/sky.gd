@@ -19,6 +19,10 @@ var flash: float = 0.0
 var high_view: bool = false          # overview camera: thin fog, no clouds in the way
 var _fog_k: float = 1.0
 var _rich: bool = false
+var _fog_col: Color = Color("#ffe9b8")       # base colours of fog / ambient light / sun, set by the graphics style
+var _amb_col: Color = Color("#9fd8ff")
+var _sun_k: float = 1.0
+var _dof: CameraAttributesPractical     # distance blur of the natural style (off in the overview)
 
 func _ready() -> void:
 	sky_mat = ShaderMaterial.new()
@@ -143,20 +147,108 @@ func apply_lighting(mode: String) -> void:
 	_rich = rich
 	_base_fog = 0.0028 * (0.5 if rich else 1.0)
 
+## Graphics style overrides on top of apply_lighting() (see GfxStyle for the table): colours, exposure, post effects.
+func apply_style(st: GfxStyle.Style) -> void:
+	var fp: bool = RenderingServer.get_current_rendering_method() == "forward_plus"
+	_fog_col = st.fog_color
+	_amb_col = st.ambient_color
+	_sun_k = st.sun_k
+	_base_fog = 0.0028 * (0.5 if _rich else 1.0) * st.fog_k
+	sun.light_color = st.sun_color
+	env.ambient_light_energy = st.ambient_energy
+	env.tonemap_mode = st.tonemap if _rich or st.force_tonemap else env.tonemap_mode
+	env.tonemap_exposure = st.exposure
+	env.adjustment_enabled = st.id != "toon" or _rich
+	env.adjustment_saturation = st.saturation if st.id != "toon" or _rich else 1.0
+	env.adjustment_contrast = st.contrast if st.id != "toon" or _rich else 1.0
+	env.ssr_enabled = st.ssr and fp
+	env.ssr_max_steps = 64
+	env.ssr_fade_in = 0.15
+	env.ssr_fade_out = 2.0
+	env.ssr_depth_tolerance = 0.3
+	if st.glow > 0.0:
+		env.glow_enabled = true
+		env.glow_intensity = st.glow
+		env.glow_bloom = st.bloom
+		env.glow_hdr_threshold = st.glow_threshold
+		env.set_glow_level(4, 0.6)
+		env.set_glow_level(5, 0.3)
+	if st.ssao_k > 0.0:
+		env.ssao_enabled = fp
+		env.ssao_intensity *= st.ssao_k
+	if st.id != "toon" and st.ssil and fp:
+		env.ssil_enabled = true
+		env.ssil_intensity = 0.6
+	if st.id != "toon" and st.sdfgi_off:
+		env.sdfgi_enabled = false
+		env.volumetric_fog_enabled = false
+	if st.id == "photo" and fp:
+		env.sdfgi_energy = 1.0
+	sun.light_angular_distance = st.sun_soft if st.sun_soft >= 0.0 else sun.light_angular_distance
+	env.fog_sun_scatter = st.fog_scatter
+	env.fog_aerial_perspective = st.aerial
+	if st.vol_density >= 0.0 and env.volumetric_fog_enabled:
+		env.volumetric_fog_density = st.vol_density
+		env.volumetric_fog_anisotropy = 0.75
+	if st.dof_far > 0.0:
+		var ca := CameraAttributesPractical.new()
+		ca.dof_blur_far_enabled = true
+		ca.dof_blur_far_distance = st.dof_far
+		ca.dof_blur_far_transition = 90.0
+		ca.dof_blur_amount = 0.04
+		world_env.camera_attributes = ca
+		_dof = ca
+	else:
+		world_env.camera_attributes = null
+		_dof = null
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY if st.ambient_sky else Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_sky_contribution = 1.0
+	var rad: int = Sky.RADIANCE_SIZE_128 if st.ambient_sky else Sky.RADIANCE_SIZE_32
+	if env.sky.radiance_size != rad:
+		env.sky.radiance_size = rad
+	sun.rotation_degrees.x = st.sun_pitch
+	sun.shadow_opacity = st.shadow_opacity
+	if st.ssao_radius > 0.0:
+		env.ssao_radius = st.ssao_radius
+		env.ssao_detail = 1.0
+	# shadows: the fine style spends more cascades and atlas on them; everything else keeps the cheap 2-cascade setup
+	var ultra: bool = Quality.current_id == "ultra"
+	if st.fine_shadows and sun.shadow_enabled:
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+		sun.directional_shadow_split_1 = 0.04
+		sun.directional_shadow_split_2 = 0.14
+		sun.directional_shadow_split_3 = 0.4
+		sun.directional_shadow_blend_splits = true
+		sun.shadow_bias = 0.06
+		sun.shadow_normal_bias = 0.3
+		if ultra:
+			RenderingServer.directional_shadow_atlas_set_size(8192, true)
+			RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_SOFT_ULTRA)
+		RenderingServer.environment_set_ssao_quality(RenderingServer.ENV_SSAO_QUALITY_HIGH if ultra else RenderingServer.ENV_SSAO_QUALITY_MEDIUM, not ultra, 0.5, 2, 50.0, 300.0)
+	else:
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+		sun.directional_shadow_split_1 = 0.1
+		sun.directional_shadow_blend_splits = false
+		sun.shadow_bias = 0.05
+		sun.shadow_normal_bias = 1.0
+		RenderingServer.environment_set_ssao_quality(RenderingServer.ENV_SSAO_QUALITY_MEDIUM, true, 0.5, 2, 50.0, 300.0)
+
 func lightning_flash() -> void:
 	flash = 1.0
 
 func update(dt: float, wind: Vector2) -> void:
 	_storm = move_toward(_storm, _storm_target, dt * 0.5)
+	if _dof != null:
+		_dof.dof_blur_far_enabled = not high_view
 	_rain_fog = lerpf(_rain_fog, _rain_fog_target, Util.damp(1.0, dt))
 	sky_mat.set_shader_parameter("storm_mix", _storm)
 	_fog_k = lerpf(_fog_k, 0.22 if high_view else 1.0, Util.damp(3.0, dt))
 	env.fog_density = _base_fog * (1.0 + _rain_fog) * _fog_k
 	for cl in _clouds:
 		cl.visible = not high_view
-	env.fog_light_color = Color("#ffe9b8").lerp(Color("#8a8f99"), _storm)
-	env.ambient_light_color = Color("#9fd8ff").lerp(Color("#7f8fa3"), _storm * 0.8)
-	sun.light_energy = lerpf(1.25, 0.7, _storm) * (1.12 if _rich else 1.0) + flash * 2.5
+	env.fog_light_color = _fog_col.lerp(Color("#8a8f99"), _storm)
+	env.ambient_light_color = _amb_col.lerp(Color("#7f8fa3"), _storm * 0.8)
+	sun.light_energy = lerpf(1.25, 0.7, _storm) * (1.12 if _rich else 1.0) * _sun_k + flash * 2.5
 	flash = maxf(0.0, flash - dt * 3.5)
 	var drift := Vector3(wind.x, 0.0, wind.y) * 0.25
 	for i in _clouds.size():

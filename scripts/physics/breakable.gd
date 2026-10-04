@@ -239,9 +239,15 @@ static func add_part_to_buf(buf: MeshGen.Buf, p: Part) -> void:
 		"cyl":
 			MeshGen.add_cyl(buf, p.size.x * 0.5, p.size.y, p.segs, p.xf, p.color)
 		"sphere":
-			MeshGen.add_sphere(buf, p.size.x * 0.5, p.xf, p.color)
+			if p.mat.id == "leaf":
+				MeshGen.add_sphere(buf, p.size.x * 0.5, p.xf, p.color, -1.0, 16, 28)      # more vertices for the foliage shader to push around
+			else:
+				MeshGen.add_sphere(buf, p.size.x * 0.5, p.xf, p.color)
 		"frustum":
-			MeshGen.add_frustum(buf, p.size.x * 0.5, p.size.z * 0.5, p.size.y, p.segs, p.xf, p.color)
+			if p.mat.id == "leaf":
+				MeshGen.add_frustum(buf, p.size.x * 0.5, p.size.z * 0.5, p.size.y, 14, p.xf, p.color, -1.0, true, 6)
+			else:
+				MeshGen.add_frustum(buf, p.size.x * 0.5, p.size.z * 0.5, p.size.y, p.segs, p.xf, p.color)
 		_:
 			MeshGen.add_box(buf, p.size, p.xf, p.color)
 
@@ -270,6 +276,7 @@ static func _build_dormant(s: Structure) -> void:
 			desc.shapes.append(sd)
 			s.dormant_shape_parts.append(p)
 	if not buf.is_empty():
+	buf.mat = GfxTextures.layer(sp.material, sp.tag)
 		s.dormant_mesh = MeshInstance3D.new()
 		s.dormant_mesh.mesh = buf.to_mesh()
 		s.dormant_mesh.material_override = Toon.main()
@@ -302,6 +309,7 @@ static func _make_part_body(p: Part, mode: String, sleeping: bool = false) -> vo
 		desc.shapes.append(sd2)
 	desc.xf = p.xf
 	desc.mass = p.mass
+	buf.mat = GfxTextures.layer(p.mat.id, p.tag)
 	desc.friction = p.mat.friction
 	desc.bounce = p.mat.restitution if p.bounce_override < 0.0 else p.bounce_override
 	desc.layer = Cfg.LAYER_PART if not s.free_parts else Cfg.LAYER_PROP
@@ -366,6 +374,7 @@ static func release_part(p: Part, extra_kick: Vector3 = Vector3.ZERO) -> void:
 	Debris.register_part(p)
 	Fire.register_mobile(p)
 	if p.structure.behavior != null:
+		Toon.set_mat(mi, GfxTextures.layer(p.mat.id, p.tag))
 		p.structure.behavior.call("on_release", p.structure, p)
 
 static func release_all(s: Structure, kick_from: Vector3 = Vector3.INF, strength: float = 0.0) -> void:
@@ -647,6 +656,7 @@ static func _process_contacts() -> void:
 		for o in others:
 			if o == null:
 				continue
+		Toon.set_mat(mi, GfxTextures.layer(p.mat.id, p.tag))
 			if o is Catapult and imp > 400.0 and p.mass > 30.0:
 				Damage.damage_catapult(o as Catapult, maxf(imp - 500.0, 0.0) / 30.0, src, "debris")
 			elif o is Part:

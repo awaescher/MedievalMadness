@@ -274,6 +274,110 @@ static func run(main: Node, name: String) -> void:
 				say("round %d: state=%d turn=%d wall=%.0f" % [round_i, Game.state, Game.turn_number, wall2])
 				m.set("_fast_forward", false)
 			say("restart test survived")
+		"styles":
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "peasant"])
+			await auto_place_all()
+			await wait_phase(Turn.Phase.AIMING)
+			await seconds(2.0)
+			(m.get("ui_layer") as CanvasLayer).visible = false
+			var rig_s: CameraRig = m.get("cam_rig") as CameraRig
+			Settings.quality = "ultra"
+			Events.quality_changed.emit("ultra")
+			var vc: Vector3 = Game.players[0].village_center
+			for gs in Settings.GFX_STYLES:
+				Settings.gfx_style = gs
+				Events.quality_changed.emit(Settings.quality)
+				rig_s.focus_on(vc + Vector3.UP * 2.0, 40.0, 24.0, 0.5)
+				rig_s.snap()
+				await frames(90)
+				await shot("style_" + gs + "_a")
+				rig_s.focus_on(vc + Vector3.UP * 2.0, 14.0, 16.0, 1.6)
+				rig_s.snap()
+				await frames(30)
+				await shot("style_" + gs + "_b")
+			await seconds(2.0)
+			Events.quality_changed.emit(Settings.quality)
+			var tree_pos: Vector3 = Vector3.INF
+			for st in Breakable.structures:
+				if st.kind == "tree" and not st.parts.is_empty():
+					var tp: Vector3 = (st.parts[0] as Part).xf.origin
+					if tree_pos == Vector3.INF or tp.distance_to(vc) < tree_pos.distance_to(vc):
+						tree_pos = tp
+			say("tree at %s (village %s)" % [str(tree_pos), str(vc)])
+			if tree_pos != Vector3.INF:
+				rig_s.focus_on(tree_pos + Vector3.UP * 3.0, 11.0, 14.0, 0.9)
+				rig_s.snap()
+				await frames(60)
+				await shot("style_photo_tree")
+				Settings.gfx_style = "toon"
+				Events.quality_changed.emit(Settings.quality)
+				await frames(40)
+				await shot("style_toon_tree")
+		"water":
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "peasant"])
+			await auto_place_all()
+			await wait_phase(Turn.Phase.AIMING)
+			await seconds(1.5)
+			(m.get("ui_layer") as CanvasLayer).visible = false
+			Settings.quality = "ultra"
+			var mp: MapData = (m.get("world") as GameWorld).map
+			var best: Vector2 = Vector2.INF
+			var depth_best: float = 0.0
+			for xi in range(-100, 101, 6):
+				for zi in range(-100, 101, 6):
+					var cnt: int = 0
+					for dx in range(-12, 13, 6):
+						for dz in range(-12, 13, 6):
+							if mp.in_bounds(float(xi + dx), float(zi + dz)) and mp.height_at(float(xi + dx), float(zi + dz)) < Cfg.WATER_LEVEL - 0.3:
+								cnt += 1
+					if cnt > depth_best:
+						depth_best = cnt
+						best = Vector2(xi, zi)
+			say("water spot %s (%d wet samples)" % [str(best), int(depth_best)])
+			var cam_w := Camera3D.new()
+			m.add_child(cam_w)
+			cam_w.fov = 55.0
+			for gs in ["photo", "toon"]:
+				Settings.gfx_style = gs
+				Events.quality_changed.emit("ultra")
+				cam_w.global_position = Vector3(best.x + 18.0, Cfg.WATER_LEVEL + 22.0, best.y + 26.0)
+				cam_w.look_at(Vector3(best.x, Cfg.WATER_LEVEL, best.y))
+				cam_w.make_current()
+				await frames(60)
+				await shot("water_" + gs)
+		"trees":
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "peasant"])
+			await auto_place_all()
+			await wait_phase(Turn.Phase.AIMING)
+			await seconds(2.0)
+			(m.get("ui_layer") as CanvasLayer).visible = false
+			var rig_t: CameraRig = m.get("cam_rig") as CameraRig
+			Settings.quality = "ultra"
+			var tpos: Vector3 = Vector3.INF
+			for st in Breakable.structures:
+				if st.kind == "tree" and not st.parts.is_empty():
+					var tp: Vector3 = (st.parts[0] as Part).xf.origin
+					if tpos == Vector3.INF or tp.distance_to(Game.players[0].village_center) < tpos.distance_to(Game.players[0].village_center):
+						tpos = tp
+			for gs in ["photo", "toon"]:
+				Settings.gfx_style = gs
+				Events.quality_changed.emit("ultra")
+				Events.quality_changed.emit("ultra")
+				for k in 3:
+					var ang: float = 0.9 + float(k) * 1.4
+					var rad: float = 8.0 + float(k) * 5.0
+					var cam_t := Camera3D.new()
+					m.add_child(cam_t)
+					cam_t.fov = 55.0
+					cam_t.global_position = tpos + Vector3(cos(ang) * rad, 2.5 + float(k) * 2.0, sin(ang) * rad)
+					cam_t.look_at(tpos + Vector3.UP * 2.2)
+					cam_t.make_current()
+					await frames(60)
+					await shot("tree_%s_%d" % [gs, k])
+					cam_t.queue_free()
 		"perf":
 			await wait_loaded()
 			await start_match(str(m.get("_autotest_seed")), ["squire", "squire", "squire"])

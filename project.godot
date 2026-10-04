@@ -39,6 +39,13 @@ window/dpi/allow_hidpi=true
 window/vsync/vsync_mode=0
 window/handheld/orientation=6
 
+[shader_globals]
+
+gfx_style={
+"type": "float",
+"value": 0.0
+}
+
 [physics]
 
 common/physics_ticks_per_second=60

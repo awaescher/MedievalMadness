@@ -5,6 +5,7 @@ extends Node
 const PATH := "user://settings.cfg"
 const QUALITY_TIERS: Array[String] = ["low", "medium", "high", "ultra"]
 const LIGHTING_MODES: Array[String] = ["basic", "enhanced", "rt"]
+const GFX_STYLES: Array[String] = ["toon", "photo", "comic", "watercolor", "retro", "neon", "noir"]
 
 var language: String = "en"
 var volume: float = 0.8
@@ -12,6 +13,7 @@ var quality: String = "medium"
 var relay_url: String = Cfg.DEFAULT_RELAY             # online play: wss://<your worker>.workers.dev (see relay/README.md)
 var net_name: String = ""
 var lighting: String = "enhanced"      # basic | enhanced | rt (needs the Forward+ renderer)
+var gfx_style: String = "toon"         # see GfxStyle: toon | photo | retro | noir | neon | watercolor | comic
 var shake: bool = true
 var timer: int = 0
 var weather_on: bool = true
@@ -69,6 +71,9 @@ func load_settings() -> void:
 	if not QUALITY_TIERS.has(quality):
 		quality = "medium"
 	lighting = str(cf.get_value("main", "lighting", lighting))
+	gfx_style = str(cf.get_value("main", "gfx_style", gfx_style))
+	if not GFX_STYLES.has(gfx_style):
+		gfx_style = "toon"
 	if not LIGHTING_MODES.has(lighting):
 		lighting = "enhanced"
 	relay_url = str(cf.get_value("main", "relay_url", relay_url))
@@ -165,6 +170,7 @@ func reset_options(local_only: bool = false) -> void:
 	volume = 0.8
 	quality = "medium"
 	lighting = "enhanced"
+	gfx_style = "toon"
 	shake = true
 	auto_quality = true
 	vsync = false
@@ -193,6 +199,7 @@ func _save_now() -> void:
 	cf.set_value("main", "volume", volume)
 	cf.set_value("main", "quality", quality)
 	cf.set_value("main", "lighting", lighting)
+	cf.set_value("main", "gfx_style", gfx_style)
 	cf.set_value("main", "relay_url", relay_url)
 	cf.set_value("main", "net_name", net_name)
 	cf.set_value("main", "shake", shake)

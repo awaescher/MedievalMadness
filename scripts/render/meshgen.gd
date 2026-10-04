@@ -14,8 +14,10 @@ class Buf extends RefCounted:
 	var n := PackedVector3Array()
 	var c := PackedColorArray()
 	var o := PackedFloat32Array()
+	var u := PackedVector2Array()   # UV.x = texture layer + 1 of the part material (0 = none), see GfxTextures
 	var idx := PackedInt32Array()
 	var srgb: bool = true     # incoming colors are sRGB hex values -> stored linear
+	var mat: int = -1         # texture layer of the vertices added from now on
 
 	func vert(p: Vector3, nrm: Vector3, col: Color, off: Vector3) -> int:
 		v.append(p)
@@ -24,6 +26,7 @@ class Buf extends RefCounted:
 		o.append(off.x)
 		o.append(off.y)
 		o.append(off.z)
+		u.append(Vector2(float(mat + 1), 0.0))
 		return v.size() - 1
 
 	## Adds a triangle; winding is fixed up so the front face matches the normal `fn` (Godot: clockwise front).
@@ -55,6 +58,7 @@ class Buf extends RefCounted:
 		arr[Mesh.ARRAY_NORMAL] = n
 		arr[Mesh.ARRAY_COLOR] = c
 		arr[Mesh.ARRAY_CUSTOM0] = o
+		arr[Mesh.ARRAY_TEX_UV] = u
 		arr[Mesh.ARRAY_INDEX] = idx
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, Mesh.ARRAY_CUSTOM_RGB_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
 		return mesh
@@ -94,7 +98,10 @@ static func add_box(buf: Buf, size: Vector3, xf: Transform3D, col: Color, ow: fl
 		buf.quad(ids[0], ids[1], ids[3], ids[2], b * nl)
 
 ## Frustum along Y (r_bottom at -h/2, r_top at +h/2), smooth side normals, optional caps.
-static func add_frustum(buf: Buf, r_bottom: float, r_top: float, height: float, segs: int, xf: Transform3D, col: Color, ow: float = -1.0, caps: bool = true) -> void:
+static func add_frustum(buf: Buf, r_bottom: float, r_top: float, height: float, segs: int, xf: Transform3D, col: Color, ow: float = -1.0, caps: bool = true, rows: int = 1) -> void:
+	if rows > 1:
+		_add_frustum_rows(buf, r_bottom, r_top, height, segs, xf, col, ow, rows)
+		return
 	var hh: float = height * 0.5
 	var w: float = ow if ow >= 0.0 else outline_width(minf(height, minf(r_bottom, maxf(r_top, 0.001)) * 2.0))
 	var b: Basis = xf.basis.orthonormalized()
@@ -131,6 +138,36 @@ static func add_frustum(buf: Buf, r_bottom: float, r_top: float, height: float, 
 				ring.append(buf.vert(xf * Vector3(dx * r, y, dz * r), b * nl, col, b * (Vector3(dx, nl.y, dz) * w)))
 			for i in segs:
 				buf.tri(center, ring[i], ring[i + 1], b * nl)
+
+## Frustum side only, split into `rows` bands (foliage cones: the shader pushes their vertices around, which needs vertices to push)
+static func _add_frustum_rows(buf: Buf, r_bottom: float, r_top: float, height: float, segs: int, xf: Transform3D, col: Color, ow: float, rows: int) -> void:
+	var hh: float = height * 0.5
+	var w: float = ow if ow >= 0.0 else outline_width(minf(height, minf(r_bottom, maxf(r_top, 0.001)) * 2.0))
+	var b: Basis = xf.basis.orthonormalized()
+	var slope: float = (r_bottom - r_top) / maxf(height, 0.0001)
+	var grid: Array = []
+	for j in rows + 1:
+		var t: float = float(j) / float(rows)
+		var rr: float = lerpf(r_bottom, r_top, t)
+		var y: float = lerpf(-hh, hh, t)
+		var row: Array[int] = []
+		for i in segs + 1:
+			var a: float = float(i) / float(segs) * TAU
+			var dx: float = cos(a)
+			var dz: float = sin(a)
+			var nl := Vector3(dx, slope, dz).normalized()
+			row.append(buf.vert(xf * Vector3(dx * rr, y, dz * rr), b * nl, col, b * (Vector3(dx, lerpf(-1.0, 1.0, t), dz) * w)))
+		grid.append(row)
+	for j in rows:
+		for i in segs:
+			var a0: int = (grid[j] as Array[int])[i]
+			var a1: int = (grid[j] as Array[int])[i + 1]
+			var b1: int = (grid[j + 1] as Array[int])[i + 1]
+			var b0: int = (grid[j + 1] as Array[int])[i]
+			var nmid: Vector3 = ((buf.n[a0] + buf.n[a1] + buf.n[b1] + buf.n[b0]) * 0.25).normalized()
+			buf.tri(a0, a1, b1, nmid)
+			if j < rows - 1 or r_top > 0.0005:
+				buf.tri(a0, b1, b0, nmid)
 
 static func add_cyl(buf: Buf, radius: float, height: float, segs: int, xf: Transform3D, col: Color, ow: float = -1.0) -> void:
 	add_frustum(buf, radius, radius, height, segs, xf, col, ow, true)

@@ -14,6 +14,7 @@ static var outlines_on: bool = true
 
 static func toon_shader() -> Shader:
 	if _toon_shader == null:
+		GfxTextures.ensure_globals()
 		_toon_shader = load("res://scripts/render/shaders/toon.gdshader") as Shader
 		if not use_instance_params():
 			# every instance with an instance uniform costs one of the 4096 slots of the OpenGL renderer: use a copy of the
@@ -22,6 +23,7 @@ static func toon_shader() -> Shader:
 			src = src.replace("instance uniform vec4 tint : source_color = vec4(1.0);", "const vec4 tint = vec4(1.0);")
 			src = src.replace("instance uniform float glow = 0.0;", "const float glow = 0.0;")
 			src = src.replace("instance uniform float wet = 0.0;", "const float wet = 0.0;")
+			src = src.replace("instance uniform float mat_id = 0.0;", "const float mat_id = 0.0;")
 			var sh := Shader.new()
 			sh.code = src
 			_toon_shader = sh
@@ -61,6 +63,11 @@ static func set_tint(mi: MeshInstance3D, col: Color) -> void:
 static func set_glow(mi: MeshInstance3D, v: float) -> void:
 	if use_instance_params():
 		mi.set_instance_shader_parameter("glow", v)
+
+## Texture layer of a mesh made of one material (parts that are not merged into a shared buffer carry no per-vertex layer)
+static func set_mat(mi: MeshInstance3D, layer: int) -> void:
+	if use_instance_params() and layer >= 0:
+		mi.set_instance_shader_parameter("mat_id", float(layer + 1))
 
 static func set_wet(mi: MeshInstance3D, v: float) -> void:
 	if use_instance_params():

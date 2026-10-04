@@ -618,6 +618,8 @@ func _options_panel() -> Control:
 		Settings.lighting = Settings.LIGHTING_MODES[idx]
 		Events.quality_changed.emit(Settings.quality))
 	vb.add_child(_opt_row(I18n.t("menu.lighting"), lt))
+	var gst: OptionButton = GfxStyle.make_style_button()
+	vb.add_child(_opt_row(I18n.t("menu.gfx_style"), gst))
 	var chk_weather: Control = _check(I18n.t("menu.weather"), Settings.weather_on, func(v: bool) -> void: Settings.weather_on = v)
 	_host_only(chk_weather)          # match rule: online only the host decides
 	vb.add_child(chk_weather)

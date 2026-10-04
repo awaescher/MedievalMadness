@@ -272,10 +272,12 @@ func _multimesh_decor(r: Rng, count: int, kind: String) -> void:
 	var buf := MeshGen.Buf.new()
 	match kind:
 		"rock":
+			buf.mat = GfxTextures.layer("stone")
 			MeshGen.add_ellipsoid(buf, Vector3(0.9, 0.6, 0.8), Transform3D(Basis(), Vector3(0, 0.25, 0)), Color.WHITE, 0.03, 5, 7)
 		"bush":
-			MeshGen.add_sphere(buf, 0.6, Transform3D(Basis(), Vector3(0, 0.45, 0)), Color.WHITE, 0.03, 5, 8)
-			MeshGen.add_sphere(buf, 0.45, Transform3D(Basis(), Vector3(0.4, 0.35, 0.2)), Color.WHITE, 0.0, 4, 6)
+			buf.mat = GfxTextures.layer("leaf")
+			MeshGen.add_sphere(buf, 0.6, Transform3D(Basis(), Vector3(0, 0.45, 0)), Color.WHITE, 0.03, 8, 14)
+			MeshGen.add_sphere(buf, 0.45, Transform3D(Basis(), Vector3(0.4, 0.35, 0.2)), Color.WHITE, 0.0, 6, 10)
 		_:
 			MeshGen.add_box(buf, Vector3(0.04, 0.3, 0.04), Transform3D(Basis(), Vector3(0, 0.15, 0)), Color("#4a9a3a"), 0.0)
 			MeshGen.add_sphere(buf, 0.09, Transform3D(Basis(), Vector3(0, 0.34, 0)), Color.WHITE, 0.0, 4, 6)
