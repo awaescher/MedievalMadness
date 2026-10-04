@@ -3,9 +3,14 @@ name: Build
 # Builds Windows, macOS and Linux with ./export.sh. The repository root must be this project folder.
 on:
   push:
-    branches: [main]
+    branches: ["**"]
     tags: ["v*"]
+  pull_request:
   workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   GODOT_VERSION: "4.7.2"

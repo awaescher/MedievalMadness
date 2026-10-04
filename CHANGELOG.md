@@ -3,6 +3,9 @@
 Rough release notes, newest first. Versions before 1.10.0 are reconstructed from the specification and are approximate.
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
+## Unreleased
+- GitHub Actions (`.github/workflows/build.yml`): build + export (Windows, macOS, Linux via `export.sh`) now runs on every push to any branch and on pull requests (before: only `main` and `v*` tags); a newer push cancels the running build of the same ref. Release files are still only attached for `v*` tags.
+
 ## 1.10.17
 - Linux / OpenGL: the Compatibility renderer only has 4096 slots for per-instance shader values and the toon shader used three per object, so thousands of objects got garbage colours (orange / purple) and the console flooded with "Too many instances using shader instance variables". The toon shader is now a constant-value copy in the OpenGL renderer; part colours come from cached materials, glow / wet are skipped there. Forward+ / Mobile are unchanged.
 - VSync is off by default (much faster on Linux). Saved settings stay as they are; "Reset options" applies the new default.
