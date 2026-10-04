@@ -361,6 +361,9 @@ func update_flames() -> void:
 	for f in _flames:
 		if not f.active:
 			continue
+		if f.part != null and (f.part.state == Part.State.DEAD or not f.part.on_fire):
+			release_flame(f)          # the burning part is gone: never leave a flame hanging in the air
+			continue
 		if f.part != null:
 			f.node.global_position = f.part.xf.origin + Vector3(0, f.part.size.y * 0.35, 0)
 		else:

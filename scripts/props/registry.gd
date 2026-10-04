@@ -4,7 +4,7 @@ extends RefCounted
 ## Prop builders (spec section 10). A prop is a `Structure` with `free_parts = true`: its parts are dynamic
 ## bodies from the start (asleep until touched) and share the part damage/fire code.
 
-const KINDS: Array[String] = ["barrel_beer", "barrel_water", "barrel_powder", "crate", "haybale", "pumpkin", "cart",
+const KINDS: Array[String] = ["barrel_beer", "barrel_water", "barrel_powder", "crate", "crate_supply", "haybale", "pumpkin", "cart",
 	"fence", "lantern", "banner", "tent", "anvil", "mug", "bucket", "rubberduck", "fruit", "cheese_chunk"]
 
 static var rng: Rng = Rng.new(5)
@@ -56,6 +56,20 @@ static func build(kind: String, r: Rng, player_color: Color = Color.WHITE) -> Bu
 		"crate":
 			var c := Kit.box(b, "wood", Vector3(0.8, 0.8, 0.8), Vector3(0, 0.4, 0), r, Kit.NO_COLOR, false, "crate")
 			c.mass_override = 30.0
+		"crate_supply":
+			# supply crate (SupplyCrate): lighter planks, a round black bomb with a fuse painted on every side face
+			var subs4: Array[PartDef] = []
+			subs4.append(_sub("box", "wood", Vector3(0.8, 0.8, 0.8), Vector3.ZERO, Color("#c9964f")))
+			for k in 4:
+				var ang: float = float(k) * PI * 0.5
+				var n := Vector3(sin(ang), 0.0, cos(ang))
+				var rot := Vector3(PI * 0.5, 0, 0) if k % 2 == 0 else Vector3(0, 0, PI * 0.5)
+				subs4.append(_sub("cyl", "metal", Vector3(0.4, 0.02, 0.4), n * 0.405 + Vector3(0, -0.04, 0), Color("#1c1c22"), rot))
+				subs4.append(_sub("box", "metal", Vector3(0.05, 0.12, 0.02) if k % 2 == 0 else Vector3(0.02, 0.12, 0.05), n * 0.41 + Vector3(0, 0.2, 0), Color("#e8dcc0")))
+				subs4.append(_sub("cyl", "metal", Vector3(0.09, 0.025, 0.09), n * 0.41 + Vector3(0, 0.29, 0), Color("#ff7a1a"), rot))
+			var pc := _compound("wood", Vector3(0.8, 0.8, 0.8), Vector3(0, 0.4, 0), subs4, 30.0)
+			pc.tag = "crate"
+			b.add(pc)
 		"haybale":
 			var h := Kit.box(b, "hay", Vector3(1.0, 0.7, 0.7), Vector3(0, 0.35, 0), r, Kit.NO_COLOR, false, "haybale")
 			h.mass_override = 25.0

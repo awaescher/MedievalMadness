@@ -17,6 +17,8 @@ const METEOR_START_H := 75.0
 const METEOR_SPEED := 2.2          # m/s
 const SMALL_START_H := 45.0
 const SMALL_SPEED := 2.6
+const LATE_TURNS_PER_PLAYER := 4   # "late in the match": every player has had about this many turns
+const LATE_KEG_CHANCE := 0.2       # late small crates: 20 % powder keg, 20 % fire barrel instead of boulders / logs
 
 static var crates: Array[Dictionary] = []     # id, kind ("meteor" | "small"), node, canopy, land, height, ammo, n, hit_r
 static var spawned_meteor: int = 0
@@ -79,7 +81,17 @@ static func turn_end_check() -> void:
 		var sp: Vector3 = _pick_small_spot()
 		if sp != Vector3.INF:
 			var ammo: String = "boulder" if Game.rng_battle.chance(0.5) else "log"
-			_announce_spawn("small", sp, ammo, 3 if ammo == "boulder" else 5)
+			var n: int = 3 if ammo == "boulder" else 5
+			# late in the match the crates sometimes hold a keg or a fire barrel (these hardly ever show up otherwise)
+			if Game.turn_number >= LATE_TURNS_PER_PLAYER * Game.players.size():
+				var roll: float = Game.rng_battle.range_f(0.0, 1.0)
+				if roll < LATE_KEG_CHANCE:
+					ammo = "powderkeg"
+					n = 1
+				elif roll < LATE_KEG_CHANCE + LATE_KEG_CHANCE:
+					ammo = "firebarrel"
+					n = 1
+			_announce_spawn("small", sp, ammo, n)
 	if meteor_active() or spawned_meteor >= max_meteor() or Game.turn_number < meteor_next_turn:
 		return
 	for p2 in Game.players:
@@ -184,10 +196,24 @@ static func spawn(id: int, kind: String, spot: Vector3, ammo: String, n: int) ->
 	var sz: float = 1.7 if meteor else 1.15
 	var box := BoxMesh.new()
 	box.size = Vector3(sz, sz * 0.82, sz)
-	var body: MeshInstance3D = _mi(box, Color("#b07a3e") if meteor else Color("#a06c38"))
+	var body: MeshInstance3D = _mi(box, Color("#b07a3e") if meteor else Color("#c9964f"))
 	body.position = Vector3(0, sz * 0.41, 0)
 	node.add_child(body)
 	var hide_on_land: Array[Node3D] = [body]
+	if not meteor:
+		# a round black bomb painted on every side face tells supply crates from the village crates
+		for k in 4:
+			var ang: float = float(k) * PI * 0.5
+			var disc := CylinderMesh.new()
+			disc.top_radius = 0.26
+			disc.bottom_radius = 0.26
+			disc.height = 0.03
+			disc.radial_segments = 14
+			var d: MeshInstance3D = _mi(disc, Color("#1c1c22"))
+			d.position = Vector3(sin(ang) * (sz * 0.5 + 0.01), sz * 0.37, cos(ang) * (sz * 0.5 + 0.01))
+			d.rotation = Vector3(PI * 0.5, 0, 0) if k % 2 == 0 else Vector3(0, 0, PI * 0.5)
+			node.add_child(d)
+			hide_on_land.append(d)
 	var star_node: Node3D = null
 	var canopy := Node3D.new()
 	node.add_child(canopy)
@@ -276,7 +302,7 @@ static func _land(c: Dictionary) -> void:
 		if is_instance_valid(hn):
 			(hn as Node3D).visible = false
 	var spot: Vector3 = c["land"] as Vector3
-	var prop: Structure = Props.spawn("crate", spot, float(c["sway"]), -1, Game.rng_battle, Color.WHITE, 0.15)
+	var prop: Structure = Props.spawn("crate_supply" if c["kind"] == "small" else "crate", spot, float(c["sway"]), -1, Game.rng_battle, Color.WHITE, 0.15)
 	c["prop"] = prop
 	var star: Node3D = c["star"] as Node3D
 	if star != null:

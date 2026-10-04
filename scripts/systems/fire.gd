@@ -431,6 +431,12 @@ static func _fire_tick(step: float) -> void:
 	while gi >= 0:
 		var g: GroundFire = ground_fires[gi]
 		g.t += step
+		# craters / landslides may have lowered the soil since the fire started: the flame stays on the ground
+		var gy: float = Terrain.h(g.pos.x, g.pos.z)
+		if absf(gy - g.pos.y) > 0.05:
+			g.pos.y = gy
+			if g.flame != null:
+				g.flame.static_pos = g.pos + Vector3(0, 0.3, 0)
 		burn_grid[Vector2i(floori(g.pos.x / 3.0), floori(g.pos.z / 3.0))] = true
 		if raining or g.t >= g.dur:
 			_end_ground_fire(g)

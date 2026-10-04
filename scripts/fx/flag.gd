@@ -46,10 +46,27 @@ static func _cloth_mesh() -> ArrayMesh:
 	_mesh = buf.to_mesh()
 	return _mesh
 
+## The part the flag hangs on: the live part of the structure closest to the flag (pole, spire, roof ridge...).
+## When it breaks loose the flag has nothing to hang on and falls too.
+static func _find_mast(s: Structure, pos: Vector3) -> Part:
+	if s == null:
+		return null
+	var best: Part = null
+	var bd: float = 1e9
+	for p in s.parts:
+		if p.state == Part.State.DEAD:
+			continue
+		var d: float = p.xf.origin.distance_to(pos) - p.size.y * 0.5
+		if d < bd:
+			bd = d
+			best = p
+	return best
+
 static func spawn(pos: Vector3, color: Color, s: Structure) -> Flag:
 	var f := Flag.new()
 	f.structure = s
 	f.position = pos
+	f.mast = _find_mast(s, pos)
 	if _shader == null:
 		_shader = load("res://scripts/render/shaders/flag.gdshader") as Shader
 	f.mat = ShaderMaterial.new()
@@ -98,6 +115,8 @@ static func update_all(wind: Vector2, dt: float) -> void:
 		else:
 			if f.structure != null and (f.structure.destroyed or f.structure.destroyed_fraction() > 0.5):
 				f.alive = false
+			elif f.mast != null and f.mast.state != Part.State.DORMANT and f.mast.state != Part.State.FROZEN:
+				f.alive = false          # the mast broke off or was shot away
 			if not f.alive:
 				f.scale = f.scale * maxf(1.0 - dt * 2.0, 0.01)
 				f.position.y -= dt * 3.0
