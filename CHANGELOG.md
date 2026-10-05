@@ -4,6 +4,8 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
+- **CI releases every build**: each push to `main` (and every `v*` tag) creates a GitHub release `v<major.minor.run>` with the Windows, macOS and Linux binaries attached; notes come from the CHANGELOG section of that version, else "Unreleased".
+
 - **Nothing hangs in the air after the ground slides away** (landslide / crater): the anchor test now looks at the whole footprint of a part and compares with the gap it had when built (before: only the centre point vs a fixed 0.7 m). Parts that stood on the ground (foundations, posts) let go when the soil under them drops > 1 m. A building whose ground gave way is `undermined`: its support check is strict (no cantilevers, parts only rest on parts directly below them, roofs need a wall under them), so what hung from a few surviving corners now comes down. A sweep over the changed area for 6 s after every soil change also wakes sleeping loose parts left in the air and releases stacked palisade posts / wall layers that hang over nothing. New autotest `--autotest=hanging`.
 - **Flags fall with their mast**: a flag hangs on the nearest live part of its building (pole, spire, ridge); when that part breaks loose or is shot away the flag drops too instead of hovering (`Flag.mast`).
 - **No more flames in mid-air**: ground fires follow the soil height each tick (craters / landslides lower the ground), and a flame whose burning part is gone or out is released at once.
