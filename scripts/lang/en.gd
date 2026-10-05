@@ -5,6 +5,7 @@ extends RefCounted
 const DATA := {
 	"menu": {
 		"crates": "Supply crates",
+		"autoplace": "Auto-place catapults & palisades",
 		"rules": "Unlock rules",
 		"rules_0": "Core",
 		"rules_1": "Powerplay",

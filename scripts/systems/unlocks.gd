@@ -102,25 +102,40 @@ static func _pid(source: Dictionary) -> int:
 static var _from_host: bool = false
 
 ## A grant announced by the host (online clients never decide this themselves)
-static func net_grant(player_id: int, ammo_id: String, n: int, reason_key: String) -> void:
+static func net_grant(player_id: int, ammo_id: String, n: int, reason_key: String, pos: Vector3 = Vector3.INF) -> void:
 	_from_host = true
-	grant(player_id, ammo_id, n, reason_key)
+	grant(player_id, ammo_id, n, reason_key, pos)
 	_from_host = false
 
-static func grant(player_id: int, ammo_id: String, n: int, reason_key: String) -> void:
+## Where the thing that earned the reward happened (last part break / fire / explosion); the reward popup floats up there
+static var hint_pos: Vector3 = Vector3.INF
+static var hint_time: float = -100.0
+
+static func set_hint(pos: Vector3) -> void:
+	hint_pos = pos
+	hint_time = Time.get_ticks_msec() / 1000.0
+
+static func _reward_pos(p: PlayerData, pos: Vector3) -> Vector3:
+	if pos != Vector3.INF:
+		return pos
+	if hint_pos != Vector3.INF and Time.get_ticks_msec() / 1000.0 - hint_time < 8.0:
+		return hint_pos
+	return p.village_center
+
+static func grant(player_id: int, ammo_id: String, n: int, reason_key: String, pos: Vector3 = Vector3.INF) -> void:
 	if Net.is_client() and not _from_host:
 		return
 	var p: PlayerData = Game.player(player_id)
 	if p == null or p.eliminated:
 		return
 	if Net.active and Net.is_host:
-		NetGame.send_grant(player_id, ammo_id, n, reason_key)
+		NetGame.send_grant(player_id, ammo_id, n, reason_key, _reward_pos(p, pos))
 	p.add_ammo(ammo_id, n)
 	Events.ammo_changed.emit(p.id)
+	Events.reward.emit(p.id, ammo_id, n, _reward_pos(p, pos))
 	var txt: String = I18n.t("unlock.got", {"name": p.name, "ammo": I18n.t("ammo." + ammo_id), "n": n, "why": I18n.t("unlock." + reason_key)})
 	Events.kill_feed.emit(txt)
 	if p.is_human():
-		Events.banner.emit(I18n.t("unlock.banner", {"ammo": I18n.t("ammo." + ammo_id), "n": n}), "unlock")
 		Events.toast.emit(I18n.t("unlock." + reason_key))
 		Sfx.play("stinger_event", Vector3.INF, 0.5, 5)
 
@@ -227,6 +242,7 @@ static func on_tree_damaged(source: Dictionary, tree: Structure) -> void:
 	if p == null:
 		return
 	p.trees_hit[tree.get_instance_id()] = true
+	set_hint(tree.center + Vector3.UP * (tree.height * 0.5))
 	if p.trees_hit.size() >= _trees_needed() and int(_log_turn.get(p.id, -1)) != Game.turn_number:
 		p.trees_hit.clear()
 		_log_turn[p.id] = Game.turn_number

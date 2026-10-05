@@ -4,6 +4,11 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
+- **No leftover flames**: a burning settler or animal that died (or was knocked into a ragdoll) kept its flame, which then burned on in the meadow or hovered in the air for the rest of the match. The flame is released the moment the settler / animal dies or flies off.
+- **Match option "Auto-place catapults & palisades"** (default off, host only online, `Settings.auto_place` -> `Game.auto_place_on`, sent with the online start / lobby state as `autoplace`): the placement phase is skipped, catapults and palisades are placed like the Auto button does (CPUs as before; online every machine places its own seats).
+- **Weapon rewards are prominent**: whoever earns a weapon (crate, destroyed building / catapult, felled tree, fire, ...) sees its icon with "+n" and the name float up from the place where it happened and fade out (`RewardPopup`, `Events.reward`; crates use the crate position, everything else the last break / fire / explosion, else the village). The big yellow "unlocked" banner is gone, kill feed and toast stay. Online the host sends the position with the grant.
+- **Announcer banner fits the window**: the font shrinks (44 down to 22) so the text stays on one line within 88 % of the window width; it only wraps to two lines when even the smallest size does not fit. Its distance from the top scales with the window height.
+- **Menu buttons never slip out of view**: the options column scrolls when the window is low, so "Start" and "Online" always stay on screen.
 - **README / SPEC: phones and tablets are not an official target** (no downloads, touch layer untested); Web stays impossible (Compatibility renderer).
 - **README shows a screenshot** (`docs/game.png`, 1000 px wide; `docs/.gdignore` keeps Godot from importing it).
 - **Release notes of main builds come from "Unreleased"** (the CI run number, e.g. 1.10.8, matched old, reconstructed CHANGELOG sections and put ancient notes on new releases) **and only list what is new since the previous release** (diff against the "Unreleased" section of the previous release tag's CHANGELOG).
