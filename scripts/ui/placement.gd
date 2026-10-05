@@ -103,6 +103,13 @@ func start(w: GameWorld, camera: CameraRig) -> void:
 	visible = true
 	if ghost == null:
 		_build_ghost()
+	if Game.auto_place_on:
+		# match option: everything is placed automatically, the placement phase is skipped (online: every machine places its own seats)
+		_quick_mine = Net.active
+		_next_player()
+		if not Net.active:
+			_quick_start()
+		return
 	Events.banner.emit(I18n.t("banner.placement"), "info")
 	_next_player()
 

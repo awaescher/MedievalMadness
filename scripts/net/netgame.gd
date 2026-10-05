@@ -90,7 +90,7 @@ static func make_cfg(rows_cfg: Array, seat_count: int) -> Dictionary:
 			row["net_peer"] = -1
 		row["color"] = int(row["color"])
 		players.append(row)
-	return {"k": "start", "seed": Settings.seed_text, "nonce": str(randi()), "players": players, "timer": Settings.timer, "cats": Settings.catapult_count, "posts": Settings.palisade_count, "hills": Settings.terrain_hills, "arsenal": Settings.arsenal.duplicate(), "rules": Settings.effective_rule_level(), "crates": Settings.crates_on, "wind": Settings.wind_level, "rquarry": Settings.arsenal_preset == "quarry", "ver": Cfg.game_version()}
+	return {"k": "start", "seed": Settings.seed_text, "nonce": str(randi()), "players": players, "timer": Settings.timer, "cats": Settings.catapult_count, "posts": Settings.palisade_count, "hills": Settings.terrain_hills, "arsenal": Settings.arsenal.duplicate(), "rules": Settings.effective_rule_level(), "crates": Settings.crates_on, "autoplace": Settings.auto_place, "wind": Settings.wind_level, "rquarry": Settings.arsenal_preset == "quarry", "ver": Cfg.game_version()}
 
 static func host_start(cfg: Dictionary) -> void:
 	Net.send_all(cfg)
@@ -558,8 +558,13 @@ static func _on_pts(_from: int, d: Dictionary) -> void:
 	if not Net.is_host:
 		Scoring.net_award(int(d["pid"]), int(d["n"]), str(d["why"]), bool(d["q"]))
 
-static func send_grant(pid: int, ammo_id: String, n: int, why: String) -> void:
-	Net.send_all({"k": "grant", "pid": pid, "ammo": ammo_id, "n": n, "why": why})
+static func send_grant(pid: int, ammo_id: String, n: int, why: String, pos: Vector3 = Vector3.INF) -> void:
+	var d: Dictionary = {"k": "grant", "pid": pid, "ammo": ammo_id, "n": n, "why": why}
+	if pos != Vector3.INF:
+		d["x"] = pos.x
+		d["y"] = pos.y
+		d["z"] = pos.z
+	Net.send_all(d)
 
 static func _on_crate(_from: int, d: Dictionary) -> void:
 	if not Net.is_host:
@@ -571,7 +576,7 @@ static func _on_cratego(_from: int, d: Dictionary) -> void:
 
 static func _on_grant(_from: int, d: Dictionary) -> void:
 	if not Net.is_host:
-		Unlocks.net_grant(int(d["pid"]), str(d["ammo"]), int(d["n"]), str(d["why"]))
+		Unlocks.net_grant(int(d["pid"]), str(d["ammo"]), int(d["n"]), str(d["why"]), Vector3(float(d["x"]), float(d["y"]), float(d["z"])) if d.has("x") else Vector3.INF)
 
 # ------------------------------------------------------------------ leaving players
 static func _on_peer(pid: int, d: Dictionary) -> void:

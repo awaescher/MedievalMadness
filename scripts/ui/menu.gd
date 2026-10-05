@@ -128,7 +128,7 @@ func lobby_state() -> Dictionary:
 		out_rows.append({"name": Net.peer_name(pid) if pid >= 0 else str(d["name"]), "color": int(d["color"]), "type": tp, "peer": pid})
 	return {"count": count, "rows": out_rows, "seed": seed_edit.text.strip_edges() if seed_edit != null else Settings.seed_text,
 		"timer": Settings.timer, "cats": Settings.catapult_count, "posts": Settings.palisade_count, "hills": Settings.terrain_hills,
-		"arsenal_preset": Settings.arsenal_preset, "rules": Settings.rules_level, "crates": Settings.crates_on, "weather": Settings.weather_on, "wind": Settings.wind_level, "events": Settings.events_on, "arsenal": Settings.arsenal}
+		"arsenal_preset": Settings.arsenal_preset, "rules": Settings.rules_level, "crates": Settings.crates_on, "autoplace": Settings.auto_place, "weather": Settings.weather_on, "wind": Settings.wind_level, "events": Settings.events_on, "arsenal": Settings.arsenal}
 
 ## Guest: show what the host has set up (a temporary overlay, see Settings.push_lobby)
 func net_lobby_apply(d: Dictionary) -> void:
@@ -157,6 +157,7 @@ func net_lobby_apply(d: Dictionary) -> void:
 	Settings.arsenal_preset = str(d["arsenal_preset"])
 	Settings.rules_level = int(d.get("rules", 0))
 	Settings.crates_on = bool(d.get("crates", true))
+	Settings.auto_place = bool(d.get("autoplace", false))
 	Settings.weather_on = bool(d.get("weather", Settings.weather_on))
 	Settings.wind_level = clampi(int(d.get("wind", 1)), 0, 2)
 	Settings.events_on = bool(d.get("events", Settings.events_on))
@@ -562,10 +563,17 @@ func _randomize_names() -> void:
 
 func _options_panel() -> Control:
 	var panel := _panel()
-	panel.custom_minimum_size = Vector2(430, 0)
+	panel.custom_minimum_size = Vector2(450, 0)
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# the options scroll when the window is too low, so the buttons at the bottom of the menu never slip out of view
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(0, 160)
+	panel.add_child(scroll)
 	var vb := VBoxContainer.new()
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_theme_constant_override("separation", 9)
-	panel.add_child(vb)
+	scroll.add_child(vb)
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
 	var ot: Label = UITheme.label(I18n.t("menu.options"), 22, UITheme.RED, true)
@@ -637,6 +645,9 @@ func _options_panel() -> Control:
 	var chk_crates: Control = _check(I18n.t("menu.crates"), Settings.crates_on, func(v: bool) -> void: Settings.crates_on = v)
 	_host_only(chk_crates)          # match rule: online only the host decides
 	vb.add_child(chk_crates)
+	var chk_auto: Control = _check(I18n.t("menu.autoplace"), Settings.auto_place, func(v: bool) -> void: Settings.auto_place = v)
+	_host_only(chk_auto)          # match rule: online only the host decides
+	vb.add_child(chk_auto)
 	vb.add_child(_check(I18n.t("menu.shake"), Settings.shake, func(v: bool) -> void: Settings.shake = v))
 	vb.add_child(_check(I18n.t("menu.autoquality"), Settings.auto_quality, func(v: bool) -> void: Settings.auto_quality = v))
 	vb.add_child(_check(I18n.t("menu.vsync"), Settings.vsync, func(v: bool) -> void:
