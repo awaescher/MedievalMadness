@@ -23,7 +23,7 @@ Tone: silly, cartoonish, modern comic look. Humor everywhere (texts, sounds, eff
 - Fonts: engine default font + `SystemFont` (see 16.1). No bundled fonts.
 - UI languages: English (default) and German, switchable at runtime.
 - Target: 60 FPS with 4 players on Medium quality on a mid-range laptop (integrated GPU, e.g. Apple M1 / Intel Iris Xe / Radeon 680M).
-- Input: mouse + keyboard. Gamepad/touch are out of scope.
+- Input: mouse + keyboard. Gamepad is out of scope. Touch is not an official target (a rough, untested touch layer exists in `aiming.gd`; no iOS / Android releases).
 - Fully static typing in GDScript (`var x: float`, `func f(a: int) -> void`). Warnings "untyped declaration" and "unsafe *" are set to *warn* in project settings; the project must start with zero errors and zero GDScript warnings in the output panel.
 - **Standalone**: exported builds must run by double-click with no installer, no network needed (online play, section 19, is an optional feature), no runtime downloads and no separately installed engine (details in section 25).
 - Cross-platform means: identical gameplay and visuals on Windows 10+, macOS 12+ (Apple Silicon and Intel) and Linux (x86_64, Vulkan-capable GPU). Never use platform-specific APIs; use `user://` for all writes; use `/` path separators; never call `OS.execute` in game code.
