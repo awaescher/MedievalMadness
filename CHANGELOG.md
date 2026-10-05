@@ -1,57 +1,37 @@
 # Changelog
 
-Rough release notes, newest first. Versions before 1.10.0 are reconstructed from the specification and are approximate.
-**Rule: this file, `RELEASE_NOTES.md` (short player-facing lines for the GitHub release) and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
+Release notes, newest first. Versions before 1.10.0 are reconstructed from the specification and are approximate.
+**Rule: this file and `SPEC.md` are updated with every change.** The GitHub release text is taken from this file (only what is new since the previous release), so write entries short and for players: one line per change, bold lead phrase, no code names. The patch number rises with every build (`export.sh`).
 
 ## Unreleased
-- **Version numbers continue at 1.11**: CI builds were numbered by the GitHub run number (v1.11.30 right away); now the patch is the run number minus `BUILD_BASE` (the run number of the last major / minor bump, 30 now), so the next release is v1.11.1. Raise `BUILD_BASE` to the last run number when going to 1.12.
-- **Short release notes**: GitHub releases now take their text from the new `RELEASE_NOTES.md` (one player-facing line per change, `## Unreleased` / `## <version>` sections) instead of the long CHANGELOG; still only what is new since the previous release, the first build of a new minor version uses the section `## <major>.<minor>.0`.
 
 ## 1.11.0
-First 1.11 build: everything since 1.10.23 (the CI release text of the first 1.11 build is this section).
-- **No water on slopes**: a puddle (water tower, barrel, balloon, ...) is only made where the ground is flat; on a slope (e.g. the wall of a crater) no flat blue disc is left hovering over the downhill side. The README GIF was re-recorded without them (37 frames, 754 KB); the caption stands on its own line below it.
-- **README overhaul** (plain Markdown only, images without size limits): a "Physics is the game" section (short intro, `docs/physics.gif` - a Drill Bomb collapsing a village, 552 px, 8 fps, 37 frames, 766 KB - and five compact bullets), a new screenshot (`docs/game.png`), run instructions for the downloaded binaries (Windows, macOS with the Gatekeeper warning and manual steps, Linux incl. `chmod +x` and the renderer), correct renderer notes (Forward+ desktop, Compatibility on Linux, Mobile on phones), the outdated sections "Ready-made builds", "Weapons, posts and rules (v1.1)", "Powder, dents and landslides (v1.2)", "Versions" and "Phones and tablets" removed, "Rules in one minute" -> "Rules in twenty seconds". The GIF and the screenshot are recorded by the autotest scenarios `--autotest=gif` and `--autotest=readmeshot` (frames as PNG, assembled to a GIF outside the game).
-- **Loading screen title is translated** ("Generating the world" stayed German after switching the language): the title is set again every time a match starts. Other texts checked: no other leftover German / untranslated UI strings (the language key sets of `en.gd` / `de.gd` are tested to be identical).
-- **HUD polish**: the catapult icons (player list and the selector at the bottom right) are now a proper little catapult (A-frame, arm with counterweight and cup, ball, wheels; green = alive, red = destroyed); the selector sits directly above Fast-forward (it was a separate widget with a gap); the aim box (power / elevation / azimuth) is smaller, as big as its text and its font shrinks with the window (16 down to 11 px).
-- **Chaos "own goal" keg only for real buildings**: wrecking your own palisade posts, walls, flag poles or props no longer pays the powder keg; a whole building (house, barn, tower ...) is needed.
-- **Banner bug fixed**: the colourful announcer banner was sized from an unwrapped text and covered half the screen; it now gets an exact width / height computed from the text (shrinks to fit, two lines only if needed) and is centred explicitly. `--autotest=hud` shows a long banner and two reward popups.
-- **Puddles vanish when the ground under them changes** (crater, landslide): they hovered in the air like plates over the new hole. A puddle is removed as soon as the soil at its centre or edge differs by more than 0.25 m from when it formed.
-- **Reward popup is smaller**: icon 54 px, "+n" 28 px; line 1 the player in their colour, line 2 the weapon name (both small).
-- **Player names in the player's colour** wherever they are mentioned: kill feed, points feed, toasts, the announcer banner (also "<name>'s turn") and the new weapon reward popup (`UITheme.tint_names` / `rich_label`; very dark colours are lightened a bit so they read).
-- **Chaos mode: cows only from two sources**: one of your own cows dies = 2 cows (other modes 1), any other animal of your camp dies = 1 cow. The fly-by rule (building + settler in one turn) and "a cow wrecks your catapult" are gone.
-- **No leftover flames**: a burning settler or animal that died (or was knocked into a ragdoll) kept its flame, which then burned on in the meadow or hovered in the air for the rest of the match. The flame is released the moment the settler / animal dies or flies off.
-- **Match option "Auto-place catapults & palisades"** (default off, host only online, `Settings.auto_place` -> `Game.auto_place_on`, sent with the online start / lobby state as `autoplace`): the placement phase is skipped, catapults and palisades are placed like the Auto button does (CPUs as before; online every machine places its own seats).
-- **Weapon rewards are prominent**: whoever earns a weapon (crate, destroyed building / catapult, felled tree, fire, ...) sees its icon with "+n" and the name float up from the place where it happened and fade out (`RewardPopup`, `Events.reward`; crates use the crate position, everything else the last break / fire / explosion, else the village). The big yellow "unlocked" banner is gone, kill feed and toast stay. Online the host sends the position with the grant.
-- **Announcer banner fits the window**: the font shrinks (44 down to 22) so the text stays on one line within 88 % of the window width; it only wraps to two lines when even the smallest size does not fit. Its distance from the top scales with the window height.
-- **Menu buttons never slip out of view**: the options column scrolls when the window is low, so "Start" and "Online" always stay on screen.
-- **README / SPEC: phones and tablets are not an official target** (no downloads, touch layer untested); Web stays impossible (Compatibility renderer).
-- **README shows a screenshot** (`docs/game.jpg`, full 1592 px width as JPEG, 4 players, a catapult in the foreground and further villages on the hills behind; `docs/.gdignore` keeps Godot from importing it).
-- **Release notes of main builds come from "Unreleased"** (the CI run number, e.g. 1.10.8, matched old, reconstructed CHANGELOG sections and put ancient notes on new releases) **and only list what is new since the previous release** (diff against the "Unreleased" section of the previous release tag's CHANGELOG).
-- **Settlers no longer hang in the air** after a crater / landslide: standing, working and dead settlers follow the ground height every frame (before only walking ones did). Props, crates and catapults are physics bodies and already come down (checked).
-- **Animals (horses, cows, sheep ...) follow the ground**: they lean with the slope and are lowered / raised with the soil when a crater or landslide changes it under them, also while standing still (before: upright, and they hung in the air until they moved).
-- **Rocks, bushes and flowers follow the ground**: they are tilted to the slope normal and sink in a little on steep ground (before: always upright at the height of the centre, so they stuck out sideways on slopes), and after a crater / landslide / drill they are re-seated on the new ground (hidden if it is now under water). The rock colliders stay where they were.
-- **Release downloads are one ZIP per platform** with clear names: `MedievalMadness-<version>-Windows.zip`, `-macOS.zip`, `-Linux.zip` (before: a bare `.exe`, a zip and a bare Linux binary). The CI artifact holds the same three ZIPs.
-- **macOS build is ad-hoc signed** (`codesign/codesign=1`, Godot's built-in signer, works in the Linux CI): downloaded builds were unsigned and macOS (Apple Silicon) said "is damaged and cannot be opened". Now Gatekeeper only asks once (right-click → Open, or `xattr -dr com.apple.quarantine "Medieval Madness.app"`); a real fix needs a paid Developer ID + notarization.
-- **CI releases every build**: each push to `main` (and every `v*` tag) creates a GitHub release `v<major.minor.run>` with the Windows, macOS and Linux binaries attached; notes come from the CHANGELOG section of that version, else "Unreleased".
 
-- **Nothing hangs in the air after the ground slides away** (landslide / crater): the anchor test now looks at the whole footprint of a part and compares with the gap it had when built (before: only the centre point vs a fixed 0.7 m). Parts that stood on the ground (foundations, posts) let go when the soil under them drops > 1 m. A building whose ground gave way is `undermined`: its support check is strict (no cantilevers, parts only rest on parts directly below them, roofs need a wall under them), so what hung from a few surviving corners now comes down. A sweep over the changed area for 6 s after every soil change also wakes sleeping loose parts left in the air and releases stacked palisade posts / wall layers that hang over nothing. New autotest `--autotest=hanging`.
-- **Flags fall with their mast**: a flag hangs on the nearest live part of its building (pole, spire, ridge); when that part breaks loose or is shot away the flag drops too instead of hovering (`Flag.mast`).
-- **No more flames in mid-air**: ground fires follow the soil height each tick (craters / landslides lower the ground), and a flame whose burning part is gone or out is released at once.
-- **Supply crates look different**: the small crates are lighter wood with a round black bomb (with fuse) painted on every side (new prop `crate_supply`), also while on the parachute, so they are no longer mistaken for village crates.
-- **Powder kegs and fire barrels turn up more**: late in the match (from turn 4 × players) 20 % of the small supply crates hold a powder keg and 20 % a fire barrel instead of boulders / logs.
-- Aim elevation is limited to **15°–60°** (before 5°–80°); the CPU bots sample 20°–60°.
-- **Graphics styles** (options menu and pause menu, "Graphics style"): Toon (default, unchanged), Natural (golden hour), Retro, Noir comic, Neon synthwave, Watercolor. One global shader parameter (`gfx_style`, `project.godot` `[shader_globals]`) switches the toon / outline / water / sky shaders; `GfxStyle` (`scripts/render/gfx_style.gd`) holds the per-style table (colours, tonemapper, glow, SSAO, shadows, lighting preset); a full-screen post shader (`post.gdshader`) adds grain / pixelation + CRT / halftone / paper. Saved as `gfx_style` in `settings.cfg`. Index 2 of the shader style numbers is unused (the removed diorama style).
-  - **Natural** (`photo`): real CC0 material textures from ambientCG (`assets/textures/`, 512 px: bark, planks, stone, brick, thatch, cloth, metal, grass, ground, leaf), projected triplanar with anti-tiling (`GfxTextures`); the material of each part comes from the physics material (`MeshGen.Buf.mat` -> UV.x, or the `mat_id` instance parameter for single parts); foliage gets bulging leaf clumps, single leaves and light shining through; ground grass has its own colour and tufts; sky ambient light, 4 shadow cascades (8k atlas on Ultra), SSAO / SSIL / SSR / SDFGI, ACES tonemap, shadows let 20% light through so nothing turns black.
-  - **Photo, second pass** (reference: a golden-hour mood image): low warm sun, sun-coloured haze with aerial perspective, volumetric light shafts, bloom, AgX tonemap with warm highlights / cool shadows, distance blur, moss streaks on stone, shingle texture on non-thatch roofs, cobbled patches in the trodden earth.
-  - Stone is now a fine, quiet granite grain (ambientCG Granite002A) so the single stone blocks are not covered in a second pattern; thatched roofs get straw bundles laid in rows down the slope (shadowed lip per row, fine strands); water in this style has broad, slow ripples.
-  - Style names lost their bracket texts (except "Toon (default)") and the list is ordered: Toon, Natural, Pop art, Watercolor, Retro, Neon, Noir. The natural style's distance blur is switched off in the overview.
-  - **Colour comic** (`comic`): the toon look with very thick black outlines (no dots).
-  - **Retro**: 640 px grid, vertex snapping, 8 colour levels, ordered dither, curved CRT screen with neutral scan lines and grille (no colour fringes), faint glow, almost no flicker and a faint bar rolling down every 7 s.
-  - New autotests `--autotest=styles`, `--autotest=trees`, `--autotest=water` (screenshots of all styles / tree close-ups / the dropdown toggle).
-- Results screen redesigned: dark winner banner with crowns (long team names wrap), wider panel, header row plus one card per player with fixed right-aligned columns (so the numbers line up), gold / silver / bronze rank medals, team colour bar, winning team highlighted in gold, best value per column in orange, titles as orange star chips under the player instead of a text list, panel pops in, rows fade in one after another and the points count up. New autotest `--autotest=results_ui` shows the screen with made-up stats.
-- New app icon: view from a flying boulder at a village at noon - a castle tower with battlements on a hill, a church in the background, differently built houses standing on the ground (foundation + ground shadow), smoke from chimneys, no fire.
-- Cow: the black spots no longer stick out. They are now thin discs projected onto the body surface and tilted to its normal (`CowMesh._spot`), so they lie on the skin like paint.
-- GitHub Actions (`.github/workflows/build.yml`): build + export (Windows, macOS, Linux via `export.sh`) now runs on every push to any branch and on pull requests (before: only `main` and `v*` tags); a newer push cancels the running build of the same ref. Release files are still only attached for `v*` tags, and the release text is taken from the matching `## <version>` section of this file (tag `v1.10.18` -> section `## 1.10.18`).
+**New**
+
+- **Drill Bomb**: a new weapon that drills down to sea level, explodes underground and lets the ground cave in. Earned by wrecking an enemy church or watchtower.
+- **Wind as a match option**: none, light or strong (host decides online).
+- **Auto-place option**: catapults and palisades can be placed automatically (match option, host only online).
+- **Graphics styles**: Toon, Natural (golden hour), Pop art, Watercolor, Retro, Neon and Noir.
+- **Rewards you can see**: a weapon you earn (crates, wrecked buildings, felled trees, fires ...) floats up from where it happened, with icon, count and the player's name in their colour.
+- **Player names in their colour** in the feed, toasts and banners.
+
+**Better**
+
+- **Everything follows the ground**: rocks, bushes, flowers, animals and settlers lean with slopes and sink with craters and landslides. Buildings, posts, flags, flames and puddles no longer hang in the air when the ground gives way.
+- **Chaos mode with fewer cows**: your own cow dying pays 2, any other animal of your camp 1. The "own goal" keg needs a whole building, not just a palisade.
+- **Redesigned results screen**, new catapult icons, weapon icons in the starting-arsenal dialog, a banner that fits the window, scrollable menu options.
+- **Supply crates** are easier to tell from village crates; late in the match more of them hold powder kegs and fire barrels.
+- **Aim elevation** is limited to 15°-60°.
+
+**Fixed**
+
+- The loading screen is translated; burning settlers and animals no longer leave their flame behind; puddles never lie on slopes.
+
+**Downloads**
+
+- One ZIP per platform (Windows, macOS, Linux); the macOS app is ad-hoc signed.
+
 ## 1.10.23
 - The starting-arsenal dialog shows the real weapon icons (the same ones as the ammo bar) instead of coloured squares (`AmmoSlot.icon_only`).
 
