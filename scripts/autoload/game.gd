@@ -26,6 +26,7 @@ var rng_battle: Rng = Rng.new(1)
 # match options (copied from Settings at START)
 var turn_timer: int = 30
 var weather_on: bool = true
+var wind_level: int = 1                 # 0 none | 1 light | 2 strong (host setting, see Turn._next_turn)
 var events_on: bool = true
 var catapults_per_player: int = 5
 var palisades_per_player: int = 4

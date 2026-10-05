@@ -17,6 +17,7 @@ var gfx_style: String = "toon"         # see GfxStyle: toon | photo | retro | no
 var shake: bool = true
 var timer: int = 0
 var weather_on: bool = true
+var wind_level: int = 1                  # 0 none | 1 light (default) | 2 strong; online only the host decides
 var events_on: bool = true
 var crates_on: bool = true               # supply crates (meteor crate + small boulder / log crates)
 var auto_quality: bool = true
@@ -85,6 +86,7 @@ func load_settings() -> void:
 	if not [0, 20, 30, 45, 60].has(timer):
 		timer = 0
 	weather_on = bool(cf.get_value("main", "weather_on", weather_on))
+	wind_level = clampi(int(cf.get_value("main", "wind_level", wind_level)), 0, 2)
 	events_on = bool(cf.get_value("main", "events_on", events_on))
 	crates_on = bool(cf.get_value("main", "crates_on", crates_on))
 	auto_quality = bool(cf.get_value("main", "auto_quality", auto_quality))
@@ -119,7 +121,7 @@ var _stash: Dictionary = {}
 func _snapshot() -> Dictionary:
 	return {"player_count": player_count, "players": players.duplicate(true), "seed_text": seed_text, "timer": timer,
 		"catapult_count": catapult_count, "palisade_count": palisade_count, "terrain_hills": terrain_hills,
-		"crates_on": crates_on, "weather_on": weather_on, "events_on": events_on, "arsenal_preset": arsenal_preset, "rules_level": rules_level, "arsenal_edit": arsenal_edit.duplicate(), "arsenal_edit_preset": arsenal_edit_preset}
+		"crates_on": crates_on, "weather_on": weather_on, "wind_level": wind_level, "events_on": events_on, "arsenal_preset": arsenal_preset, "rules_level": rules_level, "arsenal_edit": arsenal_edit.duplicate(), "arsenal_edit_preset": arsenal_edit_preset}
 
 func _apply_snapshot(d: Dictionary) -> void:
 	player_count = int(d["player_count"])
@@ -133,6 +135,7 @@ func _apply_snapshot(d: Dictionary) -> void:
 	rules_level = int(d["rules_level"])
 	crates_on = bool(d["crates_on"])
 	weather_on = bool(d["weather_on"])
+	wind_level = int(d["wind_level"])
 	events_on = bool(d["events_on"])
 	arsenal_edit = (d["arsenal_edit"] as Dictionary).duplicate()
 	arsenal_edit_preset = str(d["arsenal_edit_preset"])
@@ -176,6 +179,7 @@ func reset_options(local_only: bool = false) -> void:
 	vsync = false
 	fullscreen = false
 	weather_on = true
+	wind_level = 1
 	events_on = true
 	crates_on = true
 	if not local_only:
@@ -205,6 +209,7 @@ func _save_now() -> void:
 	cf.set_value("main", "shake", shake)
 	cf.set_value("main", "timer", timer)
 	cf.set_value("main", "weather_on", weather_on)
+	cf.set_value("main", "wind_level", wind_level)
 	cf.set_value("main", "events_on", events_on)
 	cf.set_value("main", "crates_on", crates_on)
 	cf.set_value("main", "auto_quality", auto_quality)

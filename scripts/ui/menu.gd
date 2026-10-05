@@ -128,7 +128,7 @@ func lobby_state() -> Dictionary:
 		out_rows.append({"name": Net.peer_name(pid) if pid >= 0 else str(d["name"]), "color": int(d["color"]), "type": tp, "peer": pid})
 	return {"count": count, "rows": out_rows, "seed": seed_edit.text.strip_edges() if seed_edit != null else Settings.seed_text,
 		"timer": Settings.timer, "cats": Settings.catapult_count, "posts": Settings.palisade_count, "hills": Settings.terrain_hills,
-		"arsenal_preset": Settings.arsenal_preset, "rules": Settings.rules_level, "crates": Settings.crates_on, "weather": Settings.weather_on, "events": Settings.events_on, "arsenal": Settings.arsenal}
+		"arsenal_preset": Settings.arsenal_preset, "rules": Settings.rules_level, "crates": Settings.crates_on, "weather": Settings.weather_on, "wind": Settings.wind_level, "events": Settings.events_on, "arsenal": Settings.arsenal}
 
 ## Guest: show what the host has set up (a temporary overlay, see Settings.push_lobby)
 func net_lobby_apply(d: Dictionary) -> void:
@@ -158,6 +158,7 @@ func net_lobby_apply(d: Dictionary) -> void:
 	Settings.rules_level = int(d.get("rules", 0))
 	Settings.crates_on = bool(d.get("crates", true))
 	Settings.weather_on = bool(d.get("weather", Settings.weather_on))
+	Settings.wind_level = clampi(int(d.get("wind", 1)), 0, 2)
 	Settings.events_on = bool(d.get("events", Settings.events_on))
 	Settings.arsenal_edit_preset = Settings.arsenal_preset
 	Settings.arsenal_edit.clear()
@@ -620,6 +621,13 @@ func _options_panel() -> Control:
 	vb.add_child(_opt_row(I18n.t("menu.lighting"), lt))
 	var gst: OptionButton = GfxStyle.make_style_button()
 	vb.add_child(_opt_row(I18n.t("menu.gfx_style"), gst))
+	var wind_opt := OptionButton.new()
+	for wl in 3:
+		wind_opt.add_item(I18n.t("menu.wind_" + str(wl)))
+	wind_opt.select(Settings.wind_level)
+	wind_opt.item_selected.connect(func(idx: int) -> void: Settings.wind_level = idx)
+	vb.add_child(_opt_row(I18n.t("menu.wind"), wind_opt))
+	_host_only(wind_opt)          # match rule: online only the host decides
 	var chk_weather: Control = _check(I18n.t("menu.weather"), Settings.weather_on, func(v: bool) -> void: Settings.weather_on = v)
 	_host_only(chk_weather)          # match rule: online only the host decides
 	vb.add_child(chk_weather)

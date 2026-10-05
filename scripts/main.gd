@@ -530,6 +530,7 @@ func _start_game(seed_text: String, keep_layout: bool = false, net_cfg: Dictiona
 	Game.crates_on = Settings.crates_on
 	Game.rule_quarry = Settings.arsenal_preset == "quarry"
 	Game.weather_on = Settings.weather_on
+	Game.wind_level = Settings.wind_level
 	Game.events_on = Settings.events_on
 	if net_cfg.is_empty():
 		Game.players = _build_players(_last_config)
@@ -544,6 +545,7 @@ func _start_game(seed_text: String, keep_layout: bool = false, net_cfg: Dictiona
 		Game.crates_on = bool(net_cfg.get("crates", true))
 		Game.rule_quarry = bool(net_cfg.get("rquarry", false))
 		Game.weather_on = false
+		Game.wind_level = int(net_cfg.get("wind", 1))
 		Game.events_on = false
 		Game.players = _build_net_players(net_cfg)
 		NetGame.reset()

@@ -98,12 +98,14 @@ static func _next_turn() -> void:
 	turn_count += 1
 	# wind: change speed +-3 and rotate direction +-40 degrees (x1.8 during storms)
 	var r: Rng = Game.rng_battle
-	var base_speed: float = clampf(Game.wind_speed() / _wind_mult() + r.range_f(-Cfg.WIND_CHANGE_MAX, Cfg.WIND_CHANGE_MAX), 0.0, Cfg.WIND_MAX)
+	# wind option: none / light (few m/s, little effect) / strong (the full range)
+	var lvl: float = [0.0, 0.35, 1.0][clampi(Game.wind_level, 0, 2)]
+	var base_speed: float = clampf(Game.wind_speed() / _wind_mult() + r.range_f(-Cfg.WIND_CHANGE_MAX, Cfg.WIND_CHANGE_MAX) * lvl, 0.0, Cfg.WIND_MAX * lvl)
 	var ang: float = atan2(Game.wind.y, Game.wind.x) if Game.wind.length() > 0.05 else r.range_f(0.0, TAU)
 	ang += deg_to_rad(r.range_f(-40.0, 40.0))
 	# weather first (may change the multiplier)
 	Weather.turn_start()
-	Game.wind = Vector2(cos(ang), sin(ang)) * base_speed * _wind_mult()
+	Game.wind = Vector2(cos(ang), sin(ang)) * base_speed * _wind_mult() if lvl > 0.0 else Vector2.ZERO
 	_begin_turn()
 	if Net.active:
 		NetGame.send_turn_start()
