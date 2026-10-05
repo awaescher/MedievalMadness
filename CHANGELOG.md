@@ -4,6 +4,7 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
+- **Settlers no longer hang in the air** after a crater / landslide: standing, working and dead settlers follow the ground height every frame (before only walking ones did). Props, crates and catapults are physics bodies and already come down (checked).
 - **Animals (horses, cows, sheep ...) follow the ground**: they lean with the slope and are lowered / raised with the soil when a crater or landslide changes it under them, also while standing still (before: upright, and they hung in the air until they moved).
 - **Rocks, bushes and flowers follow the ground**: they are tilted to the slope normal and sink in a little on steep ground (before: always upright at the height of the centre, so they stuck out sideways on slopes), and after a crater / landslide / drill they are re-seated on the new ground (hidden if it is now under water). The rock colliders stay where they were.
 - **Release downloads are one ZIP per platform** with clear names: `MedievalMadness-<version>-Windows.zip`, `-macOS.zip`, `-Linux.zip` (before: a bare `.exe`, a zip and a bare Linux binary). The CI artifact holds the same three ZIPs.
