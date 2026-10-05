@@ -4,6 +4,7 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
+- **Release downloads are one ZIP per platform** with clear names: `MedievalMadness-<version>-Windows.zip`, `-macOS.zip`, `-Linux.zip` (before: a bare `.exe`, a zip and a bare Linux binary). The CI artifact holds the same three ZIPs.
 - **macOS build is ad-hoc signed** (`codesign/codesign=1`, Godot's built-in signer, works in the Linux CI): downloaded builds were unsigned and macOS (Apple Silicon) said "is damaged and cannot be opened". Now Gatekeeper only asks once (right-click → Open, or `xattr -dr com.apple.quarantine "Medieval Madness.app"`); a real fix needs a paid Developer ID + notarization.
 - **CI releases every build**: each push to `main` (and every `v*` tag) creates a GitHub release `v<major.minor.run>` with the Windows, macOS and Linux binaries attached; notes come from the CHANGELOG section of that version, else "Unreleased".
 
