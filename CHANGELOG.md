@@ -20,7 +20,7 @@ Release notes, newest first. Versions before 1.10.0 are reconstructed from the s
 
 - **Everything follows the ground**: rocks, bushes, flowers, animals and settlers lean with slopes and sink with craters and landslides. Buildings, posts, flags, flames and puddles no longer hang in the air when the ground gives way.
 - **Chaos mode with fewer cows**: your own cow dying pays 2, any other animal of your camp 1. The "own goal" keg needs a whole building, not just a palisade.
-- **Redesigned results screen**, new catapult icons, weapon icons in the starting-arsenal dialog, a banner that fits the window, scrollable menu options.
+- **Redesigned results screen**, new catapult icons, a starting-arsenal dialog with weapon icons that scrolls, a banner that fits the window, scrollable menu options.
 - **Supply crates** are easier to tell from village crates; late in the match more of them hold powder kegs and fire barrels.
 - **Aim elevation** is limited to 15°-60°.
 
@@ -31,24 +31,6 @@ Release notes, newest first. Versions before 1.10.0 are reconstructed from the s
 **Downloads**
 
 - One ZIP per platform (Windows, macOS, Linux); the macOS app is ad-hoc signed.
-
-## 1.10.23
-- The starting-arsenal dialog shows the real weapon icons (the same ones as the ammo bar) instead of coloured squares (`AmmoSlot.icon_only`).
-
-## 1.10.22
-- The starting-arsenal dialog (menu) scrolls now: with twelve weapons the list was taller than the window and the lower rows (Drill Bomb, Meteor Marker) and the OK button were cut off, so the Drill Bomb could not be set up in the loadout.
-
-## 1.10.20
-- New weapon: the **Drill Bomb** (slot 11 in the ammo bar, right before the Meteor Marker, key `-`; the Meteor Marker moved to slot 12 with the new key `G`, the two turn actions follow). It lands, waits 0.5 s, drills 2 s straight down to sea level (y = 0) and blows up underground with the size of the Mighty Powder Keg (radius 12, damage 1700). The ground above sinks into the cavity (radius 26 m, up to 18 m deep, in 8 steps over 1.6 s), everything that stood on it loses its footing and comes down, the rim slides in after it (forced landslide). Whole villages on a plateau can go down with one good hit.
-- Earned like the Powder Keg: wreck an enemy church or watchtower (all game modes); pre-granted in the Chaos preset / Custom arsenal. Bots use it half of the time they have it.
-- Tooltip: pro "reshapes the terrain / can wipe out whole villages", con "explodes underground, not on impact". New drill sound, new icon, `--autotest=drillbomb`.
-
-## 1.10.19
-- Wind strengths re-tuned: Light = up to 5 m/s (barely moves a shot: ~13 m sideways on a 490 m stone shot), Strong = up to 20 m/s (clearly visible: ~53 m sideways on the same shot). Storm weather still multiplies by 1.8. `WIND_MAX` is 20 now (the HUD arrow scales to it).
-
-## 1.10.18
-- Wind is a match option now (options panel, "Wind"): None / Light (default) / Strong. Light = gusts up to ~2.8 m/s with small changes per turn (little effect on shots), Strong = the full range up to 8 m/s (before this version the wind always behaved like "Strong"). Storm weather still multiplies it by 1.8; with "None" there is no wind at all (flags hang, smoke rises, shots fly straight).
-- Online: the wind option is host-only like the other match options (travels in the lobby state and the start message; guests see the host's value and get their own back on leaving).
 
 ## 1.10.17
 - Linux / OpenGL: the Compatibility renderer only has 4096 slots for per-instance shader values and the toon shader used three per object, so thousands of objects got garbage colours (orange / purple) and the console flooded with "Too many instances using shader instance variables". The toon shader is now a constant-value copy in the OpenGL renderer; part colours come from cached materials, glow / wet are skipped there. Forward+ / Mobile are unchanged.
