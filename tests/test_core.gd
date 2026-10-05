@@ -88,12 +88,12 @@ func test_material_table() -> void:
 
 func test_ammo_table() -> void:
 	var all: Array[AmmoDef] = AmmoDef.all()
-	TestBase.eq(all.size(), 13, "eleven weapons plus the two turn actions (relocate, wall)")
+	TestBase.eq(all.size(), 14, "twelve weapons plus the two turn actions (relocate, wall)")
 	TestBase.eq(AmmoDef.get_def("stone").start_count, -1, "stone is unlimited")
 	TestBase.eq(AmmoDef.get_def("firebarrel").start_count, 0, "the fire barrel has to be earned like everything but the stone (Standard preset)")
-	for id in ["boulder", "powderkeg", "scatter", "cow", "quad", "chain", "log", "meteor", "powdertrail"]:
+	for id in ["boulder", "powderkeg", "scatter", "cow", "quad", "chain", "log", "meteor", "powdertrail", "drillbomb"]:
 		TestBase.eq(AmmoDef.get_def(id).start_count, 0, "%s has to be earned" % id)
-	TestBase.eq(AmmoDef.earnable_ids().size(), 10, "ten earnable weapons (everything but the stone)")
+	TestBase.eq(AmmoDef.earnable_ids().size(), 11, "eleven earnable weapons (everything but the stone)")
 	TestBase.check(not AmmoDef.ids().has("waterbomb") and not AmmoDef.ids().has("cheese"), "water balloon and cheese are gone")
 	TestBase.eq(AmmoDef.get_def("cow").mass, 250.0, "cow mass")
 	TestBase.near(AmmoDef.get_def("cow").wind_factor, 0.15, 0.001, "cow wind factor")

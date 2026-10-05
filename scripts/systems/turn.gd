@@ -607,7 +607,7 @@ static func _update_aftermath(dt: float) -> void:
 	if not _lightning_done and Game.weather == "thunder" and aftermath_time > 2.0 and Game.rng_battle.chance(0.4):
 		_lightning_done = true
 		Weather.lightning_strike()
-	if aftermath_time >= Cfg.SETTLE_MAX and not Meteor.active():
+	if aftermath_time >= (Cfg.SETTLE_MAX * 2.0 if shot_ammo == "drillbomb" else Cfg.SETTLE_MAX) and not Meteor.active():
 		_finish_turn()
 		return
 	if Meteor.active():
@@ -625,7 +625,7 @@ static func _update_aftermath(dt: float) -> void:
 	if _settle_check > 0.0:
 		return
 	_settle_check = 0.1
-	if Projectile.any_alive() or Explosion.is_active() or Landslide.active() or Powder.active():
+	if Projectile.any_alive() or Explosion.is_active() or Landslide.active() or Powder.active() or DrillBomb.active():
 		settle_acc = 0.0
 		return
 	# fastest awake relevant body
@@ -648,9 +648,11 @@ static func _update_aftermath(dt: float) -> void:
 
 ## Did this shot do anything worth watching (damage, blast, fire, kills, bees, stink)?
 static func shot_relevant() -> bool:
-	return Scoring.shot_any or Meteor.active() or shot_ammo == "meteor" or shot_ammo == "firebarrel" or shot_ammo == "boulder" or shot_ammo == "powdertrail" or Landslide.active() or Powder.active() or not Stink.clouds.is_empty()
+	return Scoring.shot_any or Meteor.active() or shot_ammo == "meteor" or shot_ammo == "firebarrel" or shot_ammo == "boulder" or shot_ammo == "powdertrail" or shot_ammo == "drillbomb" or DrillBomb.active() or Landslide.active() or Powder.active() or not Stink.clouds.is_empty()
 
 static func min_dwell() -> float:
+	if shot_ammo == "drillbomb":
+		return 4.0
 	if shot_ammo == "meteor":
 		return 6.0
 	return 2.8 if Scoring.current_shot_score() > 250.0 else 2.0

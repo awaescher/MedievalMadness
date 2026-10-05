@@ -22,6 +22,11 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 - New app icon: view from a flying boulder at a village at noon - a castle tower with battlements on a hill, a church in the background, differently built houses standing on the ground (foundation + ground shadow), smoke from chimneys, no fire.
 - Cow: the black spots no longer stick out. They are now thin discs projected onto the body surface and tilted to its normal (`CowMesh._spot`), so they lie on the skin like paint.
 - GitHub Actions (`.github/workflows/build.yml`): build + export (Windows, macOS, Linux via `export.sh`) now runs on every push to any branch and on pull requests (before: only `main` and `v*` tags); a newer push cancels the running build of the same ref. Release files are still only attached for `v*` tags, and the release text is taken from the matching `## <version>` section of this file (tag `v1.10.18` -> section `## 1.10.18`).
+## 1.10.20
+- New weapon: the **Drill Bomb** (slot 11 in the ammo bar, right before the Meteor Marker, key `-`; the Meteor Marker moved to slot 12 with the new key `G`, the two turn actions follow). It lands, waits 0.5 s, drills 2 s straight down to sea level (y = 0) and blows up underground with the size of the Mighty Powder Keg (radius 12, damage 1700). The ground above sinks into the cavity (radius 26 m, up to 18 m deep, in 8 steps over 1.6 s), everything that stood on it loses its footing and comes down, the rim slides in after it (forced landslide). Whole villages on a plateau can go down with one good hit.
+- Earned like the Powder Keg: wreck an enemy church or watchtower (all game modes); pre-granted in the Chaos preset / Custom arsenal. Bots use it half of the time they have it.
+- Tooltip: pro "reshapes the terrain / can wipe out whole villages", con "explodes underground, not on impact". New drill sound, new icon, `--autotest=drillbomb`.
+
 ## 1.10.19
 - Wind strengths re-tuned: Light = up to 5 m/s (barely moves a shot: ~13 m sideways on a 490 m stone shot), Strong = up to 20 m/s (clearly visible: ~53 m sideways on the same shot). Storm weather still multiplies by 1.8. `WIND_MAX` is 20 now (the HUD arrow scales to it).
 

@@ -249,6 +249,13 @@ func _create_body(pos: Vector3, vel: Vector3) -> void:
 			d.ang_velocity = Vector3(rng.range_f(-4.0, 4.0), rng.range_f(-4.0, 4.0), rng.range_f(-4.0, 4.0))
 			bounce = 0.1
 			friction = 0.7
+		"drillbomb":
+			# a bomb with a drill below: the drill (local -Y) points along the flight
+			d.shapes.append(PhysWorld.capsule_desc(0.34, 1.6, Transform3D(Basis(), Vector3(0, -0.3, 0))))
+			d.xf = Transform3D(Basis(Quaternion(Vector3.DOWN, vel.normalized())), pos)
+			d.mass = ammo.mass
+			bounce = 0.05
+			friction = 0.8
 		"cow":
 			var basis_ := Basis.looking_at(vel.normalized(), Vector3.UP) * Basis(Vector3.UP, PI * 0.5)
 			d.shapes.append(PhysWorld.box_desc(Vector3(1.5, 0.85, 0.75)))
@@ -307,6 +314,8 @@ func _trail_color() -> Color:
 			return Color(0.3, 1.0, 0.55, 0.9)
 		"powderkeg":
 			return Color(1.0, 0.8, 0.3, 0.6)
+		"drillbomb":
+			return Color(0.9, 0.7, 0.3, 0.55)
 		"chain":
 			return Color(0.75, 0.75, 0.8, 0.5)
 		_:
@@ -381,6 +390,8 @@ func _make_visual() -> Node3D:
 			MeshGen.add_cyl(buf, 0.3, 0.05, 10, Transform3D(Basis(), Vector3(0, 0.17, 0)), Color("#6d7683"))
 			MeshGen.add_cyl(buf, 0.3, 0.05, 10, Transform3D(Basis(), Vector3(0, -0.17, 0)), Color("#6d7683"))
 			MeshGen.add_box(buf, Vector3(0.14, 0.16, 0.04), Transform3D(Basis(), Vector3(0, 0.0, 0.27)), Color("#f0f0e8"))
+		"drillbomb":
+			DrillBomb.build_mesh(buf)
 		"scatter":
 			MeshGen.add_sphere(buf, ammo.radius, Transform3D(Basis(), Vector3.ZERO), Color("#c9a15a"), 0.03, 8, 12)
 			MeshGen.add_cyl(buf, 0.1, 0.16, 6, Transform3D(Basis(), Vector3(0, ammo.radius, 0)), Color("#8a5a2a"))
@@ -478,6 +489,11 @@ func tick(dt: float) -> void:
 		if _fuse_acc >= 0.045:
 			_fuse_acc = 0.0
 			Fx.burst("spark", pb.xform * Vector3(0, 0.66, 0), Color("#ffcf5a"), 0.16)
+	if ammo.id == "drillbomb" and impact_time < 0.0 and vel.length() > 3.0:
+		# the drill keeps pointing along the flight (no tumbling)
+		var dq: Quaternion = pb.xform.basis.get_rotation_quaternion().slerp(Quaternion(Vector3.DOWN, vel.normalized()), 0.15)
+		PhysWorld.set_transform(body_id, Transform3D(Basis(dq), pos))
+		PhysWorld.set_velocity(body_id, vel, Vector3.ZERO)
 	if ammo.id == "meteor" and int(age * 60.0) % 5 == 0:
 		Fx.burst("spark", pos, Color("#4dff9a"), 0.25)
 	if ammo.id == "firebarrel" or ammo.id == "powdertrail":
@@ -545,7 +561,7 @@ func _sweep_living(pos: Vector3, vel: Vector3) -> bool:
 				Sfx.play("boing", pos, 0.6, 1)
 			elif ammo.id == "firebarrel":
 				st.ignite()
-	if hit_any and ammo.id in ["powderkeg", "meteor", "cow"] and not is_sub and impact_time < 0.0:
+	if hit_any and ammo.id in ["powderkeg", "meteor", "cow", "drillbomb"] and not is_sub and impact_time < 0.0:
 		_handle_impact({"pos": pos, "normal": Vector3.UP, "rid": RID(), "shape": 0, "impulse": ammo.mass * speed, "speed": speed, "vel": vel})
 		return true
 	for an in Animal.all:
@@ -698,6 +714,13 @@ func _handle_impact(info: Dictionary) -> void:
 		"powderkeg":
 			detonated = true
 			Explosion.explode(pos, 12.0, 1700.0, {"source": source, "sound": "bigboom", "fire": false})
+			_finish(pos, false)
+		"drillbomb":
+			# it digs in where it lands: DrillBomb takes over (wait, drill down to sea level, blow up underground)
+			detonated = true
+			_kinetic(pos, energy * 0.4, dir, 1.2)
+			Events.camera_shake.emit(0.3)
+			DrillBomb.start(pos, source)
 			_finish(pos, false)
 		"scatter":
 			_scatter(pos, vel)
@@ -1158,6 +1181,9 @@ static func bucket_visual(ammo_id: String) -> Node3D:
 		"powdertrail":
 			basis = Basis(Vector3(0, 0, 1), PI * 0.5)
 			sc = 1.0
+		"drillbomb":
+			basis = Basis(Vector3(0, 0, 1), PI * 0.5)
+			sc = 0.55
 		"cow":
 			sc = 0.36
 		"scatter":

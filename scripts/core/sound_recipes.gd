@@ -9,7 +9,7 @@ const NAMES: Array[String] = [
 	"thunk", "clack", "crunch", "clang", "tinkle", "fwump", "swish", "boom", "bigboom", "whoosh", "twang", "creak",
 	"fire_loop", "splash", "moo", "bawk", "baa", "neigh", "quack", "honk", "squeak", "bell", "scream", "yeet", "boing",
 	"buzz", "thunder", "zap", "rain_loop", "gust", "stinger_event", "ui_click", "ui_hover", "turn_start", "victory",
-	"defeat", "splat", "pop", "fuse", "crate_epic", "fanfare"]
+	"defeat", "splat", "pop", "fuse", "drill", "crate_epic", "fanfare"]
 
 const VARIANTS: Dictionary = {
 	"thunk": 3, "clack": 3, "crunch": 3, "splash": 3, "boing": 3, "scream": 3, "moo": 3, "tinkle": 3, "fwump": 2, "swish": 2,
@@ -17,11 +17,11 @@ const VARIANTS: Dictionary = {
 }
 const LOOPED: Array[String] = ["fire_loop", "rain_loop", "gust", "buzz"]
 ## looped streams that are not part of the global ambience mix: players attach them to things (Sfx.attach_loop)
-const LOOP_SINGLE: Array[String] = ["fuse"]
+const LOOP_SINGLE: Array[String] = ["fuse", "drill"]
 ## Final peak level per sound (UI stays discreet, loops sit under everything else)
 const LEVEL: Dictionary = {
 	"ui_hover": 0.30, "ui_click": 0.55, "fire_loop": 0.55, "rain_loop": 0.5, "gust": 0.5, "buzz": 0.5, "tinkle": 0.7,
-	"fuse": 0.6, "clack": 0.8, "squeak": 0.4, "pop": 0.7, "bawk": 0.36, "quack": 0.36, "baa": 0.38, "moo": 0.45, "neigh": 0.38, "honk": 0.4, "scream": 0.38, "yeet": 0.5, "boing": 0.45, "creak": 0.4,
+	"fuse": 0.6, "drill": 0.7, "clack": 0.8, "squeak": 0.4, "pop": 0.7, "bawk": 0.36, "quack": 0.36, "baa": 0.38, "moo": 0.45, "neigh": 0.38, "honk": 0.4, "scream": 0.38, "yeet": 0.5, "boing": 0.45, "creak": 0.4,
 }
 
 static func variants_of(name: String) -> int:
@@ -431,6 +431,18 @@ static func make(name: String, variant: int) -> PackedFloat32Array:
 			for k2 in 7:
 				Synth.noise(b, Synth.WHITE, r.range_f(0.0, 1.5), r.range_f(0.03, 0.08), r.range_f(0.4, 0.7), 40.0, 8000.0, 5000.0, 2500.0, r, 0.003)
 			b = Synth.loopify(b, 0.25)
+		"drill":
+			# a rock drill: a low saw buzz that shudders fast, grinding gravel noise and a rising whine
+			b = Synth.make(1.2)
+			Synth.osc(b, Synth.SAW, 62.0, 62.0, 0.0, 1.2, 0.5, 0.0, 0.0, 0.0, 0.0, 24.0, 0.7)
+			Synth.osc(b, Synth.SQUARE, 124.0, 124.0, 0.0, 1.2, 0.25, 0.0, 0.0, 0.0, 0.0, 24.0, 0.8)
+			Synth.osc(b, Synth.SAW, 520.0, 700.0, 0.0, 1.2, 0.08, 0.0, 0.0, 0.0, 0.0, 12.0, 0.5)
+			Synth.noise(b, Synth.PINK, 0.0, 1.2, 0.5, 0.0, 2400.0, 1800.0, 150.0, r, 0.0)
+			for k3 in 30:
+				Synth.noise(b, Synth.WHITE, r.range_f(0.0, 1.15), r.range_f(0.01, 0.03), r.range_f(0.3, 0.8), 60.0, 3500.0, 1500.0, 400.0, r, 0.0005)
+			Synth.biquad(b, "lp", 3000.0, 0.7)
+			Synth.saturate(b, 1.8)
+			b = Synth.loopify(b, 0.2)
 		"pop":
 			b = Synth.make(0.2)
 			Synth.osc(b, Synth.SINE, 720.0 - v * 100.0, 240.0, 0.0, 0.08, 1.0, 42.0, 0.0, 0.0, 0.0008)

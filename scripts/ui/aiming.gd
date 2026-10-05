@@ -278,7 +278,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_:
 				_select_key(k)
 
-## Weapon / action keys (1-9, 0, -, U, B) and Tab: shared by the aiming and the action modes
+## Weapon / action keys (1-9, 0, -, G, U, B) and Tab: shared by the aiming and the action modes
 func _select_key(k: InputEventKey) -> void:
 	var idx: int = -1
 	match k.keycode:
@@ -288,10 +288,12 @@ func _select_key(k: InputEventKey) -> void:
 			idx = 9
 		KEY_MINUS, KEY_SLASH, 223:
 			idx = 10
-		KEY_U:
+		KEY_G:
 			idx = 11
-		KEY_B:
+		KEY_U:
 			idx = 12
+		KEY_B:
+			idx = 13
 		KEY_TAB:
 			Turn.cycle_catapult(-1 if k.shift_pressed else 1)
 			accept_event()

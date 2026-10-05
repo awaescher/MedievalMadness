@@ -316,6 +316,8 @@ static func _choose_ammo(mode: String, fire_target: bool, target_cat: Catapult) 
 				cluster += 1
 		if cluster >= 3:
 			return "scatter"
+	if bot.has_ammo("drillbomb") and rng.chance(0.5):
+		return "drillbomb"
 	if bot.has_ammo("powdertrail") and rng.chance(0.4):
 		return "powdertrail"
 	if bot.has_ammo("log") and rng.chance(0.25):
