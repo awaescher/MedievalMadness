@@ -22,6 +22,9 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 - New app icon: view from a flying boulder at a village at noon - a castle tower with battlements on a hill, a church in the background, differently built houses standing on the ground (foundation + ground shadow), smoke from chimneys, no fire.
 - Cow: the black spots no longer stick out. They are now thin discs projected onto the body surface and tilted to its normal (`CowMesh._spot`), so they lie on the skin like paint.
 - GitHub Actions (`.github/workflows/build.yml`): build + export (Windows, macOS, Linux via `export.sh`) now runs on every push to any branch and on pull requests (before: only `main` and `v*` tags); a newer push cancels the running build of the same ref. Release files are still only attached for `v*` tags, and the release text is taken from the matching `## <version>` section of this file (tag `v1.10.18` -> section `## 1.10.18`).
+## 1.10.23
+- The starting-arsenal dialog shows the real weapon icons (the same ones as the ammo bar) instead of coloured squares (`AmmoSlot.icon_only`).
+
 ## 1.10.22
 - The starting-arsenal dialog (menu) scrolls now: with twelve weapons the list was taller than the window and the lower rows (Drill Bomb, Meteor Marker) and the OK button were cut off, so the Drill Bomb could not be set up in the loadout.
 
