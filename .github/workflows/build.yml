@@ -22,6 +22,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0                  # release notes diff against the previous release tag
 
       - name: Install Godot and export templates
         run: |
@@ -68,6 +70,15 @@ jobs:
             awk -v v="$H" '/^## /{p = ($2 == v); next} p' CHANGELOG.md > release_notes.md
             [ -s release_notes.md ] && break
           done
+          # push to main: only the lines that are new since the previous release (its CHANGELOG "Unreleased" is the baseline)
+          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then
+            PREV="$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)"
+            if [ -n "$PREV" ] && git show "$PREV:CHANGELOG.md" > old_changelog.md 2>/dev/null; then
+              awk '/^## /{p = ($2 == "Unreleased"); next} p' old_changelog.md > old_notes.md
+              grep -vxFf old_notes.md release_notes.md > new_notes.md || true
+              if grep -q '[^[:space:]]' new_notes.md; then cp new_notes.md release_notes.md; fi
+            fi
+          fi
           if [ ! -s release_notes.md ]; then echo "Build $VER" > release_notes.md; fi
           cat release_notes.md
 
