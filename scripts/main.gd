@@ -653,7 +653,7 @@ func _place_marker(pos: Vector2, remove: bool) -> void:
 	Sfx.play("ui_click", Vector3.INF, 0.9, 0)
 
 func _toggle_overview() -> void:
-	if Game.state != Game.State.BATTLE:
+	if Game.state != Game.State.BATTLE or world == null or world.map == null:
 		return
 	_overview = not _overview
 	aiming.overview_active = _overview
@@ -889,8 +889,12 @@ func _unhandled_input(event: InputEvent) -> void:
 						aiming.cancel_drag()
 					else:
 						_open_pause()
-			KEY_V:
+			KEY_M:
 				_toggle_overview()
+			KEY_X:
+				if _overview and Game.state == Game.State.BATTLE:
+					_place_marker(get_viewport().get_mouse_position(), k.shift_pressed)   # X in the map: set / move / remove the marker at the cursor
+					get_viewport().set_input_as_handled()
 			KEY_HOME:
 				if Game.cur() != null:
 					cam_rig.recenter(Game.cur().village_center)
@@ -951,7 +955,7 @@ func _debug_key(k: InputEventKey) -> void:
 			var hit: Vector3 = Terrain.pick(cam_rig.cam.project_ray_origin(get_viewport().get_mouse_position()), cam_rig.cam.project_ray_normal(get_viewport().get_mouse_position()))
 			if hit != Vector3.INF:
 				Fire.ignite_in_radius(hit, 2.5, 1.0, {})
-		KEY_X:
+		KEY_V:
 			var hit2: Vector3 = Terrain.pick(cam_rig.cam.project_ray_origin(get_viewport().get_mouse_position()), cam_rig.cam.project_ray_normal(get_viewport().get_mouse_position()))
 			if hit2 != Vector3.INF:
 				Explosion.explode(hit2, 6.0, 700.0, {"source": {}})

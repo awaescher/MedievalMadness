@@ -581,6 +581,8 @@ var skip_bar: ProgressBar
 var _banner_tween: Tween
 var _feed_items: Array[Dictionary] = []
 var _skip_hold: float = 0.0
+var _tab_held: float = 0.0
+const TAB_GRACE := 0.4          # a Tab shorter than this switches the catapult, longer starts the skip bar
 var _toast_t: float = 0.0
 var _dirty_players: bool = true
 var _players_sig: String = ""
@@ -1117,11 +1119,14 @@ func _process(delta: float) -> void:
 	wind_widget.queue_redraw()
 	wind_label.text = "%s %.1f m/s" % [I18n.t("hud.wind"), Game.wind.length()]
 	weather_label.text = I18n.t("hud.weather_" + Game.weather)
-	# skip button (hold X)
-	if Input.is_key_pressed(KEY_X) and Turn.phase == Turn.Phase.AIMING and p != null and p.is_human():
-		_skip_hold = maxf(_skip_hold, 0.001) + delta
-	elif not btn_skip.button_pressed:
-		_skip_hold = 0.0
+	# skip button (hold Tab: a short tap only switches the catapult, so the bar starts after a grace period)
+	if Input.is_key_pressed(KEY_TAB) and Turn.phase == Turn.Phase.AIMING and p != null and p.is_human():
+		_tab_held += delta
+		_skip_hold = maxf(_tab_held - TAB_GRACE, 0.0) + (0.001 if _tab_held > TAB_GRACE else 0.0)
+	else:
+		_tab_held = 0.0
+		if not btn_skip.button_pressed:
+			_skip_hold = 0.0
 	skip_bar.visible = _skip_hold > 0.0
 	skip_bar.value = clampf(_skip_hold / 2.0, 0.0, 1.0)
 	if _skip_hold >= 2.0:
@@ -1148,17 +1153,17 @@ func _process(delta: float) -> void:
 ## What the player can do right now (short, same key-cap style everywhere)
 func _hint_items(aiming_human: bool, aftermath: bool) -> Array:
 	if aftermath:
-		return [[I18n.t("hint.k_click_space"), I18n.t("hint.next_turn"), "skip"], ["V", I18n.t("hint.overview"), "overview"]]
+		return [[I18n.t("hint.k_click_space"), I18n.t("hint.next_turn"), "skip"], ["M", I18n.t("hint.overview"), "overview"]]
 	if overview_on:
-		return [[I18n.t("hint.k_click"), I18n.t("hint.marker")], [I18n.t("hint.k_rmb"), I18n.t("hint.camera")], ["V", I18n.t("hint.back"), "overview"]]
+		return [[I18n.t("hint.k_click"), I18n.t("hint.marker")], [I18n.t("hint.k_rmb"), I18n.t("hint.camera")], ["M", I18n.t("hint.back"), "overview"]]
 	if not aiming_human:
-		return [["V", I18n.t("hint.overview"), "overview"]] if Game.state == Game.State.BATTLE else []
+		return [["M", I18n.t("hint.overview"), "overview"]] if Game.state == Game.State.BATTLE else []
 	match Turn.action_mode():
 		"relocate":
-			return [["W/S", I18n.t("hint.drive")], ["A/D", I18n.t("hint.steer")], [I18n.t("hint.k_space"), I18n.t("hint.done")], ["", I18n.t("hint.driven", {"u": int(round(Turn.move_used))})], ["1-9", I18n.t("hint.weapon")], ["V", I18n.t("hint.overview"), "overview"]]
+			return [["W/S", I18n.t("hint.drive")], ["A/D", I18n.t("hint.steer")], [I18n.t("hint.k_space"), I18n.t("hint.done")], ["", I18n.t("hint.driven", {"u": int(round(Turn.move_used))})], ["1-9", I18n.t("hint.weapon")], ["M", I18n.t("hint.overview"), "overview"]]
 		"wall":
-			return [[I18n.t("hint.k_click"), I18n.t("hint.build")], ["Q/E", I18n.t("hint.turn")], [I18n.t("hint.k_on_wall"), I18n.t("hint.stack")], ["1-9", I18n.t("hint.weapon")], ["V", I18n.t("hint.overview"), "overview"]]
-	return [[I18n.t("hint.k_drag"), I18n.t("hint.fire")], ["Q/E", I18n.t("hint.turn")], ["↑↓", I18n.t("hint.elevation")], ["Tab", I18n.t("hint.catapult")], ["R", I18n.t("hint.enemy")], ["M", I18n.t("hint.marker_key")], ["V", I18n.t("hint.overview"), "overview"]]
+			return [[I18n.t("hint.k_click"), I18n.t("hint.build")], ["Q/E", I18n.t("hint.turn")], [I18n.t("hint.k_on_wall"), I18n.t("hint.stack")], ["1-9", I18n.t("hint.weapon")], ["M", I18n.t("hint.overview"), "overview"]]
+	return [[I18n.t("hint.k_drag"), I18n.t("hint.fire")], ["Q/E", I18n.t("hint.turn")], ["↑↓", I18n.t("hint.elevation")], ["Tab", I18n.t("hint.catapult")], ["R", I18n.t("hint.enemy")], ["X", I18n.t("hint.marker_key")], ["M", I18n.t("hint.overview"), "overview"]]
 
 func _cam_yaw() -> float:
 	var cam: Camera3D = get_viewport().get_camera_3d()

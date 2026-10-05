@@ -23,6 +23,7 @@ Release notes, newest first. Versions before 1.10.0 are reconstructed from the s
 - **Redesigned results screen**, new catapult icons, a starting-arsenal dialog with weapon icons that scrolls, a banner that fits the window, scrollable menu options.
 - **Supply crates** are easier to tell from village crates; late in the match more of them hold powder kegs and fire barrels.
 - **Aim elevation** is limited to 15°-60°.
+- **New keys**: the map (overview) is on `M` and called "Map" / "Karte"; `X` sets your marker while the map is open and turns the catapult towards it while aiming; skipping a turn is now holding `Tab` (a short tap still picks the next catapult).
 
 **Fixed**
 

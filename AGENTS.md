@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Short orientation for AI coding agents working in this repository. Read [README.md](README.md) first (what the game is, how to run,
-build and test it, project layout). The long guide with background, rules of thumb and lessons learned is
+build and test it). The long guide with background, rules of thumb and lessons learned is
 [AI/HANDOVER.md](AI/HANDOVER.md) - read it before a bigger change.
 
 ## What this is
@@ -28,6 +28,6 @@ specification and the source of truth for rules, numbers and file contracts.
 
 ## Where things are
 
-`scripts/` code by area (see the layout in the README), `tests/` headless tests, `scripts/autotest.gd` in-game scenarios
+`scripts/` code by area (folder map in the handover), `tests/` headless tests, `scripts/autotest.gd` in-game scenarios
 (`godot --path . -- --autotest=<name>`), `tools/` helper scripts, `relay/` the online relay, `docs/` README images,
 `.github/workflows/build.yml` the CI that builds and releases.

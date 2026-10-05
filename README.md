@@ -24,7 +24,7 @@ just something heavy flying into it. What happens next is up to the simulation.
 * **Settlers and animals are ragdolls**: hit one and it flies.
 
 Built with **Godot 4.4+ (tested with 4.7.2)**, GDScript only, Jolt Physics. Renderer: Forward+ on Windows and macOS, Compatibility (OpenGL) on Linux, Mobile on phones.
-No image, model, font or audio files: all graphics are procedural and all sounds are synthesized at startup.
+All graphics are procedural and all sounds are synthesized at startup; the only image files are CC0 textures used by the Natural graphics style (see Credits).
 
 ## Run
 
@@ -70,14 +70,14 @@ Linux x86_64 single file). They need the matching Godot **export templates** (Ed
 | Choose catapult | `Tab` / `Shift+Tab`, click a catapult, or use the numbered catapult buttons (bottom right) |
 | Skip the aftermath | click or `Space` after the first impact |
 | Fine aim | Arrows (azimuth / elevation, `Shift` = finer), `W`/`S` power, `Space` fire |
-| Face the next enemy village / your marker | `R` / `M` |
-| Overview camera | `V` - shows the whole map (drag to orbit, middle mouse or `Shift`+right drag to pan, `WASD` pans, `Home` recenters) |
-| Map marker | In the overview **left-click the ground** to set your one marker (new click moves it, click on it or `Shift`+click removes it). It stays for the whole match; while aiming a dashed line, a compass label and the range readout point to it |
-| Skip turn | hold `X` for 2 s (or hold the button) |
+| Face the next enemy village / your marker | `R` / `X` |
+| Map (overview camera) | `M` - shows the whole map (drag to orbit, middle mouse or `Shift`+right drag to pan, `WASD` pans, `Home` recenters) |
+| Map marker | On the map **left-click the ground or press `X`** to set your one marker (new click moves it, click on it or `Shift`+click removes it). It stays for the whole match; while aiming a dashed line, a compass label and the range readout point to it |
+| Skip turn | hold `Tab` for 2 s (or hold the button); a short `Tab` picks the next catapult |
 | Pause / options | `Esc` |
 | Fullscreen | `F11` |
 | Placement | click ground = place, `Q`/`E` rotate, right click / `Z` removes the last one |
-| Fast-forward (3x) | `F`, the `Vorspulen/Fast-forward` button, or `Space` outside your own aiming phase - handy during CPU turns; it switches itself off when it is your turn to aim |
+| Fast-forward (3x) | `F`, the `Fast-forward` button, or `Space` outside your own aiming phase - handy during CPU turns; it switches itself off when it is your turn to aim |
 
 **Aiming in detail** - the pull direction is opposite to the launch direction: drag *left* to aim *right*, drag
 *down* to lob higher. Power = pull length (up to 220 px), azimuth = 0.25 deg per pixel, elevation = 15 deg + 0.3 deg per pixel
@@ -88,7 +88,7 @@ The HUD shows power / elevation / azimuth and the distance to the predicted land
 
 The player colour is the team: give several players the same colour and they play as one team (no limit, no symmetry needed;
 a match needs at least two colours). Turn order stays as it is. A team wins together as soon as no catapult of another team is
-left. Allies are not targeted by the bots or by `R`, hits on allies count as own goals, markers set in the overview are shown to the
+left. Allies are not targeted by the bots or by `R`, hits on allies count as own goals, markers set on the map are shown to the
 whole team (online too), every village has a flagpole in its team colour and window frames in a darker shade of it.
 
 See [CHANGELOG.md](CHANGELOG.md) for the release notes (kept up to date together with `SPEC.md`).
@@ -108,7 +108,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the release notes (kept up to date together
 ## Debug keys (only with `-- --debug`, or in debug builds)
 
 `B` test ball - `E` cycle random events - `W` cycle weather - `K` kill selected catapult - `F` ignite under the cursor -
-`X` explode at the cursor - `C` collider wireframes - `H` heal catapults - `T` slow motion - `O` outlines - `F3` debug overlay.
+`V` explode at the cursor - `C` collider wireframes - `H` heal catapults - `T` slow motion - `O` outlines - `F3` debug overlay.
 
 ## Tests
 
@@ -122,40 +122,14 @@ godot --path . -- --autotest=ammo                              # fires all 8 amm
 Other autotest scenarios: `menu`, `placement`, `village`, `shoot`, `physics`, `hud`, `perf`, `sound`. Screenshots are saved to
 `user://shot_*.png` (macOS: `~/Library/Application Support/Godot/app_userdata/Medieval Madness/`).
 
-## Project layout
-
-```
-scenes/main.tscn        one scene with a root Node; everything else is created in code
-scripts/autoload/       Cfg (constants), Events (signal bus), Settings, I18n, Game, Sfx (synth + playback)
-scripts/core/           Rng (mulberry32 + FNV-1a), value noise, util, ballistics, synth kit, sound recipes
-scripts/render/         toon + outline + sky + water shaders, quality tiers, camera rig, procedural meshes
-scripts/physics/        PhysicsServer3D wrapper, parts, structures (dormant/awake), glue links + support check, debris cap
-scripts/world/          seeded map generation, chunked terrain with craters, village generator, game world
-scripts/buildings/      16 building blueprints + trees + ruin, built from a small "kit" of wall/roof helpers
-scripts/props/          barrels, crates, carts (hinge joints), lanterns, banners, tents, rubber duck ...
-scripts/entities/       catapult, projectile (11 ammo types), meteor strike, settlers (ragdolls, bucket brigade), animals
-scripts/systems/        damage, fire, explosion, water, weather, random events, turn manager, scoring
-scripts/fx/             pooled particles, comic text, speech bubbles, trails, flags
-scripts/ai/             CPU bots (Peasant / Squire / Knight / King)
-scripts/ui/             parchment theme, menu, HUD, aiming, placement, results, pause
-scripts/lang/           en.gd / de.gd (English + German)
-tests/                  headless tests + in-scene unit scenarios
-```
-
-## Notes
-
-* **Physics** bodies are created directly on `PhysicsServer3D` (Jolt). Building parts are glued by logical links (no joints):
-  a structure sleeps as one merged mesh + one static compound collider until something hits it, then every part becomes its own
-  frozen body and is released when its support is gone. Windmill sails and cart wheels use real hinge joints, ragdolls use
-  cone-twist joints.
-* **Fast-forward** (all-CPU games) raises the physics tick rate (180 Hz x time scale 3) instead of stretching the step, because long
-  physics steps make bodies tunnel through the terrain.
-* Warnings: `untyped_declaration` and the `unsafe_*` warnings are set to *warn* in `project.godot`; the code base is fully typed. Places
-  that deliberately cast values out of dictionaries/arrays carry an `@warning_ignore_start("unsafe_*")` annotation.
-* The signal that tells the menu "sound is ready" is `Sfx.synth_ready` (a `ready` signal already exists on every `Node`).
-
-Made with Godot Engine. Everything (code, look, sounds, jokes) is original; no external assets are used.
-
 ## Online play
 
 Up to 8 players over the internet, no server of your own to run (a free Cloudflare worker as relay, or any machine with Godot). Setup and rules: [relay/README.md](relay/README.md).
+
+## Credits
+
+The **Natural** graphics style uses material textures from ambientCG:
+
+Created using [Bark014](https://ambientcg.com/a/Bark014), [Wood092](https://ambientcg.com/a/Wood092), [Granite002A](https://ambientcg.com/a/Granite002A), [Bricks097](https://ambientcg.com/a/Bricks097), [ThatchedRoof001A](https://ambientcg.com/a/ThatchedRoof001A), [Fabric081C](https://ambientcg.com/a/Fabric081C), [Metal049A](https://ambientcg.com/a/Metal049A), [Grass004](https://ambientcg.com/a/Grass004), [Grass007](https://ambientcg.com/a/Grass007), [Ground110](https://ambientcg.com/a/Ground110), [RoofingTiles004](https://ambientcg.com/a/RoofingTiles004) and [PavingStones150](https://ambientcg.com/a/PavingStones150) from [ambientCG.com](https://ambientcg.com), licensed under the Creative Commons CC0 1.0 Universal License.
+
+Made with Godot Engine. Everything else (code, look, sounds, jokes) is original; no other external assets are used.
