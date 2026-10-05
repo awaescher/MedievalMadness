@@ -4,6 +4,9 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
+
+## 1.11.0
+First 1.11 build: everything since 1.10.23 (the CI release text of the first 1.11 build is this section).
 - **No water on slopes**: a puddle (water tower, barrel, balloon, ...) is only made where the ground is flat; on a slope (e.g. the wall of a crater) no flat blue disc is left hovering over the downhill side. The README GIF was re-recorded without them (37 frames, 754 KB); the caption stands on its own line below it.
 - **README overhaul** (plain Markdown only, images without size limits): a "Physics is the game" section (short intro, `docs/physics.gif` - a Drill Bomb collapsing a village, 552 px, 8 fps, 37 frames, 766 KB - and five compact bullets), a new screenshot (`docs/game.png`), run instructions for the downloaded binaries (Windows, macOS with the Gatekeeper warning and manual steps, Linux incl. `chmod +x` and the renderer), correct renderer notes (Forward+ desktop, Compatibility on Linux, Mobile on phones), the outdated sections "Ready-made builds", "Weapons, posts and rules (v1.1)", "Powder, dents and landslides (v1.2)", "Versions" and "Phones and tablets" removed, "Rules in one minute" -> "Rules in twenty seconds". The GIF and the screenshot are recorded by the autotest scenarios `--autotest=gif` and `--autotest=readmeshot` (frames as PNG, assembled to a GIF outside the game).
 - **Loading screen title is translated** ("Generating the world" stayed German after switching the language): the title is set again every time a match starts. Other texts checked: no other leftover German / untranslated UI strings (the language key sets of `en.gd` / `de.gd` are tested to be identical).

@@ -65,13 +65,16 @@ jobs:
           echo "VER=$VER" >> "$GITHUB_ENV"
           # tag: the "## <version>" section of CHANGELOG.md (else "## Unreleased"); push to main: always "## Unreleased"
           # (CI run numbers collide with old, reconstructed version sections, so those must not be picked up there)
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then HEADS="$VER Unreleased"; else HEADS="Unreleased"; fi
+          # (a new minor version: while "Unreleased" is still empty the section "<major>.<minor>.0" is the release text)
+          MINOR0="$(echo "$VER" | cut -d. -f1,2).0"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then HEADS="$VER Unreleased"; else HEADS="Unreleased $MINOR0"; fi
+          FROM=""
           for H in $HEADS; do
-            awk -v v="$H" '/^## /{p = ($2 == v); next} p' CHANGELOG.md > release_notes.md
-            [ -s release_notes.md ] && break
+            awk -v v="$H" '/^## /{p = ($2 == v); next} p' CHANGELOG.md | grep -v '^[[:space:]]*$' > release_notes.md || true
+            if [ -s release_notes.md ]; then FROM="$H"; break; fi
           done
           # push to main: only the lines that are new since the previous release (its CHANGELOG "Unreleased" is the baseline)
-          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then
+          if [[ "$GITHUB_REF" != refs/tags/v* && "$FROM" == "Unreleased" ]]; then
             PREV="$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)"
             if [ -n "$PREV" ] && git show "$PREV:CHANGELOG.md" > old_changelog.md 2>/dev/null; then
               awk '/^## /{p = ($2 == "Unreleased"); next} p' old_changelog.md > old_notes.md
