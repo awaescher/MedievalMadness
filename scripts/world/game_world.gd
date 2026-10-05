@@ -17,6 +17,7 @@ var rng_map: Rng
 var rng_battle: Rng
 var catapult_parent: Node3D
 var decor_root: Node3D
+var _decor_sets: Array = []
 var _think_acc: float = 0.0
 var generating_progress: float = 0.0
 
@@ -38,6 +39,7 @@ func setup_roots(sky_rig: SkyRig) -> void:
 	Powder.attach(fx_root)
 	Terrain.ground_hook = Callable(Breakable, "ground_changed")
 	Terrain.wake_hook = Callable(PhysWorld, "wake_in_box")
+	Terrain.decor_hook = Callable(self, "_realign_decor")
 	catapult_parent = Node3D.new()
 	catapult_parent.name = "Catapults"
 	add_child(catapult_parent)
@@ -89,6 +91,7 @@ func teardown() -> void:
 	if terrain != null and is_instance_valid(terrain):
 		terrain.queue_free()
 	terrain = null
+	_decor_sets.clear()
 	for ch in [struct_root, entity_root, decor_root, catapult_parent]:
 		if ch != null:
 			for k in (ch as Node).get_children():
@@ -268,6 +271,33 @@ func _build_decor(seed_text: String) -> void:
 	_multimesh_decor(r, int(float(90 + 20 * n) * area_k * area_k), "bush")
 	_multimesh_decor(r, int(float(260 + 40 * n) * area_k * area_k), "flower")
 
+## Transform of a rock / bush / flower standing on the ground at (x, z): follows the slope and sinks
+## in a little on steep ground so the downhill edge does not hover.
+func _decor_xf(x: float, z: float, s: float, yaw: float) -> Transform3D:
+	var up: Vector3 = Terrain.normal(x, z)
+	var q := Quaternion(Vector3.UP, up)
+	var basis_ := Basis(q) * Basis(Vector3.UP, yaw)
+	basis_ = basis_.scaled(Vector3.ONE * s)
+	var sink: float = 0.05 + sqrt(maxf(0.0, 1.0 - up.y * up.y)) * 0.35 * s
+	return Transform3D(basis_, Vector3(x, Terrain.h(x, z), z) - up * sink)
+
+## Terrain changed (crater, landslide, drill): put the multimesh decor back on the ground.
+func _realign_decor(box: AABB) -> void:
+	var water: float = Terrain.current.water_y if Terrain.current != null else Cfg.WATER_LEVEL
+	for e in _decor_sets:
+		var mm: MultiMesh = e["mm"]
+		var xz: PackedVector2Array = e["xz"]
+		var sc: PackedFloat32Array = e["scale"]
+		var yw: PackedFloat32Array = e["yaw"]
+		for i in xz.size():
+			var q: Vector2 = xz[i]
+			if q.x < box.position.x or q.x > box.end.x or q.y < box.position.z or q.y > box.end.z:
+				continue
+			if Terrain.h(q.x, q.y) < water:
+				mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ZERO), Vector3(q.x, -50.0, q.y)))
+			else:
+				mm.set_instance_transform(i, _decor_xf(q.x, q.y, sc[i], yw[i]))
+
 func _multimesh_decor(r: Rng, count: int, kind: String) -> void:
 	var mesh: ArrayMesh
 	var buf := MeshGen.Buf.new()
@@ -291,6 +321,9 @@ func _multimesh_decor(r: Rng, count: int, kind: String) -> void:
 	var positions: Array[Transform3D] = []
 	var colors: Array[Color] = []
 	var rock_shapes: Array[PhysWorld.ShapeDesc] = []
+	var xzs := PackedVector2Array()
+	var scales := PackedFloat32Array()
+	var yaws := PackedFloat32Array()
 	var tries: int = 0
 	while positions.size() < count and tries < count * 6:
 		tries += 1
@@ -303,9 +336,11 @@ func _multimesh_decor(r: Rng, count: int, kind: String) -> void:
 		if _in_any_zone(p.x, p.y, 0.0) and kind != "flower":
 			continue
 		var s: float = r.range_f(0.6, 1.5) if kind != "flower" else r.range_f(0.8, 1.3)
-		var basis_ := Basis(Vector3.UP, r.range_f(0, TAU)).scaled(Vector3.ONE * s)
-		var xf := Transform3D(basis_, Vector3(p.x, h - 0.05, p.y))
-		positions.append(xf)
+		var yaw: float = r.range_f(0, TAU)
+		positions.append(_decor_xf(p.x, p.y, s, yaw))
+		xzs.append(p)
+		scales.append(s)
+		yaws.append(yaw)
 		var col: Color
 		match kind:
 			"rock":
@@ -328,6 +363,7 @@ func _multimesh_decor(r: Rng, count: int, kind: String) -> void:
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if kind == "flower" else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	mmi.visibility_range_end = 160.0 if kind != "rock" else 260.0
 	decor_root.add_child(mmi)
+	_decor_sets.append({"mm": mm, "xz": xzs, "scale": scales, "yaw": yaws})
 	if kind == "rock" and not rock_shapes.is_empty():
 		var d := PhysWorld.BodyDesc.new()
 		d.mode = "static"

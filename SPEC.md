@@ -484,7 +484,7 @@ Instead of a shot a human can spend the turn on one of two **actions** (ammo-bar
 
 ### 7.5 Decor
 - Trees (oak, pine): 60 + 14×N instances, not inside any zone (or rarely: 15% inside zone edges), trees are physics-active only when hit: they are static `MultiMeshInstance3D` instances, converted to a dynamic single body (tree trunk box + crown sphere) when a projectile is nearby (same dormant/awake rule as 5.2). Trees burn (flammability 0.8, crown dies and trunk stays).
-- Rocks, bushes, flowers (pure visuals, instanced, no colliders except rocks with static collider).
+- Rocks, bushes, flowers (pure visuals, instanced, no colliders except rocks with static collider). They are tilted to the slope normal, sink in on steep ground and are re-seated on the ground after every terrain change (crater, landslide).
 - Sheep/cows/chickens/ducks: see section 10 animals.
 
 ### 7.6 Rendering terrain
