@@ -5,15 +5,15 @@ Everybody owns a medieval village and 5 catapults. Take turns firing one shot at
 Everything is a physics object and destructible, fire spreads, water puts it out, settlers become ragdolls and
 shout jokes. Lose all 5 catapults and you are out - the last player standing wins.
 
-<p align="center"><img src="docs/game.png" alt="Medieval Madness" width="720"></p>
+![Medieval Madness](docs/game.png)
 
 ## Physics is the game
 
 Nothing in Medieval Madness is a canned animation: a village is a pile of real rigid bodies (Jolt Physics, 60 Hz) and every shot is
 just something heavy flying into it. What happens next is up to the simulation.
 
-<p align="center"><img src="docs/physics.gif" alt="A Drill Bomb makes a whole village cave in" width="552"></p>
-<p align="center"><sub>One Drill Bomb: it drills to sea level, explodes underground and the village collapses into the pit - all of it simulated, nothing scripted.</sub></p>
+![A Drill Bomb makes a whole village cave in](docs/physics.gif)
+*One Drill Bomb: it drills to sea level, explodes underground and the village collapses into the pit - all of it simulated, nothing scripted.*
 
 * **Buildings are made of parts**: planks, beams, stones and shingles with their own material, weight, break strength and flammability.
   A boulder shatters planks but only chips granite; thatch burns in a flash. Shoot away the ground floor and everything above comes down.
