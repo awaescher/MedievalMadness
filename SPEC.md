@@ -17,7 +17,7 @@ Tone: silly, cartoonish, modern comic look. Humor everywhere (texts, sounds, eff
 ### 0.1 Hard constraints
 - **Engine: Godot 4.4 or newer 4.x stable**, standard (non-.NET) build, **GDScript only**. No C#, no GDExtension, no C++ modules, no addons/plugins, no Asset Library content.
 - **Physics: Jolt Physics** (built into Godot 4.4+). Set explicitly in `project.godot`: `physics/3d/physics_engine="Jolt Physics"`. Do not use the legacy GodotPhysics3D.
-- **Renderer: Mobile** (`rendering/renderer/rendering_method="mobile"`; Vulkan on Windows/Linux, Metal on macOS via MoltenVK/Metal driver). Forward+ features (SSAO, SDFGI, volumetric fog…) are NOT used. The Compatibility renderer is not a target.
+- **Renderer**: Forward+ on Windows and macOS (`rendering/renderer/rendering_method="forward_plus"`), **Compatibility (OpenGL) on Linux** (`rendering_method.linuxbsd="gl_compatibility"`; override `--rendering-method forward_plus`), Mobile on iOS / Android (`rendering_method.mobile`). The toon shader has a constant-value variant for the OpenGL renderer (4096 per-instance slots). Web is not possible.
 - All graphics are procedural (Godot primitive meshes, `ArrayMesh`/`SurfaceTool` generated geometry, shaders, `Image`-generated textures). **No image, model, font or audio files** in the project. (`assets/relay_help/*.txt` are plain text copies of the relay spec and template that `export.sh` makes from `relay/`; only the relay help dialog reads them.)
 - All audio is synthesized at startup into `AudioStreamWAV` resources (section 17). No audio files.
 - Fonts: engine default font + `SystemFont` (see 16.1). No bundled fonts.
@@ -151,8 +151,9 @@ common/max_physics_steps_per_frame=3
 3d/default_gravity=19.62
 3d/run_on_separate_thread=false
 [rendering]
-renderer/rendering_method="mobile"
+renderer/rendering_method="forward_plus"
 renderer/rendering_method.mobile="mobile"
+renderer/rendering_method.linuxbsd="gl_compatibility"
 anti_aliasing/quality/msaa_3d=2
 environment/defaults/default_clear_color=Color(0.29, 0.66, 1, 1)
 [debug]
