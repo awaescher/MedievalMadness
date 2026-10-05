@@ -5,7 +5,7 @@ Everybody owns a medieval village and 5 catapults. Take turns firing one shot at
 Everything is a physics object and destructible, fire spreads, water puts it out, settlers become ragdolls and
 shout jokes. Lose all 5 catapults and you are out - the last player standing wins.
 
-![Medieval Madness](docs/game.png)
+![Medieval Madness](docs/game.jpg)
 
 ## Physics is the game
 
