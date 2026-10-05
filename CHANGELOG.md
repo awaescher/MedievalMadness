@@ -4,6 +4,7 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
+- **README shows a screenshot** (`docs/game.png`, 1000 px wide; `docs/.gdignore` keeps Godot from importing it).
 - **Release notes of main builds come from "Unreleased"** (the CI run number, e.g. 1.10.8, matched old, reconstructed CHANGELOG sections and put ancient notes on new releases) **and only list what is new since the previous release** (diff against the "Unreleased" section of the previous release tag's CHANGELOG).
 - **Settlers no longer hang in the air** after a crater / landslide: standing, working and dead settlers follow the ground height every frame (before only walking ones did). Props, crates and catapults are physics bodies and already come down (checked).
 - **Animals (horses, cows, sheep ...) follow the ground**: they lean with the slope and are lowered / raised with the soil when a crater or landslide changes it under them, also while standing still (before: upright, and they hung in the air until they moved).

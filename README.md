@@ -5,6 +5,8 @@ Everybody owns a medieval village and 5 catapults. Take turns firing one shot at
 Everything is a physics object and destructible, fire spreads, water puts it out, settlers become ragdolls and
 shout jokes. Lose all 5 catapults and you are out - the last player standing wins.
 
+<p align="center"><img src="docs/game.png" alt="Medieval Madness" width="720"></p>
+
 Built with **Godot 4.4+ (tested with 4.7.2)**, GDScript only, Jolt Physics, Mobile renderer.
 No image, model, font or audio files: all graphics are procedural and all sounds are synthesized at startup.
 
