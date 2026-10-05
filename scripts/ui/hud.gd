@@ -471,6 +471,38 @@ class KeyHints extends Control:
 			x += lw + 16.0
 
 ## Clickable catapult selector (also reachable with Tab / Shift+Tab)
+## Small catapult drawn with primitives (A-frame, throwing arm with counterweight and cup, ball, two wheels). `c` is the centre,
+## `k` the scale (1 = 24 x 23 px), `body` the colour of the wood (green = alive, red = destroyed).
+class CatGlyph extends RefCounted:
+	static func draw(ci: CanvasItem, c: Vector2, k: float, body: Color) -> void:
+		var dark := Color("#1a1220")
+		var lite: Color = body.lightened(0.28)
+		var deep: Color = body.darkened(0.3)
+		# wheels
+		for wx in [-6.0, 6.0]:
+			var wc: Vector2 = c + Vector2(wx, 5.0) * k
+			ci.draw_circle(wc, 3.7 * k, dark)
+			ci.draw_circle(wc, 2.8 * k, deep)
+			ci.draw_circle(wc, 0.9 * k, lite)
+		# base beam
+		ci.draw_rect(Rect2(c + Vector2(-10.5, 0.8) * k, Vector2(21, 3.6) * k), dark)
+		ci.draw_rect(Rect2(c + Vector2(-9.7, 1.6) * k, Vector2(19.4, 2.0) * k), body)
+		# A-frame
+		ci.draw_line(c + Vector2(-5, 1.5) * k, c + Vector2(0, -6) * k, dark, 3.8 * k)
+		ci.draw_line(c + Vector2(5, 1.5) * k, c + Vector2(0, -6) * k, dark, 3.8 * k)
+		ci.draw_line(c + Vector2(-5, 1.5) * k, c + Vector2(0, -6) * k, deep, 2.2 * k)
+		ci.draw_line(c + Vector2(5, 1.5) * k, c + Vector2(0, -6) * k, deep, 2.2 * k)
+		# throwing arm, counterweight at the low end, cup + ball at the high end
+		ci.draw_line(c + Vector2(-8, 0.5) * k, c + Vector2(9, -9) * k, dark, 3.8 * k)
+		ci.draw_line(c + Vector2(-8, 0.5) * k, c + Vector2(9, -9) * k, lite, 2.0 * k)
+		ci.draw_rect(Rect2(c + Vector2(-11.4, -0.4) * k, Vector2(5, 5) * k), dark)
+		ci.draw_rect(Rect2(c + Vector2(-10.6, 0.4) * k, Vector2(3.4, 3.4) * k), deep)
+		ci.draw_circle(c + Vector2(9, -9) * k, 2.9 * k, dark)
+		ci.draw_circle(c + Vector2(9, -9) * k, 2.0 * k, lite)
+		ci.draw_circle(c + Vector2(9, -11.3) * k, 2.9 * k, dark)
+		ci.draw_circle(c + Vector2(9, -11.3) * k, 2.1 * k, Color("#a6a6b2"))
+		ci.draw_circle(c + Vector2(8.3, -12) * k, 0.8 * k, Color("#dcdce6"))
+
 class CatSelect extends Control:
 	signal picked(cat: Catapult)
 	var cats: Array = []
@@ -504,13 +536,9 @@ class CatSelect extends Control:
 			sb.set_border_width_all(4 if chosen else 2)
 			sb.set_corner_radius_all(8)
 			draw_style_box(sb, r)
-			var col: Color = Color("#2ecc71") if alive else Color("#c0392b")
-			draw_rect(Rect2(x + 12, 14, 20, 10), Color("#1a1220"))
-			draw_rect(Rect2(x + 13, 15, 18, 8), col)
-			draw_circle(Vector2(x + 16, 26), 3.0, Color("#1a1220"))
-			draw_circle(Vector2(x + 28, 26), 3.0, Color("#1a1220"))
-			var t: String = str(i + 1)
-			draw_string(f, Vector2(x + 18, 14), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3b2a1a"))
+			var col: Color = Color("#3fb86a") if alive else Color("#c0392b")
+			CatGlyph.draw(self, Vector2(x + 24, 25.0), 1.25, col)
+			draw_string(f, Vector2(x + 6, 17), str(i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3b2a1a"))
 
 class CatIcons extends Control:
 	var alive: int = 0
@@ -521,11 +549,8 @@ class CatIcons extends Control:
 	func _draw() -> void:
 		for i in total:
 			var x: float = 2.0 + float(i) * 17.0
-			var col: Color = Color("#2ecc71") if i < alive else Color("#e74c3c")
-			draw_rect(Rect2(x, 4, 13, 8), Color("#1a1220"))
-			draw_rect(Rect2(x + 1, 5, 11, 6), col)
-			draw_circle(Vector2(x + 3, 13), 2.2, Color("#1a1220"))
-			draw_circle(Vector2(x + 10, 13), 2.2, Color("#1a1220"))
+			var col: Color = Color("#3fb86a") if i < alive else Color("#e74c3c")
+			CatGlyph.draw(self, Vector2(x + 7.5, 10.2), 0.6, col)
 
 # ------------------------------------------------------------------ state
 var turn_panel: PanelContainer
@@ -703,7 +728,7 @@ func _build() -> void:
 	aim_panel.anchor_top = 1.0
 	aim_panel.anchor_bottom = 1.0
 	aim_panel.offset_left = 12
-	aim_panel.offset_top = -132
+	aim_panel.offset_top = -10
 	aim_panel.offset_bottom = -10
 	aim_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(aim_panel)
@@ -711,12 +736,13 @@ func _build() -> void:
 	av.add_theme_constant_override("separation", 2)
 	aim_panel.add_child(av)
 	for key in ["power", "elevation", "azimuth"]:
-		var l: Label = UITheme.label("", 18, UITheme.INK, true)
-		l.custom_minimum_size = Vector2(200, 0)
+		var l: Label = UITheme.label("", 16, UITheme.INK, true)
 		av.add_child(l)
 		aim_labels[key] = l
-	_distance_label = UITheme.label("", 15, Color("#6b4a2a"))
+	_distance_label = UITheme.label("", 13, Color("#6b4a2a"))
 	av.add_child(_distance_label)
+	get_viewport().size_changed.connect(_scale_aim)
+	_scale_aim.call_deferred()
 	# ---- bottom right: buttons
 	var br := VBoxContainer.new()
 	br.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -726,7 +752,7 @@ func _build() -> void:
 	br.anchor_bottom = 1.0
 	br.offset_left = -188
 	br.offset_right = -10
-	br.offset_top = -150
+	br.offset_top = -230
 	br.offset_bottom = -8
 	br.alignment = BoxContainer.ALIGNMENT_END
 	br.grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -737,19 +763,13 @@ func _build() -> void:
 	btn_fast.pressed.connect(func() -> void: fast_pressed.emit())
 	br.add_child(btn_fast)
 	cat_select = CatSelect.new()
-	cat_select.anchor_left = 1.0
-	cat_select.anchor_right = 1.0
-	cat_select.anchor_top = 1.0
-	cat_select.anchor_bottom = 1.0
-	cat_select.offset_left = -272
-	cat_select.offset_right = -12
-	cat_select.offset_top = -204
-	cat_select.offset_bottom = -158
+	cat_select.custom_minimum_size = Vector2(0, 44)
 	cat_select.picked.connect(func(c: Catapult) -> void:
 		if Turn.phase == Turn.Phase.AIMING and Game.cur() != null and Game.cur().is_human():
 			Turn.select_catapult(c)
 			Sfx.play("ui_click", Vector3.INF, 0.7, 0))
-	add_child(cat_select)
+	br.add_child(cat_select)
+	br.move_child(cat_select, 0)             # in the button column, directly above Fast-forward (no gap of its own)
 	btn_overview = UITheme.button("", "ParchButton", Vector2(0, 32), 14)
 	btn_overview.pressed.connect(func() -> void: overview_pressed.emit())
 	# (the overview lives as a clickable chip in the hint strip; this button only keeps the text helper alive)
@@ -883,6 +903,17 @@ func _update_gifts(cur: PlayerData) -> void:
 		s.visible = c > 0
 		s.enabled = c > 0 and (mine or not Turn.gifts.has(s.ammo.id))
 		s.queue_redraw()
+
+## The aim info box shrinks with the window (16 / 13 px text at 1280 x 720 and up, down to 11 / 10 px) and is as big as its text
+func _scale_aim() -> void:
+	if aim_panel == null or not is_inside_tree():
+		return
+	var vp: Vector2 = get_viewport_rect().size
+	var k: float = clampf(minf(vp.x / 1280.0, vp.y / 720.0), 0.0, 1.0)
+	for key in aim_labels:
+		(aim_labels[key] as Label).add_theme_font_size_override("font_size", int(clampf(16.0 * k, 11.0, 16.0)))
+	_distance_label.add_theme_font_size_override("font_size", int(clampf(13.0 * k, 10.0, 13.0)))
+	aim_panel.reset_size()
 
 func _banner_top() -> float:
 	return clampf(get_viewport_rect().size.y * 0.16, 64.0, BANNER_TOP)

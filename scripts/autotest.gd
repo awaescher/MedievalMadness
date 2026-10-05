@@ -1329,6 +1329,102 @@ static func run(main: Node, name: String) -> void:
 			(m.get("menu") as Menu).call("_open_arsenal")
 			await seconds(0.6)
 			await shot("arsenal_dialog")
+		"gif":
+			# README animation: a boulder (or drill bomb) is thrown into the enemy village from a fixed camera; every n-th frame
+			# is written to user://gif/ as a small PNG (assembled to a GIF outside the game)
+			await wait_loaded()
+			I18n.set_lang("en")
+			Settings.palisade_count = 1
+			await start_match(uarg("seed", "trebuchet-haystack-42"), ["human", "peasant"])
+			await auto_place_all()
+			var gammo: String = uarg("ammo", "boulder")
+			var gg: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and gg < 60.0:
+				await tree.process_frame
+				gg += 1.0 / 60.0
+			await seconds(1.0)
+			(m.get("ui_root") as Control).visible = false
+			var grig: CameraRig = m.get("cam_rig") as CameraRig
+			var gv: Vector3 = Game.players[1].village_center
+			var gang: float = deg_to_rad(float(uarg("ang", "200")))
+			var gdir := Vector3(cos(gang), 0.0, sin(gang))
+			var gperp := Vector3(-gdir.z, 0.0, gdir.x)
+			var gdist: float = float(uarg("dist", "38"))
+			var gspeed: float = float(uarg("speed", "20"))
+			var gstart: Vector3 = gv + gdir * gdist
+			gstart.y = Terrain.h(gstart.x, gstart.z) + float(uarg("height", "8"))
+			var gtgt: Vector3 = gv + gperp * float(uarg("side", "0"))
+			gtgt.y = Terrain.h(gtgt.x, gtgt.z) + 0.5
+			# aim at the biggest building of the village (most parts) so the boulder smashes through it
+			var gbest: Structure = null
+			for gs in Breakable.structures:
+				if gs.owner_id == 1 and not gs.destroyed and ["farmhouse", "barn", "tavern", "church", "granary", "stable", "windmill", "watchtower"].has(gs.kind) and (gbest == null or gs.parts.size() > gbest.parts.size()):
+					gbest = gs
+			if gbest != null and uarg("bld", "1") == "1":
+				say("gif target: %s with %d parts" % [gbest.kind, gbest.parts.size()])
+				gv = gbest.center
+				gtgt = gbest.center
+				gtgt.y = maxf(Terrain.h(gtgt.x, gtgt.z) + 1.0, gbest.center.y - 1.0)
+				gstart = gv + gdir * gdist
+				gstart.y = Terrain.h(gstart.x, gstart.z) + float(uarg("height", "8"))
+			var gtime: float = Util.dist_xz(gstart, gtgt) / gspeed
+			var gvel: Vector3 = (gtgt - gstart) / gtime
+			gvel.y = (gtgt.y - gstart.y + 0.5 * 19.62 * gtime * gtime) / gtime
+			var gcam_p: Vector3 = gv + gperp * float(uarg("camside", "22")) + gdir * float(uarg("camback", "0"))
+			gcam_p.y = Terrain.h(gcam_p.x, gcam_p.z) + float(uarg("camh", "10"))
+			var gcam_t: Vector3 = gv + Vector3.UP * 1.5
+			grig.cinema(gcam_p, gcam_t, float(uarg("fov", "60")))
+			grig.snap()
+			await frames(20)
+			DirAccess.make_dir_recursive_absolute("user://gif")
+			var gstep: int = int(uarg("step", "5"))
+			var gdur: float = float(uarg("dur", "9"))
+			var gw: int = int(uarg("w", "560"))
+			var gn: int = 0
+			var gfr: int = 0
+			if gammo == "drillbomb":
+				Game.players[0].add_ammo("drillbomb", 2)
+			Projectile.launch(gammo, gstart, gvel, 0, null)
+			var gt0: float = Time.get_ticks_msec() * 0.001
+			while Time.get_ticks_msec() * 0.001 - gt0 < gdur:
+				await tree.process_frame
+				grig.cinema(gcam_p, gcam_t, float(uarg("fov", "60")))
+				gfr += 1
+				if gfr % gstep == 0:
+					var gimg: Image = m.get_viewport().get_texture().get_image()
+					gimg.resize(gw, int(float(gw) * float(gimg.get_height()) / float(gimg.get_width())), Image.INTERPOLATE_LANCZOS)
+					gimg.save_png("user://gif/f%04d.png" % gn)
+					gn += 1
+			say("gif: %d frames in %s" % [gn, ProjectSettings.globalize_path("user://gif")])
+		"readmeshot":
+			# README screenshot: English UI, the aiming view of the first player (own catapults in front, enemy village behind)
+			await wait_loaded()
+			I18n.set_lang("en")
+			await start_match(uarg("seed", "trebuchet-haystack-42"), ["human", "peasant"])
+			await auto_place_all()
+			var rg: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and rg < 60.0:
+				await tree.process_frame
+				rg += 1.0 / 60.0
+			await seconds(float(uarg("wait", "6")))
+			var rcat: Catapult = Game.cur().living_catapults()[int(uarg("cat", "1"))] as Catapult
+			Turn.select_catapult(rcat)
+			# aim over the catapult at the enemy village: it stands in the foreground, the other village lies ahead
+			var rdir: Vector3 = Util.flat(Game.players[1].village_center - rcat.global_pos()).normalized()
+			Turn.set_aim(Util.dir_to_yaw(rdir) + deg_to_rad(float(uarg("yawoff", "0"))), float(uarg("elev", "32")), float(uarg("power", "0.6")))
+			await seconds(1.0)
+			if Speech.inst != null:
+				Speech.inst.visible = false          # no speech bubbles / comic words over the picture
+			if ComicText.inst != null:
+				ComicText.inst.visible = false
+			await seconds(1.0)
+			await shot("readme_aim")
+			var rv: Vector3 = (Game.players[0].village_center + Game.players[1].village_center) * 0.5
+			(m.get("cam_rig") as CameraRig).overview(rv, float(uarg("odist", "150")), float(uarg("opitch", "48")))
+			if Speech.inst != null:
+				Speech.inst.visible = false          # no speech bubble over the picture
+			await seconds(2.5)
+			await shot("readme_overview")
 		"drillbomb":
 			await wait_loaded()
 			Settings.palisade_count = 1

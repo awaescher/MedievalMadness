@@ -7,10 +7,34 @@ shout jokes. Lose all 5 catapults and you are out - the last player standing win
 
 <p align="center"><img src="docs/game.png" alt="Medieval Madness" width="720"></p>
 
-Built with **Godot 4.4+ (tested with 4.7.2)**, GDScript only, Jolt Physics, Mobile renderer.
+## Physics is the game
+
+Nothing in Medieval Madness is a canned animation: a village is a pile of real rigid bodies (Jolt Physics, 60 Hz) and every shot is
+just something heavy flying into it. What happens next is up to the simulation.
+
+<p align="center"><img src="docs/physics.gif" alt="A Drill Bomb makes a whole village cave in" width="552"></p>
+<p align="center"><sub>One Drill Bomb: it drills to sea level, explodes underground and the village collapses into the pit - all of it simulated, nothing scripted.</sub></p>
+
+* **Buildings are made of parts**: planks, beams, stones and shingles with their own material, weight, break strength and flammability.
+  A boulder shatters planks but only chips granite; thatch burns in a flash. Shoot away the ground floor and everything above comes down.
+* **Shots fly on real trajectories** (gravity, wind) and roll on: a boulder digs a furrow through the houses.
+* **The ground gives way**: craters, landslides and the Drill Bomb reshape the terrain, and what stands on it falls with it.
+* **Fire** creeps from part to part, **water** puts it out and floats barrels, **powder kegs** explode in chains with a pressure wave.
+* **Settlers and animals are ragdolls**: hit one and it flies.
+
+Built with **Godot 4.4+ (tested with 4.7.2)**, GDScript only, Jolt Physics. Renderer: Forward+ on Windows and macOS, Compatibility (OpenGL) on Linux, Mobile on phones.
 No image, model, font or audio files: all graphics are procedural and all sounds are synthesized at startup.
 
 ## Run
+
+**Download** (Releases page, one ZIP per platform), unzip, start:
+
+* **Windows**: run `MedievalMadness.exe`.
+* **macOS**: the app is only ad-hoc signed (no paid Apple developer account), so macOS warns on the first start ("cannot be opened" / "is damaged"). Either right-click the app -> *Open* -> *Open*, or on newer macOS go to *System Settings -> Privacy & Security* and press *Open Anyway* after the first blocked start, or remove the quarantine flag once:
+  `xattr -dr com.apple.quarantine "Medieval Madness.app"`
+* **Linux** (x86_64 only; any current distribution, e.g. Ubuntu, Arch / CachyOS): `chmod +x MedievalMadness.x86_64 && ./MedievalMadness.x86_64`. It needs no Vulkan: Linux uses the OpenGL (Compatibility) renderer by default. With a working Vulkan driver you can get the full look: `./MedievalMadness.x86_64 --rendering-method forward_plus`.
+
+**From source** (needs Godot):
 
 ```bash
 ./run.sh                 # or:  godot --path .          (Windows: run.bat)
@@ -68,7 +92,7 @@ whole team (online too), every village has a flagpole in its team colour and win
 
 See [CHANGELOG.md](CHANGELOG.md) for the release notes (kept up to date together with `SPEC.md`).
 
-## Rules in one minute
+## Rules in twenty seconds
 
 * Placement: every player puts 5 catapults inside their village zone (green ghost = valid).
 * Each turn: pick a catapult, pick ammo, pull, release. Wind changes every turn; weather (rain, thunderstorm, storm)
@@ -128,50 +152,9 @@ tests/                  headless tests + in-scene unit scenarios
 * Warnings: `untyped_declaration` and the `unsafe_*` warnings are set to *warn* in `project.godot`; the code base is fully typed. Places
   that deliberately cast values out of dictionaries/arrays carry an `@warning_ignore_start("unsafe_*")` annotation.
 * The signal that tells the menu "sound is ready" is `Sfx.synth_ready` (a `ready` signal already exists on every `Node`).
-* macOS: the exported app is unsigned - right-click -> Open on first launch. Linux: `chmod +x MedievalMadness.x86_64`.
 
 Made with Godot Engine. Everything (code, look, sounds, jokes) is original; no external assets are used.
-
-## Ready-made builds
-
-`./export.sh` writes `build/macos/MedievalMadness.zip` (unzip -> `Medieval Madness.app`), `build/windows/MedievalMadness.exe` and
-`build/linux/MedievalMadness.x86_64`. The export templates for Godot 4.7.2 are installed in
-`~/Library/Application Support/Godot/export_templates/4.7.2.stable/`.
-
-## Weapons, posts and rules (v1.1)
-
-* **Stone** is unlimited; you start with only 2 rolling **Flaming Barrels**. Every other weapon is earned: buckshot for wrecking an enemy
-  catapult, mighty boulder / powder keg for losing catapults, cow when one of your own cows dies, pointy log for damaging three trees, stone hail for two buildings with one shot, chain shot for five settlers with one shot, powder keg for blowing up a
-  powder barrel or wrecking three buildings with one shot, **Meteor Marker** for destroying a church / powder store or eliminating a player.
-  The menu has a **Starting arsenal** dialog to pre-grant weapons.
-* The menu also sets the terrain (flat … mountainous), the number of catapults (1-5) and of **palisade fences** (1-10, default 4; every fence is 3 posts side by side) per player. After the catapults every
-  player sets wooden posts (tree-trunk thick, half a tower high) as cover - side by side or stacked - but not near an enemy village.
-* Replays show the settlement as it was before the shot (destroyed parts come back as ghosts until they break).
-
-## Powder, dents and landslides (v1.2)
-
-* **Black Powder Kegs** (key `9`): one shot sends three small kegs rolling like Flaming Barrels; they leave black powder on the ground and
-  on buildings. It lies there until fire touches it, then flash flames (about 5x normal fire, very short) run along the trail. Earned by
-  destroying an enemy blacksmith or by losing every third catapult.
-* Everything that burns leaves **black marks** on the ground for the rest of the match.
-* Stones dig small dents, boulders big ones (and furrows while they roll), explosions near the ground dig real craters.
-* A hard hit on a **very steep** slope starts a **landslide**: the soil slides down until the mountain flattens out and smashes what is in
-  its way (more likely with "Very hilly" / "Mountainous" terrain). A landslide that wrecks an enemy building earns a boulder.
-
-## Versions
-
-The project is versioned with git (repository root: the folder above this one, which also holds `SPEC.md`). The version number lives
-in the `VERSION` file, is shown in the main menu (`v1.2.3`) and in the macOS bundle. `tools/release.sh 1.2.3 "note"` bumps it, commits
-everything and creates the tag `v1.2.3`; `git log --oneline` / `git tag` list the releases.
 
 ## Online play
 
 Up to 8 players over the internet, no server of your own to run (a free Cloudflare worker as relay, or any machine with Godot). Setup and rules: [relay/README.md](relay/README.md).
-
-## Phones and tablets (not an official target)
-
-Phones and tablets are **not a supported platform**: there are no iOS / Android downloads, and the game is designed and tested for desktop with mouse and keyboard only. The code has a rough touch layer (one finger aims and fires like the mouse, two fingers pinch to zoom and orbit the camera) and the export presets exist, so you can try building it yourself, but it is untested on real devices, performance is unknown and things may be unusable.
-
-* **iOS**: `IOS=1 ./export.sh` writes the Xcode project to `build/ios/MedievalMadness.xcodeproj`. Open it in Xcode, choose your team under *Signing & Capabilities*, pick your device and run (needs the iOS platform from Xcode > Settings > Components). Replace the placeholder team id in `export_presets.cfg` (`application/app_store_team_id`) with yours to export an .ipa directly.
-* **Android**: install the Android SDK + JDK 17 and set them in the Godot editor settings (*Export > Android*), create a debug keystore, then `godot --headless --path . --export-debug Android build/android/MedievalMadness.apk`. The preset is in `export_presets.cfg`.
-* **Web** is not possible: browsers only allow the Compatibility renderer, which caps the per-instance colour system this game uses (4096 instances), so the village colours break.
