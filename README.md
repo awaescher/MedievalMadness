@@ -7,6 +7,18 @@ shout jokes. Lose all 5 catapults and you are out - the last player standing win
 
 <p align="center"><img src="docs/game.png" alt="Medieval Madness" width="720"></p>
 
+## Physics is the game
+
+<p align="center"><img src="docs/physics.gif" alt="A Drill Bomb makes a whole village cave in" width="520"></p>
+<p align="center"><sub>One Drill Bomb: it drills to sea level, explodes underground and the village collapses into the pit - all of it simulated, nothing scripted.</sub></p>
+
+Every wall, beam, shingle and barrel is a real rigid body (Jolt Physics), held together by links that break:
+
+* **Buildings fall the way buildings fall**: shoot away the lower storey and what sits on it comes down; overhangs without support drop.
+* **The ground is physics too**: craters, landslides and caving soil reshape the terrain, and everything standing on it goes along.
+* **Fire spreads** from part to part (wind helps), **water** puts it out and makes things buoyant, **powder kegs** chain-react.
+* **Settlers and animals turn into ragdolls** when something hits them; boulders and logs roll downhill through the village.
+
 Built with **Godot 4.4+ (tested with 4.7.2)**, GDScript only, Jolt Physics. Renderer: Forward+ on Windows and macOS, Compatibility (OpenGL) on Linux, Mobile on phones.
 No image, model, font or audio files: all graphics are procedural and all sounds are synthesized at startup.
 

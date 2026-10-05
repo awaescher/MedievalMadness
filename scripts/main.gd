@@ -566,6 +566,7 @@ func _start_game(seed_text: String, keep_layout: bool = false, net_cfg: Dictiona
 	cam_rig.shake_enabled = Settings.shake
 	loading.visible = true
 	loading_bar.value = 0.0
+	loading_title.text = I18n.t("loading.title")        # (built at start-up: the language may have changed since)
 	Sfx.play("stinger_event", Vector3.INF, 0.6, 5)
 	await world.generate(seed_text, Game.players, Callable(self, "_on_progress"))
 	loading.visible = false
