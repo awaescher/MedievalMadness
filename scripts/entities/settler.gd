@@ -676,6 +676,9 @@ func _process(delta: float) -> void:
 		var np: Vector3 = position + _move_vel * delta
 		np.y = Terrain.h(np.x, np.z)
 		position = np
+	elif state != State.RAGDOLL and state != State.GONE:
+		# standing, working or lying dead: follow the ground when a crater / landslide changes it
+		position.y = Terrain.h(position.x, position.z)
 	if _has_face and state != State.RAGDOLL and state != State.DEAD and state != State.GONE:
 		rotation.y = lerp_angle(rotation.y, _face_target, clampf(delta * 12.0, 0.0, 1.0))
 	if _lod_near and (walking or state == State.WORK or state == State.IDLE):
