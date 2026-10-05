@@ -13,6 +13,7 @@ Nothing in Medieval Madness is a canned animation: a village is a pile of real r
 just something heavy flying into it. What happens next is up to the simulation.
 
 ![A Drill Bomb makes a whole village cave in](docs/physics.gif)
+
 *One Drill Bomb: it drills to sea level, explodes underground and the village collapses into the pit - all of it simulated, nothing scripted.*
 
 * **Buildings are made of parts**: planks, beams, stones and shingles with their own material, weight, break strength and flammability.
