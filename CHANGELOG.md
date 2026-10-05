@@ -4,6 +4,7 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
+- **README: how to start the downloaded binaries** (Windows, macOS with the Gatekeeper warning and the manual steps, Linux incl. `chmod +x` and the renderer); README / SPEC now state the real renderers (Forward+ on desktop, Compatibility on Linux, Mobile on phones; they wrongly said "Mobile").
 - **Chaos "own goal" keg only for real buildings**: wrecking your own palisade posts, walls, flag poles or props no longer pays the powder keg; a whole building (house, barn, tower ...) is needed.
 - **Banner bug fixed**: the colourful announcer banner was sized from an unwrapped text and covered half the screen; it now gets an exact width / height computed from the text (shrinks to fit, two lines only if needed) and is centred explicitly. `--autotest=hud` shows a long banner and two reward popups.
 - **Puddles vanish when the ground under them changes** (crater, landslide): they hovered in the air like plates over the new hole. A puddle is removed as soon as the soil at its centre or edge differs by more than 0.25 m from when it formed.
