@@ -1319,6 +1319,44 @@ static func run(main: Node, name: String) -> void:
 			var hp1: float = Breakable.village_hp(1)
 			say("meteor: village HP %.0f -> %.0f (%.0f%% destroyed), crater depth at the point %.1f m, bullet time seen: %s, time scale %.2f" % [hp0, hp1, 100.0 * (1.0 - hp1 / maxf(hp0, 1.0)), ground0 - Terrain.h(tp.x, tp.z), str(slow_seen), Engine.time_scale])
 			await shot("meteor_5_after")
+		"drillbomb":
+			await wait_loaded()
+			Settings.palisade_count = 1
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			Game.players[0].add_ammo("drillbomb", 2)
+			var guardd: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and guardd < 60.0:
+				await tree.process_frame
+				guardd += 1.0 / 60.0
+			await seconds(1.0)
+			var vc: Vector3 = Game.players[1].village_center
+			var bestd: Catapult = Game.cur().living_catapults()[0] as Catapult
+			Turn.select_catapult(bestd)
+			var hpd0: float = Breakable.village_hp(1)
+			var gd0: float = Terrain.h(vc.x, vc.z)
+			var rd: Dictionary = await aim_and_fire(vc, "drillbomb", 45.0)
+			say("drill bomb: solver err %.1f m, village ground %.1f m" % [float(rd["err"]), gd0])
+			await wait_phase(Turn.Phase.AFTERMATH, 60.0)
+			var t0d: float = Time.get_ticks_msec() * 0.001
+			while not DrillBomb.active() and Time.get_ticks_msec() * 0.001 - t0d < 5.0:
+				await tree.process_frame
+			var bp: DrillBomb = DrillBomb.bombs[0] if not DrillBomb.bombs.is_empty() else null
+			say("bomb started: %s" % str(bp != null))
+			await seconds(0.3)
+			await shot("drill_1_landed")
+			await seconds(1.0)
+			await shot("drill_2_drilling")
+			var tb: float = Time.get_ticks_msec() * 0.001
+			while DrillBomb.active() and Time.get_ticks_msec() * 0.001 - tb < 15.0:
+				await tree.process_frame
+			say("drilling + sinking took %.1f s, ground at the bomb %.1f -> %.1f m" % [Time.get_ticks_msec() * 0.001 - tb, gd0, Terrain.h(bp.x, bp.z) if bp != null else 0.0])
+			await seconds(1.0)
+			await shot("drill_3_cavein")
+			await seconds(6.0)
+			var hpd1: float = Breakable.village_hp(1)
+			say("drill bomb: village HP %.0f -> %.0f (%.0f%% destroyed), landslide still active: %s" % [hpd0, hpd1, 100.0 * (1.0 - hpd1 / maxf(hpd0, 1.0)), str(Landslide.active())])
+			await shot("drill_4_after")
 		"nethost":
 			await wait_loaded()
 			Settings.seed_text = uarg("seed", "net-test")

@@ -45,12 +45,13 @@ static func steepness(pos: Vector3) -> float:
 	return m
 
 ## Starts a landslide if the slope is steep enough and the hit strong enough. Returns true if one started.
-static func trigger(pos: Vector3, strength: float, source: Dictionary) -> bool:
+## `force`: the ground has just been torn open (a cave-in), so the steepness / water checks are skipped.
+static func trigger(pos: Vector3, strength: float, source: Dictionary, force: bool = false) -> bool:
 	if strength < 0.2 or Terrain.current == null or Terrain.current.data == null:
 		return false
-	if slides.size() >= MAX_SLIDES or Terrain.is_water(pos.x, pos.z):
+	if slides.size() >= MAX_SLIDES or (Terrain.is_water(pos.x, pos.z) and not force):
 		return false
-	if steepness(pos) < MIN_SLOPE:
+	if steepness(pos) < MIN_SLOPE and not force:
 		return false
 	for s in slides:
 		if Util.dist_xz(s.center, pos) < 6.0:

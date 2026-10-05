@@ -339,6 +339,22 @@ class AmmoSlot extends Control:
 				for dx in [-22, -12, -1, 9, 19]:
 					draw_circle(c + Vector2(float(dx), 14 + (dx % 3)), 2.3, _k(Color("#3a3a42")))
 				_spark(c + Vector2(26, 9), 5.0, Color("#ffcf3a"))
+			"drillbomb":
+				# a round bomb with an amber band, a lit fuse and a steel drill below, boring into the ground
+				_poly(PackedVector2Array([c + Vector2(-23, 25), c + Vector2(-12, 21), c + Vector2(0, 25), c + Vector2(12, 21), c + Vector2(23, 25), c + Vector2(23, 29), c + Vector2(-23, 29)]), Color("#7a5a3a"))
+				_poly(PackedVector2Array([c + Vector2(-9, 4), c + Vector2(9, 4), c + Vector2(0, 25)]), Color("#aab2bc"))
+				for ry in [8.0, 13.0, 18.0]:
+					var hw: float = 9.0 * (25.0 - ry) / 21.0
+					draw_line(c + Vector2(-hw, ry + 2.0), c + Vector2(hw, ry - 2.0), _k(Color("#5a626c")), 1.6)
+				draw_rect(Rect2(c + Vector2(-11, 1), Vector2(22, 5)), Color("#1a1220"))
+				draw_rect(Rect2(c + Vector2(-9.5, 2), Vector2(19, 3)), _k(Color("#6d7683")))
+				_ball(c + Vector2(0, -9), 14.0, Color("#33333c"))
+				draw_rect(Rect2(c + Vector2(-13, -11), Vector2(26, 5)), _k(Color("#c9962a")))
+				draw_arc(c + Vector2(6, -27), 6.0, PI * 0.5, PI * 1.5, 8, _k(Color("#d8b25a")), 2.0, true)
+				_spark(c + Vector2(6, -33), 5.0, Color("#ffcf3a"))
+				# soil flying up
+				for dp in [Vector2(-17, 18), Vector2(-21, 12), Vector2(18, 17), Vector2(22, 11)]:
+					draw_circle(c + (dp as Vector2), 2.2, _k(Color("#8a6d4a")))
 			"relocate":
 				# catapult on wheels with drive arrows
 				draw_rect(Rect2(c + Vector2(-17, 2), Vector2(34, 7)), dark)

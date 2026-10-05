@@ -17,6 +17,7 @@ const RULES: Dictionary = {
 	"quad": [[0, "double"], [0, "team_kill"]],
 	"chain": [[0, "mowed"], [1, "demolition"]],
 	"firebarrel": [[0, "arsonist"], [0, "team_lost"], [2, "chaos_loss"]],
+	"drillbomb": [[0, "steeple"]],
 	"meteor": [[0, "crate"]],
 }
 
@@ -171,6 +172,8 @@ static func on_building_destroyed(kind: String, owner_id: int, source: Dictionar
 		return
 	if kind == "powderstore" and tier_on(1):
 		grant(att, "boulder", 1, "landmark")
+	elif (kind == "church" or kind == "watchtower") and tier_on(0):
+		grant(att, "drillbomb", 1, "steeple")
 	elif kind == "tavern" and tier_on(2):
 		grant(att, "boulder", 1, "tavern")
 	elif kind == "windmill" and tier_on(3):

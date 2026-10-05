@@ -48,16 +48,17 @@ static func _ensure() -> void:
 	_mk("scatter", 8, 0, 30.0, 0.40, 0.35, 0.020, "#c9a15a", "SG")
 	_mk("cow", 9, 0, 250.0, 0.90, 0.15, 0.030, "#f2f2f2", "MU")
 	_mk("powdertrail", 10, 0, 28.0, 0.3, 0.25, 0.012, "#2a2a30", "PT")
-	_mk("meteor", 11, 0, 30.0, 0.30, 0.30, 0.010, "#35ff86", "MT")
+	_mk("drillbomb", 11, 0, 70.0, 0.40, 0.25, 0.012, "#c9962a", "DB")
+	_mk("meteor", 12, 0, 30.0, 0.30, 0.30, 0.010, "#35ff86", "MT")
 	# turn actions instead of a shot: always available, never earned
-	_mk("relocate", 12, -1, 0.0, 0.0, 0.0, 0.0, "#8a8a94", "MV")
-	_mk("wall", 13, -1, 0.0, 0.0, 0.0, 0.0, "#8a9096", "WL")
+	_mk("relocate", 13, -1, 0.0, 0.0, 0.0, 0.0, "#8a8a94", "MV")
+	_mk("wall", 14, -1, 0.0, 0.0, 0.0, 0.0, "#8a9096", "WL")
 	for aid in ["relocate", "wall"]:
 		(_by_id[aid] as AmmoDef).kind = "action"
 	for a in _all:
 		a.earnable = a.id != "stone" and a.kind == "shot"
 
-## Label of the key that selects this slot (1-9, 0, -, U, B)
+## Label of the key that selects this slot (1-9, 0, -, G, U, B)
 func key_label() -> String:
 	match slot:
 		10:
@@ -65,8 +66,10 @@ func key_label() -> String:
 		11:
 			return "-"
 		12:
-			return "U"
+			return "G"
 		13:
+			return "U"
+		14:
 			return "B"
 	return str(slot)
 
