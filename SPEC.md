@@ -1159,7 +1159,7 @@ godot --headless --path . --script res://tests/run_tests.gd
 ---
 
 ## 24. README.md (to be written in Phase 8)
-Contents: what the game is; how to run from source (`godot --path .` or `./run.sh`); how to build (`./export.sh`, section 25); controls table (mouse drag to aim, right-drag to orbit, V overview, 1–8 ammo, Tab cycle catapult, Space fire, Esc pause, F11 fullscreen); platform notes (macOS Gatekeeper: right-click → Open on first launch for the unsigned app; Linux: `chmod +x`); credits line "Made with Godot Engine". Note that no assets are external. The controls table also lists `U` (reposition catapult), `B` (build stone wall), `W/A/S/D` (drive), `Q/E` (turn the wall ghost), the hint strip and the teams rule.
+Contents: what the game is; how to run from source (`godot --path .` or `./run.sh`); how to build (`./export.sh`, section 25); controls table (mouse drag to aim, right-drag to orbit, V overview, 1–8 ammo, Tab cycle catapult, Space fire, Esc pause, F11 fullscreen); platform notes (macOS Gatekeeper: right-click → Open on first launch for the ad-hoc signed, not notarized app; Linux: `chmod +x`); credits line "Made with Godot Engine". Note that no assets are external. The controls table also lists `U` (reposition catapult), `B` (build stone wall), `W/A/S/D` (drive), `Q/E` (turn the wall ghost), the hint strip and the teams rule.
 
 ---
 
@@ -1195,7 +1195,7 @@ godot --headless --path . --export-release "Linux"   build/linux/MedievalMadness
 - Test matrix to run at least once per platform available to the implementer: start game → menu → 2-player human vs. Peasant game to completion → quit; verify settings persist after restart.
 
 ### 25.2b GitHub Actions
-`.github/workflows/build.yml` (repository root = the project folder) installs Godot 4.7.2 and its export templates on `ubuntu-latest`, runs `./export.sh` with `MM_BUILD_NUMBER=$GITHUB_RUN_NUMBER` (becomes the patch number) and uploads `build/` as an artifact; every push to `main` and every tag `v*` also creates a GitHub release `v<major.minor.run>` with the binaries attached (notes from the CHANGELOG section of that version, else "Unreleased"). The macOS build is unsigned (Gatekeeper warning); not testable locally.
+`.github/workflows/build.yml` (repository root = the project folder) installs Godot 4.7.2 and its export templates on `ubuntu-latest`, runs `./export.sh` with `MM_BUILD_NUMBER=$GITHUB_RUN_NUMBER` (becomes the patch number) and uploads `build/` as an artifact; every push to `main` and every tag `v*` also creates a GitHub release `v<major.minor.run>` with the binaries attached (notes from the CHANGELOG section of that version, else "Unreleased"). The macOS build is **ad-hoc signed** by Godot's built-in signer (`codesign/codesign=1`, no certificate needed, works on Linux): without any signature Apple-Silicon Macs report downloaded apps as "damaged". It is not notarized, so Gatekeeper still asks on first launch.
 
 ### 25.3 Optional (out of scope unless everything else is done)
 Web export, mobile, gamepad, online multiplayer, code signing/notarization, auto-updater, installers.
