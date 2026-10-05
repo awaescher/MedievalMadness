@@ -7,10 +7,19 @@ shout jokes. Lose all 5 catapults and you are out - the last player standing win
 
 <p align="center"><img src="docs/game.png" alt="Medieval Madness" width="720"></p>
 
-Built with **Godot 4.4+ (tested with 4.7.2)**, GDScript only, Jolt Physics, Mobile renderer.
+Built with **Godot 4.4+ (tested with 4.7.2)**, GDScript only, Jolt Physics. Renderer: Forward+ on Windows and macOS, Compatibility (OpenGL) on Linux, Mobile on phones.
 No image, model, font or audio files: all graphics are procedural and all sounds are synthesized at startup.
 
 ## Run
+
+**Download** (Releases page, one ZIP per platform), unzip, start:
+
+* **Windows**: run `MedievalMadness.exe`.
+* **macOS**: the app is only ad-hoc signed (no paid Apple developer account), so macOS warns on the first start ("cannot be opened" / "is damaged"). Either right-click the app -> *Open* -> *Open*, or on newer macOS go to *System Settings -> Privacy & Security* and press *Open Anyway* after the first blocked start, or remove the quarantine flag once:
+  `xattr -dr com.apple.quarantine "Medieval Madness.app"`
+* **Linux** (x86_64 only; any current distribution, e.g. Ubuntu, Arch / CachyOS): `chmod +x MedievalMadness.x86_64 && ./MedievalMadness.x86_64`. It needs no Vulkan: Linux uses the OpenGL (Compatibility) renderer by default. With a working Vulkan driver you can get the full look: `./MedievalMadness.x86_64 --rendering-method forward_plus`.
+
+**From source** (needs Godot):
 
 ```bash
 ./run.sh                 # or:  godot --path .          (Windows: run.bat)
@@ -128,7 +137,6 @@ tests/                  headless tests + in-scene unit scenarios
 * Warnings: `untyped_declaration` and the `unsafe_*` warnings are set to *warn* in `project.godot`; the code base is fully typed. Places
   that deliberately cast values out of dictionaries/arrays carry an `@warning_ignore_start("unsafe_*")` annotation.
 * The signal that tells the menu "sound is ready" is `Sfx.synth_ready` (a `ready` signal already exists on every `Node`).
-* macOS: the exported app is unsigned - right-click -> Open on first launch. Linux: `chmod +x MedievalMadness.x86_64`.
 
 Made with Godot Engine. Everything (code, look, sounds, jokes) is original; no external assets are used.
 
