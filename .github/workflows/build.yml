@@ -46,19 +46,27 @@ jobs:
           path: build/
           if-no-files-found: error
 
-      - name: Release notes from CHANGELOG.md (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Release notes from CHANGELOG.md
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         run: |
-          VER="${GITHUB_REF_NAME#v}"
-          # the "## <version>" section of CHANGELOG.md, up to the next "## " heading
-          awk -v v="$VER" '/^## /{p = ($2 == v); next} p' CHANGELOG.md > release_notes.md
-          if [ ! -s release_notes.md ]; then echo "No CHANGELOG.md section for $VER" > release_notes.md; fi
+          # export.sh wrote the build's version (major.minor.run_number) to VERSION
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VER="${GITHUB_REF_NAME#v}"; else VER="$(tr -d '[:space:]' < VERSION)"; fi
+          echo "VER=$VER" >> "$GITHUB_ENV"
+          # the "## <version>" section of CHANGELOG.md (else "## Unreleased"), up to the next "## " heading
+          for H in "$VER" Unreleased; do
+            awk -v v="$H" '/^## /{p = ($2 == v); next} p' CHANGELOG.md > release_notes.md
+            [ -s release_notes.md ] && break
+          done
+          if [ ! -s release_notes.md ]; then echo "Build $VER" > release_notes.md; fi
           cat release_notes.md
 
-      - name: Attach to release (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Release with binaries
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VER }}
+          target_commitish: ${{ github.sha }}
+          name: v${{ env.VER }}
           body_path: release_notes.md
           files: |
             build/windows/*

@@ -1195,7 +1195,7 @@ godot --headless --path . --export-release "Linux"   build/linux/MedievalMadness
 - Test matrix to run at least once per platform available to the implementer: start game → menu → 2-player human vs. Peasant game to completion → quit; verify settings persist after restart.
 
 ### 25.2b GitHub Actions
-`.github/workflows/build.yml` (repository root = the project folder) installs Godot 4.7.2 and its export templates on `ubuntu-latest`, runs `./export.sh` with `MM_BUILD_NUMBER=$GITHUB_RUN_NUMBER` (becomes the patch number) and uploads `build/` as an artifact; tags `v*` also attach the files to a release. The macOS build is unsigned (Gatekeeper warning); not testable locally.
+`.github/workflows/build.yml` (repository root = the project folder) installs Godot 4.7.2 and its export templates on `ubuntu-latest`, runs `./export.sh` with `MM_BUILD_NUMBER=$GITHUB_RUN_NUMBER` (becomes the patch number) and uploads `build/` as an artifact; every push to `main` and every tag `v*` also creates a GitHub release `v<major.minor.run>` with the binaries attached (notes from the CHANGELOG section of that version, else "Unreleased"). The macOS build is unsigned (Gatekeeper warning); not testable locally.
 
 ### 25.3 Optional (out of scope unless everything else is done)
 Web export, mobile, gamepad, online multiplayer, code signing/notarization, auto-updater, installers.
