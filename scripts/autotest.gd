@@ -153,6 +153,10 @@ static func run(main: Node, name: String) -> void:
 			for c in hud.get_children():
 				if c is Control:
 					say("  %s rect=%s" % [c.name, str((c as Control).get_global_rect())])
+			Events.banner.emit(I18n.t("banner.placement") + " - " + Game.players[0].name + " has a really long banner text, Sir", "info")
+			Events.reward.emit(Game.players[0].id, "cow", 2, Game.players[0].village_center)
+			Events.reward.emit(Game.players[1].id, "boulder", 1, Game.players[0].village_center)
+			await frames(30)
 			var uir: Control = m.get("ui_root") as Control
 			say("ui_root size=%s" % str(uir.size))
 			for c2 in uir.get_children():

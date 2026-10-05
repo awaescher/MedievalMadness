@@ -387,7 +387,7 @@ Each call records `source` ({playerId, projectileType}) so stats can attribute d
 | Mighty Boulder | lose a catapult; your landslide wrecks an enemy building | wreck an enemy powder store | wreck an enemy tavern | wreck an enemy windmill |
 | Powder Keg | your own blacksmith is destroyed; a team mate is eliminated | wreck a catapult of the player who wrecked one of yours (revenge) | own goal: wreck a building of your own / a team mate (once per turn) | |
 | Black Powder Kegs | you are down to your last catapult; a team mate is | | | |
-| Cow | one of your own cows dies in your camp | | another animal of your camp dies; wreck an enemy building AND launch an enemy settler in one turn; a cow wrecks one of your catapults | |
+| Cow | one of your own cows dies in your camp (in chaos: **2 cows**) | | chaos: any other animal of your camp dies (1 cow) | |
 | Pointy Log | damage 3 different trees; a tree within 45 m of your village is shot down (by anyone) | | | 2 trees instead of 3 |
 | Stone Hail (x4) | wreck 2 buildings with one shot; a team mate wrecks an enemy catapult | | | |
 | Chain Shot | launch 5 settlers with one shot | wreck 3 buildings with one shot | | |

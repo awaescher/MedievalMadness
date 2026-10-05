@@ -12,7 +12,7 @@ const RULES: Dictionary = {
 	"boulder": [[0, "revenge"], [0, "landslide"], [0, "crate_small"], [1, "landmark"], [2, "tavern"], [3, "mill"]],
 	"powderkeg": [[0, "smithy_lost"], [0, "team_down"], [1, "revenge_hit"], [2, "own_blast"]],
 	"powdertrail": [[0, "last_stand"], [0, "team_last"]],
-	"cow": [[0, "cow_down"], [2, "cow_flight"], [2, "flyby"], [2, "cow_kill"]],
+	"cow": [[0, "cow_down"], [2, "cow_flight"]],
 	"log": [[0, "trees"], [0, "tree_felled"], [0, "crate_small"]],
 	"quad": [[0, "double"], [0, "team_kill"]],
 	"chain": [[0, "mowed"], [1, "demolition"]],
@@ -27,9 +27,6 @@ static var _last_slide: Dictionary = {}     # player id -> last landslide id tha
 static var _fire_turn: Dictionary = {}      # player id -> turn number of the last counted fire
 static var _fire_turns: Dictionary = {}     # player id -> number of turns in which the player set something on fire
 static var _own_blast_turn: Dictionary = {} # player id -> turn of the last own-goal keg
-static var _bld_turn: Dictionary = {}       # player id -> turn in which an enemy building was wrecked
-static var _launch_turn: Dictionary = {}    # player id -> turn in which an enemy settler was launched
-static var _flyby_turn: Dictionary = {}
 static var _revenge: Dictionary = {}       # player id -> player id of the one who last wrecked a catapult of theirs
 
 static func reset() -> void:
@@ -38,9 +35,6 @@ static func reset() -> void:
 	_fire_turn.clear()
 	_fire_turns.clear()
 	_own_blast_turn.clear()
-	_bld_turn.clear()
-	_launch_turn.clear()
-	_flyby_turn.clear()
 	_revenge.clear()
 
 ## is a rule tier active in this match?
@@ -156,8 +150,6 @@ static func on_catapult_destroyed(owner_id: int, source: Dictionary, _reason: St
 			for o in Game.players:
 				if o.id != owner_id and not o.eliminated and not victim.is_ally(o):
 					grant(o.id, "firebarrel", 1, "chaos_loss")
-			if str(source.get("ammo", "")) == "cow":
-				grant(owner_id, "cow", 1, "cow_kill")
 		if att >= 0 and att != owner_id:
 			_revenge[owner_id] = att
 	if att >= 0 and att != owner_id:
@@ -171,6 +163,9 @@ static func on_catapult_destroyed(owner_id: int, source: Dictionary, _reason: St
 			_revenge.erase(att)
 			grant(att, "powderkeg", 1, "revenge_hit")
 
+static func _is_fence_or_prop(kind: String) -> bool:
+	return kind.begins_with("prop_") or ["palisadepost", "playerwall", "palisade", "stonewall", "flagpole", "tree", "ruin"].has(kind)
+
 static func on_building_destroyed(kind: String, owner_id: int, source: Dictionary) -> void:
 	if kind == "blacksmith" and owner_id >= 0:
 		grant(owner_id, "powderkeg", 1, "smithy_lost")
@@ -181,7 +176,8 @@ static func on_building_destroyed(kind: String, owner_id: int, source: Dictionar
 	var op: PlayerData = Game.player(owner_id)
 	if ap != null and op != null and (att == owner_id or ap.is_ally(op)):
 		# own goal: wrecking your own (or a teammate's) building
-		if tier_on(2) and int(_own_blast_turn.get(att, -1)) != Game.turn_number:
+		# only a real building counts, not a fence (palisade posts, walls) or a prop
+		if tier_on(2) and not _is_fence_or_prop(kind) and int(_own_blast_turn.get(att, -1)) != Game.turn_number:
 			_own_blast_turn[att] = Game.turn_number
 			grant(att, "powderkeg", 1, "own_blast")
 		return
@@ -193,18 +189,9 @@ static func on_building_destroyed(kind: String, owner_id: int, source: Dictionar
 		grant(att, "boulder", 1, "tavern")
 	elif kind == "windmill" and tier_on(3):
 		grant(att, "boulder", 1, "mill")
-	if tier_on(2):
-		_bld_turn[att] = Game.turn_number
-		_check_flyby(att)
 	if str(source.get("ammo", "")) == "landslide" and int(source.get("slide", -1)) != int(_last_slide.get(att, -2)):
 		_last_slide[att] = int(source["slide"])
 		grant(att, "boulder", 1, "landslide")
-
-## chaos: wrecked an enemy building AND launched an enemy settler in the same turn
-static func _check_flyby(pid: int) -> void:
-	if int(_bld_turn.get(pid, -1)) == Game.turn_number and int(_launch_turn.get(pid, -1)) == Game.turn_number and int(_flyby_turn.get(pid, -1)) != Game.turn_number:
-		_flyby_turn[pid] = Game.turn_number
-		grant(pid, "cow", 1, "flyby")
 
 ## Three buildings wrecked by one shot
 static func on_shot_buildings(player_id: int, count: int) -> void:
@@ -214,9 +201,6 @@ static func on_shot_buildings(player_id: int, count: int) -> void:
 		grant(player_id, "chain", 1, "demolition")
 
 static func on_shot_settlers(player_id: int, count: int) -> void:
-	if tier_on(2):
-		_launch_turn[player_id] = Game.turn_number
-		_check_flyby(player_id)
 	if count == 5:
 		grant(player_id, "chain", 1, "mowed")
 
@@ -232,9 +216,11 @@ static func on_fire_started(source: Dictionary) -> void:
 
 ## `owner_id`: the player whose camp the animal lived in. Only your own cow dying pays a cow shell.
 static func on_animal_killed(kind: String, owner_id: int) -> void:
-	if owner_id >= 0 and kind == "cow":
-		grant(owner_id, "cow", 1, "cow_down")
-	elif owner_id >= 0 and tier_on(2):
+	if owner_id < 0:
+		return
+	if kind == "cow":
+		grant(owner_id, "cow", 2 if tier_on(2) else 1, "cow_down")      # chaos: your own cow dying pays two
+	elif tier_on(2):
 		grant(owner_id, "cow", 1, "cow_flight")
 
 static func on_tree_damaged(source: Dictionary, tree: Structure) -> void:
