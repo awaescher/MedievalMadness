@@ -4,6 +4,7 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
+- **README "Physics is the game" expanded**: parts and materials, support rule, ballistics with wind, the ground (craters, landslides, Drill Bomb), fire / water / powder and ragdolls, each with what the simulation really does.
 - **README slimmed down**: removed the outdated sections "Ready-made builds", "Weapons, posts and rules (v1.1)", "Powder, dents and landslides (v1.2)", "Versions" and "Phones and tablets"; "Rules in one minute" is now "Rules in twenty seconds".
 - **New README screenshot** (`docs/game.png`, 4 players, a catapult in the foreground and further villages on the hills behind); **longer physics GIF** (`docs/physics.gif`): 10 fps in real time, 42 frames (about 4 s plus a pause on the last frame, 480 px, 730 KB; starts when the bomb hits the village, ends a bit after the debris has settled): the explosion, the collapse and the debris rolling together in the pit (the earlier versions were too short and thinned out, which stuttered).
 - **Loading screen title is translated** ("Generating the world" stayed German after switching the language): the title is set again every time a match starts. Other texts checked: no other leftover German / untranslated UI strings (the language key sets of `en.gd` / `de.gd` are tested to be identical).

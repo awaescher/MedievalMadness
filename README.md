@@ -12,12 +12,39 @@ shout jokes. Lose all 5 catapults and you are out - the last player standing win
 <p align="center"><img src="docs/physics.gif" alt="A Drill Bomb makes a whole village cave in" width="520"></p>
 <p align="center"><sub>One Drill Bomb: it drills to sea level, explodes underground and the village collapses into the pit - all of it simulated, nothing scripted.</sub></p>
 
-Every wall, beam, shingle and barrel is a real rigid body (Jolt Physics), held together by links that break:
+Nothing in Medieval Madness is a canned animation: a village is a pile of real rigid bodies (Jolt Physics, 60 Hz) and every shot is
+just something heavy flying into it. What happens next is up to the simulation.
 
-* **Buildings fall the way buildings fall**: shoot away the lower storey and what sits on it comes down; overhangs without support drop.
-* **The ground is physics too**: craters, landslides and caving soil reshape the terrain, and everything standing on it goes along.
-* **Fire spreads** from part to part (wind helps), **water** puts it out and makes things buoyant, **powder kegs** chain-react.
-* **Settlers and animals turn into ragdolls** when something hits them; boulders and logs roll downhill through the village.
+**Buildings are made of parts.** A house is dozens to hundreds of single planks, beams, stones, shingles, bells and barrels. Each part
+has its own material (wood, plank, stone, brick, thatch, cloth, metal, hay, glass) with density, friction, bounciness, break strength and
+flammability: a boulder shatters a plank wall but only chips granite, thatch burns in a flash, stone never does.
+
+* **Parts are glued to their neighbours.** A hit above a part's break strength damages it; destroyed parts splinter into debris, loose ones
+  fall, tumble and roll on - and knock other things loose.
+* **Gravity decides what stays.** Shoot away the ground floor and the storeys above come down; an overhang without support drops. Only what
+  rests on something that stands (or hangs at most three links off it) survives.
+* **Quiet until hit.** A building sleeps as one cheap static block and wakes up part by part, so a whole village can fall apart with
+  hundreds of live bodies at once.
+
+**Shots fly on real trajectories.** Gravity and wind bend every flight, and each weapon has its own mass, size and wind sensitivity. A boulder
+digs a furrow as it rolls downhill through the houses, logs roll and bounce, chain shot whirls, a cow is a very silly missile.
+
+**The ground gives way.**
+
+* Stones dent the soil, boulders dig bigger holes, explosions make craters, and the **Drill Bomb** drills to sea level and blows up
+  underground.
+* A hard hit on a steep slope starts a **landslide**: the soil slides (thermal erosion down to the angle of repose) and pushes
+  and smashes whatever stands in its way.
+* Buildings, flags, flames and puddles follow the soil: when the ground sinks away under a house, the house falls with it.
+
+**Fire, water and powder.**
+
+* **Fire** creeps from part to part (wind and uphill make it faster), chars what it eats and leaves black marks on the ground.
+* **Water** puts it out; soaked parts do not catch fire, rain extinguishes whole villages, barrels and logs float, catapults sink.
+* **Powder kegs and barrels** explode with a pressure wave that rolls out across the ground and sets off the next keg in the chain.
+
+**Everybody is a ragdoll.** Settlers and animals are jointed bodies: hit one and it flies, tumbles and lies where it lands (and sometimes
+lands on a cow).
 
 Built with **Godot 4.4+ (tested with 4.7.2)**, GDScript only, Jolt Physics. Renderer: Forward+ on Windows and macOS, Compatibility (OpenGL) on Linux, Mobile on phones.
 No image, model, font or audio files: all graphics are procedural and all sounds are synthesized at startup.
