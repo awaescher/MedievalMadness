@@ -178,6 +178,13 @@ func _process(delta: float) -> void:
 		position = np
 	if _has_face:
 		rotation.y = lerp_angle(rotation.y, _face_target, clampf(delta * 10.0, 0.0, 1.0))
+	if not floats:
+		# stay on the ground when it changes (crater, landslide) and lean with the slope
+		position.y = Terrain.h(position.x, position.z)
+		var nl: Vector3 = Basis(Vector3.UP, -rotation.y) * Terrain.normal(position.x, position.z)
+		var k: float = clampf(delta * 8.0, 0.0, 1.0)
+		rotation.x = lerpf(rotation.x, atan2(nl.z, nl.y), k)
+		rotation.z = lerpf(rotation.z, atan2(-nl.x, nl.y), k)
 	_phase += delta * (4.0 if state == State.WANDER else 1.0) * (2.0 if state == State.FLEE else 1.0)
 	if state == State.WANDER or state == State.FLEE:
 		body_node.position.y = absf(sin(_phase * 2.0)) * 0.03
