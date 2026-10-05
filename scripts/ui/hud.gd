@@ -545,10 +545,10 @@ var offer_label: Label
 var aim_panel: PanelContainer
 var aim_labels: Dictionary = {}
 const BANNER_TOP := 128.0
-var banner: Label
+var banner: RichTextLabel
 var banner_panel: PanelContainer
 var feed_box: VBoxContainer
-var toast_label: Label
+var toast_label: RichTextLabel
 var btn_overview: Button
 var btn_skip: KeyButton
 var btn_sound: Button
@@ -780,11 +780,12 @@ func _build() -> void:
 	banner_panel.visible = false
 	banner_panel.add_theme_stylebox_override("panel", UITheme.box(Color("#3b2a1a"), Color("#ffd400"), 3, 16, 8))
 	add_child(banner_panel)
-	banner = UITheme.label("", 44, Color("#ffd400"), true, 10)
-	banner.custom_minimum_size = Vector2(300, 0)
+	banner = UITheme.rich_label("", 44, Color("#ffd400"), true, 10, true)
+	banner.fit_content = false
+	banner.custom_minimum_size = Vector2(300, 60)
 	banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	banner.add_theme_font_override("font", ComicText.comic_font())
-	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	banner.add_theme_font_override("normal_font", ComicText.comic_font())
+	banner.add_theme_font_override("bold_font", ComicText.comic_font())
 	banner_panel.add_child(banner)
 	# ---- kill feed (left)
 	feed_box = VBoxContainer.new()
@@ -793,7 +794,8 @@ func _build() -> void:
 	feed_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(feed_box)
 	# ---- toast + hint
-	toast_label = UITheme.label("", 18, Color.WHITE, true, 8)
+	toast_label = UITheme.rich_label("", 18, Color.WHITE, true, 8)
+	toast_label.fit_content = false
 	toast_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	toast_label.anchor_left = 0.5
 	toast_label.anchor_right = 0.5
@@ -803,7 +805,6 @@ func _build() -> void:
 	toast_label.offset_bottom = -140
 	toast_label.offset_left = -400
 	toast_label.offset_right = 400
-	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	toast_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(toast_label)
 	hint_label = UITheme.label("", 15, Color(1, 1, 1, 0.9), false, 6)
@@ -892,22 +893,29 @@ func _fit_banner(text: String) -> void:
 	var vp: Vector2 = get_viewport_rect().size
 	var avail: float = clampf(vp.x * 0.88 - 56.0, 240.0, 1100.0)
 	var top_size: int = int(clampf(44.0 * minf(vp.x / 1280.0, vp.y / 720.0), 24.0, 44.0))
-	var font: Font = banner.get_theme_font("font")
+	var font: Font = banner.get_theme_font("normal_font")
 	var size: int = top_size
 	var w: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 24.0     # + outline
 	while w > avail and size > 22:
 		size -= 2
 		w = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 24.0
-	banner.add_theme_font_size_override("font_size", size)
-	banner.custom_minimum_size = Vector2(minf(w, avail), 0.0)
-	banner.size = Vector2(minf(w, avail), 0.0)
+	banner.add_theme_font_size_override("normal_font_size", size)
+	banner.add_theme_font_size_override("bold_font_size", size)
+	# the label gets a fixed size computed here (no fit_content: that sized the panel from a not yet wrapped text)
+	var width: float = minf(w, avail)
+	var lines_h: float = font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, width - 24.0, size).y
+	banner.custom_minimum_size = Vector2(width, lines_h + 16.0)
+	banner.size = banner.custom_minimum_size
 	banner_panel.reset_size()
+	var pw: float = banner_panel.get_combined_minimum_size().x
+	banner_panel.offset_left = -pw * 0.5
+	banner_panel.offset_right = pw * 0.5
 	banner_panel.offset_top = _banner_top()
 
 func _on_banner(text: String, kind: String) -> void:
 	if not visible and kind != "win":
 		pass
-	banner.text = text
+	UITheme.set_rich(banner, text, true)
 	_fit_banner(text)
 	banner_panel.visible = true
 	banner_panel.modulate = Color(1, 1, 1, 1)
@@ -936,8 +944,7 @@ func _on_points(pid: int, pts: int, text: String) -> void:
 	var p: PlayerData = Game.player(pid)
 	if p == null:
 		return
-	var l: Label = UITheme.label("%s%d  %s  (%s)" % ["+" if pts > 0 else "", pts, text, p.name], 16, Color("#ffe27a") if pts > 0 else Color("#ff8a7a"), true, 6)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l: RichTextLabel = UITheme.rich_label("%s%d  %s  (%s)" % ["+" if pts > 0 else "", pts, text, p.name], 16, Color("#ffe27a") if pts > 0 else Color("#ff8a7a"), true, 6)
 	feed_box.add_child(l)
 	_feed_items.append({"node": l, "t": 5.0})
 	while _feed_items.size() > 6:
@@ -945,12 +952,11 @@ func _on_points(pid: int, pts: int, text: String) -> void:
 		(old["node"] as Node).queue_free()
 
 func _on_toast(text: String) -> void:
-	toast_label.text = text
+	UITheme.set_rich(toast_label, text, true)
 	_toast_t = 4.0
 
 func _on_feed(text: String) -> void:
-	var l: Label = UITheme.label(text, 15, Color.WHITE, false, 6)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l: RichTextLabel = UITheme.rich_label(text, 15, Color.WHITE, false, 6)
 	feed_box.add_child(l)
 	_feed_items.append({"node": l, "t": 4.0})
 	while _feed_items.size() > 5:
@@ -1100,7 +1106,7 @@ func _process(delta: float) -> void:
 	while i >= 0:
 		var it: Dictionary = _feed_items[i]
 		it["t"] = float(it["t"]) - delta
-		var lab: Label = it["node"] as Label
+		var lab: Control = it["node"] as Control
 		if float(it["t"]) <= 0.0:
 			lab.queue_free()
 			_feed_items.remove_at(i)

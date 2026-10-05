@@ -10,6 +10,7 @@ class Puddle extends RefCounted:
 	var dur: float = 12.0
 	var radius: float = 2.0
 	var pos: Vector3
+	var ground: PackedFloat32Array = PackedFloat32Array()   # soil heights (centre + 4 edge points) when it was made: if they change (crater, landslide) the puddle vanishes
 
 static var puddles: Array[Puddle] = []
 static var root: Node3D
@@ -65,7 +66,7 @@ static func tick(dt: float) -> void:
 	while i >= 0:
 		var pd: Puddle = puddles[i]
 		pd.t += dt
-		if pd.t >= pd.dur:
+		if pd.t >= pd.dur or _ground_changed(pd):
 			if pd.node != null:
 				pd.node.queue_free()
 			puddles.remove_at(i)
@@ -75,6 +76,21 @@ static func tick(dt: float) -> void:
 			var grow: float = clampf(pd.t * 3.0, 0.0, 1.0)
 			pd.node.scale = Vector3(pd.radius * grow, 1.0, pd.radius * grow)
 		i -= 1
+
+const _PROBES: Array[Vector2] = [Vector2.ZERO, Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]
+
+static func _probe_heights(pos: Vector3, radius: float) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	for o in _PROBES:
+		out.append(Terrain.h(pos.x + o.x * radius * 0.7, pos.z + o.y * radius * 0.7))
+	return out
+
+static func _ground_changed(pd: Puddle) -> bool:
+	var now: PackedFloat32Array = _probe_heights(pd.pos, pd.radius)
+	for k in now.size():
+		if absf(now[k] - pd.ground[k]) > 0.25:
+			return true
+	return false
 
 ## Water released at `pos` (barrel, tower, well, balloon)
 static func splash(pos: Vector3, radius: float, source: Dictionary, strength: float = 1.0, wet_seconds: float = 15.0, wet_radius: float = 6.0) -> void:
@@ -115,6 +131,7 @@ static func add_puddle(pos: Vector3, radius: float) -> void:
 	root.add_child(pd.node)
 	pd.radius = radius
 	pd.pos = pos
+	pd.ground = _probe_heights(pos, radius)
 	puddles.append(pd)
 	if puddles.size() > 24:
 		var old: Puddle = puddles.pop_front()

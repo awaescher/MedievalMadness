@@ -176,6 +176,54 @@ static func wobble(c: Control) -> void:
 	if c is BaseButton:
 		(c as BaseButton).pressed.connect(func() -> void: Sfx.play("ui_click", Vector3.INF, 0.6, 0))
 
+## A player colour that reads on dark and light text backgrounds: very dark colours (blue, black) are lifted a bit
+static func name_color(c: Color) -> Color:
+	var lum: float = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b
+	return c.lerp(Color.WHITE, clampf((0.55 - lum) * 1.1, 0.0, 0.5))
+
+## BBCode: every player name in `text` written in that player's colour (names of the current match; `[` is escaped)
+static func tint_names(text: String) -> String:
+	var out: String = text.replace("[", "[lb]")
+	var ps: Array = Game.players.duplicate()
+	ps.sort_custom(func(a: PlayerData, b: PlayerData) -> bool: return a.name.length() > b.name.length())
+	var tags: Array[String] = []
+	for p in ps:
+		var pl: PlayerData = p as PlayerData
+		if pl.name.length() < 2:
+			continue
+		var plain: String = pl.name.replace("[", "[lb]")
+		if not out.contains(plain):
+			continue
+		var token: String = "\u0001%d\u0002" % tags.size()
+		tags.append("[color=#%s]%s[/color]" % [name_color(pl.color).to_html(false), plain])
+		out = out.replace(plain, token)
+	for k in tags.size():
+		out = out.replace("\u0001%d\u0002" % k, tags[k])
+	return out
+
+## Label with BBCode (player names in colour). Same look as `label()`; `centered` wraps the text in [center].
+static func rich_label(text: String, size: int = 17, color: Color = INK, bold: bool = false, outline: int = 0, centered: bool = false) -> RichTextLabel:
+	var l := RichTextLabel.new()
+	l.bbcode_enabled = true
+	l.fit_content = true
+	l.scroll_active = false
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.add_theme_font_size_override("normal_font_size", size)
+	l.add_theme_font_size_override("bold_font_size", size)
+	l.add_theme_font_override("normal_font", font_bold() if bold else font())
+	l.add_theme_font_override("bold_font", font_bold())
+	l.add_theme_color_override("default_color", color)
+	if outline > 0:
+		l.add_theme_constant_override("outline_size", outline)
+		l.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.02))
+	set_rich(l, text, centered)
+	return l
+
+static func set_rich(l: RichTextLabel, text: String, centered: bool = false) -> void:
+	var t: String = tint_names(text)
+	l.text = "[center]%s[/center]" % t if centered else t
+
 static func label(text: String, size: int = 17, color: Color = INK, bold: bool = false, outline: int = 0, outline_col: Color = Color(0.1, 0.05, 0.02)) -> Label:
 	var l := Label.new()
 	l.text = text
