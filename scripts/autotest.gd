@@ -1407,8 +1407,17 @@ static func run(main: Node, name: String) -> void:
 				await tree.process_frame
 				rg += 1.0 / 60.0
 			await seconds(float(uarg("wait", "6")))
-			Turn.select_catapult(Game.cur().living_catapults()[int(uarg("cat", "1"))] as Catapult)
-			await seconds(2.0)
+			var rcat: Catapult = Game.cur().living_catapults()[int(uarg("cat", "1"))] as Catapult
+			Turn.select_catapult(rcat)
+			# aim over the catapult at the enemy village: it stands in the foreground, the other village lies ahead
+			var rdir: Vector3 = Util.flat(Game.players[1].village_center - rcat.global_pos()).normalized()
+			Turn.set_aim(Util.dir_to_yaw(rdir) + deg_to_rad(float(uarg("yawoff", "0"))), float(uarg("elev", "32")), float(uarg("power", "0.6")))
+			await seconds(1.0)
+			if Speech.inst != null:
+				Speech.inst.visible = false          # no speech bubbles / comic words over the picture
+			if ComicText.inst != null:
+				ComicText.inst.visible = false
+			await seconds(1.0)
 			await shot("readme_aim")
 			var rv: Vector3 = (Game.players[0].village_center + Game.players[1].village_center) * 0.5
 			(m.get("cam_rig") as CameraRig).overview(rv, float(uarg("odist", "150")), float(uarg("opitch", "48")))

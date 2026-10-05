@@ -89,7 +89,7 @@ whole team (online too), every village has a flagpole in its team colour and win
 
 See [CHANGELOG.md](CHANGELOG.md) for the release notes (kept up to date together with `SPEC.md`).
 
-## Rules in one minute
+## Rules in twenty seconds
 
 * Placement: every player puts 5 catapults inside their village zone (green ghost = valid).
 * Each turn: pick a catapult, pick ammo, pull, release. Wind changes every turn; weather (rain, thunderstorm, storm)
@@ -152,46 +152,6 @@ tests/                  headless tests + in-scene unit scenarios
 
 Made with Godot Engine. Everything (code, look, sounds, jokes) is original; no external assets are used.
 
-## Ready-made builds
-
-`./export.sh` writes `build/macos/MedievalMadness.zip` (unzip -> `Medieval Madness.app`), `build/windows/MedievalMadness.exe` and
-`build/linux/MedievalMadness.x86_64`. The export templates for Godot 4.7.2 are installed in
-`~/Library/Application Support/Godot/export_templates/4.7.2.stable/`.
-
-## Weapons, posts and rules (v1.1)
-
-* **Stone** is unlimited; you start with only 2 rolling **Flaming Barrels**. Every other weapon is earned: buckshot for wrecking an enemy
-  catapult, mighty boulder / powder keg for losing catapults, cow when one of your own cows dies, pointy log for damaging three trees, stone hail for two buildings with one shot, chain shot for five settlers with one shot, powder keg for blowing up a
-  powder barrel or wrecking three buildings with one shot, **Meteor Marker** for destroying a church / powder store or eliminating a player.
-  The menu has a **Starting arsenal** dialog to pre-grant weapons.
-* The menu also sets the terrain (flat … mountainous), the number of catapults (1-5) and of **palisade fences** (1-10, default 4; every fence is 3 posts side by side) per player. After the catapults every
-  player sets wooden posts (tree-trunk thick, half a tower high) as cover - side by side or stacked - but not near an enemy village.
-* Replays show the settlement as it was before the shot (destroyed parts come back as ghosts until they break).
-
-## Powder, dents and landslides (v1.2)
-
-* **Black Powder Kegs** (key `9`): one shot sends three small kegs rolling like Flaming Barrels; they leave black powder on the ground and
-  on buildings. It lies there until fire touches it, then flash flames (about 5x normal fire, very short) run along the trail. Earned by
-  destroying an enemy blacksmith or by losing every third catapult.
-* Everything that burns leaves **black marks** on the ground for the rest of the match.
-* Stones dig small dents, boulders big ones (and furrows while they roll), explosions near the ground dig real craters.
-* A hard hit on a **very steep** slope starts a **landslide**: the soil slides down until the mountain flattens out and smashes what is in
-  its way (more likely with "Very hilly" / "Mountainous" terrain). A landslide that wrecks an enemy building earns a boulder.
-
-## Versions
-
-The project is versioned with git (repository root: the folder above this one, which also holds `SPEC.md`). The version number lives
-in the `VERSION` file, is shown in the main menu (`v1.2.3`) and in the macOS bundle. `tools/release.sh 1.2.3 "note"` bumps it, commits
-everything and creates the tag `v1.2.3`; `git log --oneline` / `git tag` list the releases.
-
 ## Online play
 
 Up to 8 players over the internet, no server of your own to run (a free Cloudflare worker as relay, or any machine with Godot). Setup and rules: [relay/README.md](relay/README.md).
-
-## Phones and tablets (not an official target)
-
-Phones and tablets are **not a supported platform**: there are no iOS / Android downloads, and the game is designed and tested for desktop with mouse and keyboard only. The code has a rough touch layer (one finger aims and fires like the mouse, two fingers pinch to zoom and orbit the camera) and the export presets exist, so you can try building it yourself, but it is untested on real devices, performance is unknown and things may be unusable.
-
-* **iOS**: `IOS=1 ./export.sh` writes the Xcode project to `build/ios/MedievalMadness.xcodeproj`. Open it in Xcode, choose your team under *Signing & Capabilities*, pick your device and run (needs the iOS platform from Xcode > Settings > Components). Replace the placeholder team id in `export_presets.cfg` (`application/app_store_team_id`) with yours to export an .ipa directly.
-* **Android**: install the Android SDK + JDK 17 and set them in the Godot editor settings (*Export > Android*), create a debug keystore, then `godot --headless --path . --export-debug Android build/android/MedievalMadness.apk`. The preset is in `export_presets.cfg`.
-* **Web** is not possible: browsers only allow the Compatibility renderer, which caps the per-instance colour system this game uses (4096 instances), so the village colours break.
