@@ -245,8 +245,8 @@ const DEBRIS_LIFETIME := 25.0          # seconds after sleep before fade (Medium
 const SETTLE_SPEED := 0.35             # m/s: below this a body counts as still
 const SETTLE_TIME := 0.8               # seconds all relevant bodies must be still (kept short: fast turn pacing)
 const SETTLE_MAX := 8.0                # seconds max aftermath wait, then force end
-const WIND_MAX := 8.0                  # m/s
-const WIND_CHANGE_MAX := 3.0
+const WIND_MAX := 20.0                 # m/s
+const WIND_CHANGE_MAX := 6.0
 const DRAG_MAX_PX := 220.0             # max slingshot pull in screen pixels (at 1600x900 reference; scale by window height/900)
 const POWER_MAX_SPEED := 140.0         # m/s launch speed at 100% power; MUST reach every enemy on the largest map (see 6.1 'Guaranteed range')
 const POWER_MIN_SPEED := 8.0           # at 0% (still valid > 8%)
@@ -353,7 +353,7 @@ Each call records `source` ({playerId, projectileType}) so stats can attribute d
 - **Masonry**: parts made of `stone` or `brick` take projectile impact energy ×2.6 and `IMPACT_K` is 14, so a fast stone drives through tower walls instead of bouncing off them.
 
 ### 6.3 Wind
-- Vector (windX, windZ) with speed ≤ `WIND_MAX × level`. Each turn start: change speed by random ±`WIND_CHANGE_MAX × level` and rotate direction ±40°. During Storm weather multiply by 1.8. **Wind option** (`Settings.wind_level` / `Game.wind_level`, options panel dropdown `Wind`): 0 None (wind is always zero), 1 Light (level 0.35, default: ≤ 2.8 m/s, little effect), 2 Strong (level 1.0: ≤ 8 m/s). Saved in `settings.cfg` (`wind_level`), reset by `Reset options` to Light. Online host-only like the other match options: sent as `wind` in the lobby state and the `start` message (`net_cfg["wind"]`); the per-turn wind vector itself is announced by the host in `turn_start`.
+- Vector (windX, windZ) with speed ≤ `WIND_MAX × level`. Each turn start: change speed by random ±`WIND_CHANGE_MAX × level` and rotate direction ±40°. During Storm weather multiply by 1.8. **Wind option** (`Settings.wind_level` / `Game.wind_level`, options panel dropdown `Wind`): 0 None (wind is always zero), 1 Light (level 0.25, default: ≤ 5 m/s, little effect: ≈13 m sideways on a 490 m stone shot), 2 Strong (level 1.0: ≤ 20 m/s, clearly visible: ≈53 m sideways). Saved in `settings.cfg` (`wind_level`), reset by `Reset options` to Light. Online host-only like the other match options: sent as `wind` in the lobby state and the `start` message (`net_cfg["wind"]`); the per-turn wind vector itself is announced by the host in `turn_start`.
 - HUD: wind arrow + speed, plus flags and smoke in the world lean accordingly (flags on buildings: cloth part with sine deformation; simple).
 
 ### 6.4 Ammo (per player inventory)
