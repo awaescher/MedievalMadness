@@ -16,6 +16,7 @@ static var current: Terrain
 var data: MapData
 ## Set by the game world: called with an AABB whenever the ground under buildings may have changed (keeps Terrain free of game dependencies)
 static var ground_hook: Callable = Callable()
+static var decor_hook: Callable = Callable()         # called with an AABB after the collider changed: re-seat rocks / bushes / flowers
 static var wake_hook: Callable = Callable()          # called with an AABB after the collider changed: wake what lies there
 var _wake_box: AABB = AABB()
 var _wake_has: bool = false
@@ -386,4 +387,6 @@ func flush() -> void:
 		# the new ground does not wake sleeping debris by itself: without this it would hang in the air over craters
 		if _wake_has and wake_hook.is_valid():
 			wake_hook.call(_wake_box)
+		if _wake_has and decor_hook.is_valid():
+			decor_hook.call(_wake_box)
 		_wake_has = false
