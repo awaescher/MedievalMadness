@@ -61,8 +61,10 @@ jobs:
           # export.sh wrote the build's version (major.minor.run_number) to VERSION
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VER="${GITHUB_REF_NAME#v}"; else VER="$(tr -d '[:space:]' < VERSION)"; fi
           echo "VER=$VER" >> "$GITHUB_ENV"
-          # the "## <version>" section of CHANGELOG.md (else "## Unreleased"), up to the next "## " heading
-          for H in "$VER" Unreleased; do
+          # tag: the "## <version>" section of CHANGELOG.md (else "## Unreleased"); push to main: always "## Unreleased"
+          # (CI run numbers collide with old, reconstructed version sections, so those must not be picked up there)
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then HEADS="$VER Unreleased"; else HEADS="Unreleased"; fi
+          for H in $HEADS; do
             awk -v v="$H" '/^## /{p = ($2 == v); next} p' CHANGELOG.md > release_notes.md
             [ -s release_notes.md ] && break
           done
