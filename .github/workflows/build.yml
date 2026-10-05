@@ -38,9 +38,10 @@ jobs:
           mv tpl/templates/* "$TPL/"
 
       - name: Export all platforms
-        env:
-          MM_BUILD_NUMBER: ${{ github.run_number }}
-        run: ./export.sh
+        run: |
+          # patch number = run number minus BUILD_BASE (the run number of the last major / minor bump), so 1.11 starts at 1.11.1
+          export MM_BUILD_NUMBER=$(( ${{ github.run_number }} - $(tr -d '[:space:]' < BUILD_BASE) ))
+          ./export.sh
 
       - name: Package one ZIP per platform
         run: |
@@ -57,33 +58,33 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-      - name: Release notes from CHANGELOG.md
+      - name: Release notes from RELEASE_NOTES.md
         if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         run: |
           # export.sh wrote the build's version (major.minor.run_number) to VERSION
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VER="${GITHUB_REF_NAME#v}"; else VER="$(tr -d '[:space:]' < VERSION)"; fi
           echo "VER=$VER" >> "$GITHUB_ENV"
-          # tag: the "## <version>" section of CHANGELOG.md (else "## Unreleased"); push to main: always "## Unreleased"
+          # tag: the "## <version>" section of RELEASE_NOTES.md (else "## Unreleased"); push to main: always "## Unreleased"
           # (CI run numbers collide with old, reconstructed version sections, so those must not be picked up there)
           # (a new minor version: while "Unreleased" is still empty the section "<major>.<minor>.0" is the release text)
           MINOR0="$(echo "$VER" | cut -d. -f1,2).0"
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then HEADS="$VER Unreleased"; else HEADS="Unreleased $MINOR0"; fi
           FROM=""
           for H in $HEADS; do
-            awk -v v="$H" '/^## /{p = ($2 == v); next} p' CHANGELOG.md | grep -v '^[[:space:]]*$' > release_notes.md || true
-            if [ -s release_notes.md ]; then FROM="$H"; break; fi
+            awk -v v="$H" '/^## /{p = ($2 == v); next} p' RELEASE_NOTES.md | grep -v '^[[:space:]]*$' > release_body.md || true
+            if [ -s release_body.md ]; then FROM="$H"; break; fi
           done
-          # push to main: only the lines that are new since the previous release (its CHANGELOG "Unreleased" is the baseline)
+          # push to main: only the lines that are new since the previous release (its RELEASE_NOTES "Unreleased" is the baseline)
           if [[ "$GITHUB_REF" != refs/tags/v* && "$FROM" == "Unreleased" ]]; then
             PREV="$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)"
-            if [ -n "$PREV" ] && git show "$PREV:CHANGELOG.md" > old_changelog.md 2>/dev/null; then
+            if [ -n "$PREV" ] && git show "$PREV:RELEASE_NOTES.md" > old_changelog.md 2>/dev/null; then
               awk '/^## /{p = ($2 == "Unreleased"); next} p' old_changelog.md > old_notes.md
-              grep -vxFf old_notes.md release_notes.md > new_notes.md || true
-              if grep -q '[^[:space:]]' new_notes.md; then cp new_notes.md release_notes.md; fi
+              grep -vxFf old_notes.md release_body.md > new_notes.md || true
+              if grep -q '[^[:space:]]' new_notes.md; then cp new_notes.md release_body.md; fi
             fi
           fi
-          if [ ! -s release_notes.md ]; then echo "Build $VER" > release_notes.md; fi
-          cat release_notes.md
+          if [ ! -s release_body.md ]; then echo "Build $VER" > release_body.md; fi
+          cat release_body.md
 
       - name: Release with binaries
         if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
@@ -92,5 +93,5 @@ jobs:
           tag_name: v${{ env.VER }}
           target_commitish: ${{ github.sha }}
           name: v${{ env.VER }}
-          body_path: release_notes.md
+          body_path: release_body.md
           files: dist/*.zip

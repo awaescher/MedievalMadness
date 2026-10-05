@@ -1,9 +1,11 @@
 # Changelog
 
 Rough release notes, newest first. Versions before 1.10.0 are reconstructed from the specification and are approximate.
-**Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
+**Rule: this file, `RELEASE_NOTES.md` (short player-facing lines for the GitHub release) and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
+- **Version numbers continue at 1.11**: CI builds were numbered by the GitHub run number (v1.11.30 right away); now the patch is the run number minus `BUILD_BASE` (the run number of the last major / minor bump, 30 now), so the next release is v1.11.1. Raise `BUILD_BASE` to the last run number when going to 1.12.
+- **Short release notes**: GitHub releases now take their text from the new `RELEASE_NOTES.md` (one player-facing line per change, `## Unreleased` / `## <version>` sections) instead of the long CHANGELOG; still only what is new since the previous release, the first build of a new minor version uses the section `## <major>.<minor>.0`.
 
 ## 1.11.0
 First 1.11 build: everything since 1.10.23 (the CI release text of the first 1.11 build is this section).
