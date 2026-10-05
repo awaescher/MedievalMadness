@@ -781,7 +781,7 @@ func _build() -> void:
 	banner_panel.add_theme_stylebox_override("panel", UITheme.box(Color("#3b2a1a"), Color("#ffd400"), 3, 16, 8))
 	add_child(banner_panel)
 	banner = UITheme.label("", 44, Color("#ffd400"), true, 10)
-	banner.custom_minimum_size = Vector2(900, 0)
+	banner.custom_minimum_size = Vector2(300, 0)
 	banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	banner.add_theme_font_override("font", ComicText.comic_font())
 	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -883,15 +883,37 @@ func _update_gifts(cur: PlayerData) -> void:
 		s.enabled = c > 0 and (mine or not Turn.gifts.has(s.ammo.id))
 		s.queue_redraw()
 
+func _banner_top() -> float:
+	return clampf(get_viewport_rect().size.y * 0.16, 64.0, BANNER_TOP)
+
+## The banner shrinks with the window: the biggest font (up to 44) that keeps the text on one line within 88 % of the window width;
+## only if even the smallest font (22) does not fit it wraps onto a second line at the full available width.
+func _fit_banner(text: String) -> void:
+	var vp: Vector2 = get_viewport_rect().size
+	var avail: float = clampf(vp.x * 0.88 - 56.0, 240.0, 1100.0)
+	var top_size: int = int(clampf(44.0 * minf(vp.x / 1280.0, vp.y / 720.0), 24.0, 44.0))
+	var font: Font = banner.get_theme_font("font")
+	var size: int = top_size
+	var w: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 24.0     # + outline
+	while w > avail and size > 22:
+		size -= 2
+		w = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 24.0
+	banner.add_theme_font_size_override("font_size", size)
+	banner.custom_minimum_size = Vector2(minf(w, avail), 0.0)
+	banner.size = Vector2(minf(w, avail), 0.0)
+	banner_panel.reset_size()
+	banner_panel.offset_top = _banner_top()
+
 func _on_banner(text: String, kind: String) -> void:
 	if not visible and kind != "win":
 		pass
 	banner.text = text
+	_fit_banner(text)
 	banner_panel.visible = true
 	banner_panel.modulate = Color(1, 1, 1, 1)
 	if _banner_tween != null and _banner_tween.is_valid():
 		_banner_tween.kill()
-	var start_y: float = BANNER_TOP          # (always the same: a banner arriving mid-animation must not drift upwards)
+	var start_y: float = _banner_top()          # (always the same: a banner arriving mid-animation must not drift upwards)
 	banner_panel.offset_top = start_y - 60.0
 	_banner_tween = create_tween()
 	_banner_tween.tween_property(banner_panel, "offset_top", start_y, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

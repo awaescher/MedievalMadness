@@ -305,8 +305,14 @@ func hurt(amount: float, source: Dictionary, launch_vel: Vector3, do_launch: boo
 	if hp <= 0.0 and was_alive:
 		_die()
 
+func _release_flame() -> void:
+	if _flame != null and Fx.inst != null:
+		Fx.inst.release_flame(_flame)
+	_flame = null
+
 func _die() -> void:
 	hp = -1.0
+	_release_flame()                # a burning settler that dies must not leave its flame behind
 	Events.settler_killed.emit(settler_name, owner_id, last_source)
 	Scoring.on_settler_killed(last_source, owner_id)
 	if brigade != null:
@@ -395,14 +401,13 @@ func _to_ragdoll(velocity: Vector3, source: Dictionary = {}) -> void:
 		return
 	if not source.is_empty():
 		last_source = source
+	_release_flame()
 	if ragdoll_count >= MAX_RAGDOLLS:
 		# too many active ragdolls: fly as frozen pose instead
 		if hp <= 0.0:
 			state = State.DEAD
 			_lay_down()
 		return
-	if _flame != null and Fx.inst != null:
-		pass
 	_drop_bucket()
 	if brigade != null:
 		brigade.call("leave", self)

@@ -405,4 +405,4 @@ static func collect(id: int, pid: int) -> void:
 	node.queue_free()
 	crates.erase(c)
 	if not Net.is_client() and pid >= 0:
-		Unlocks.grant(pid, str(c["ammo"]), int(c["n"]), "crate" if meteor else "crate_small")
+		Unlocks.grant(pid, str(c["ammo"]), int(c["n"]), "crate" if meteor else "crate_small", at)

@@ -15,6 +15,7 @@ var hud: Hud
 var aiming: Aiming
 var actions: Actions
 var placement: Placement
+var reward_popup: RewardPopup
 var results: Results
 var pause_menu: PauseMenu
 var lobby: Lobby
@@ -192,6 +193,13 @@ func _build_ui() -> void:
 	hud = Hud.new()
 	hud.name = "Hud"
 	ui_root.add_child(hud)
+	reward_popup = RewardPopup.new()
+	reward_popup.name = "RewardPopup"
+	reward_popup.cam = cam_rig
+	ui_root.add_child(reward_popup)
+	Events.part_break.connect(func(pos: Vector3, _m: String, _s: float) -> void: Unlocks.set_hint(pos))
+	Events.fire_started.connect(func(pos: Vector3, _src: Dictionary) -> void: Unlocks.set_hint(pos))
+	Events.explosion.connect(func(pos: Vector3, _r: float, _d: float, _src: Dictionary) -> void: Unlocks.set_hint(pos))
 	placement = Placement.new()
 	placement.name = "Placement"
 	ui_root.add_child(placement)
@@ -368,6 +376,8 @@ func _clear_match() -> void:
 	Weather.reset()
 	RandomEvents.reset()
 	Unlocks.reset()
+	if reward_popup != null:
+		reward_popup.clear()
 	SupplyCrate.reset()
 	Game.players.clear()
 	_overview = false
@@ -528,6 +538,7 @@ func _start_game(seed_text: String, keep_layout: bool = false, net_cfg: Dictiona
 	Game.arsenal = Settings.arsenal.duplicate()
 	Game.rule_level = Settings.effective_rule_level()
 	Game.crates_on = Settings.crates_on
+	Game.auto_place_on = Settings.auto_place
 	Game.rule_quarry = Settings.arsenal_preset == "quarry"
 	Game.weather_on = Settings.weather_on
 	Game.wind_level = Settings.wind_level
@@ -543,6 +554,7 @@ func _start_game(seed_text: String, keep_layout: bool = false, net_cfg: Dictiona
 		Game.arsenal = (net_cfg["arsenal"] as Dictionary).duplicate()
 		Game.rule_level = int(net_cfg.get("rules", 0))
 		Game.crates_on = bool(net_cfg.get("crates", true))
+		Game.auto_place_on = bool(net_cfg.get("autoplace", false))
 		Game.rule_quarry = bool(net_cfg.get("rquarry", false))
 		Game.weather_on = false
 		Game.wind_level = int(net_cfg.get("wind", 1))

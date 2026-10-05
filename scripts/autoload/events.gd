@@ -28,6 +28,7 @@ signal banner(text: String, kind: String)
 signal toast(text: String)
 signal gifts_changed
 signal kill_feed(text: String)
+signal reward(player_id: int, ammo_id: String, n: int, pos: Vector3)   # a weapon was earned (popup floats up at pos)
 signal shot_scored(player_id: int, score: float)
 signal points_awarded(player_id: int, points: int, text: String)
 signal wind_changed(wind: Vector2)

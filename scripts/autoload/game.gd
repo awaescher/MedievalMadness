@@ -33,6 +33,7 @@ var palisades_per_player: int = 4
 var arsenal: Dictionary = {}
 var rule_level: int = 0              # unlock rule tier of the game mode: 0 core, 1 power, 2 chaos (see Unlocks)
 var crates_on: bool = true
+var auto_place_on: bool = false          # catapults / palisades are placed automatically, no placement phase
 var rule_quarry: bool = false        # the Quarry mode adds its own rules
 var layout_nonce: String = ""       # decides the village layout together with the seed (new for every fresh match)
 var terrain_hills: int = 2           # 0 flat .. 4 very hilly

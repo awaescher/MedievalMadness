@@ -629,6 +629,7 @@ static func break_part(p: Part, source: Dictionary = {}, dir: Vector3 = Vector3.
 		s.behavior.call("on_part_break", s, p)
 	if not s.destroyed and not s.free_parts and s.destroyed_fraction() > 0.70:
 		s.destroyed = true
+		Unlocks.set_hint(s.center + Vector3.UP * (s.height * 0.5))      # a weapon earned for this floats up from here
 		if s.kind == "tree":
 			Unlocks.on_tree_destroyed(s)
 		Events.building_destroyed.emit(s.kind, s.owner_id, source)

@@ -239,6 +239,10 @@ func _free_bodies() -> void:
 func _to_ragdoll(velocity: Vector3) -> void:
 	if state == State.RAGDOLL:
 		return
+	if _flame != null and Fx.inst != null:
+		Fx.inst.release_flame(_flame)      # the flame must not stay behind where the animal fell
+	_flame = null
+	_burn = 0.0
 	state = State.RAGDOLL
 	_rag_time = 0.0
 	_asleep = 0.0

@@ -5,6 +5,7 @@ extends RefCounted
 const DATA := {
 	"menu": {
 		"crates": "Nachschub-Kisten",
+		"autoplace": "Katapulte & Palisaden automatisch setzen",
 		"rules": "Freischalt-Regeln",
 		"rules_0": "Kern",
 		"rules_1": "Powerplay",
