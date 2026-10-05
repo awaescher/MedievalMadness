@@ -37,19 +37,23 @@ func _on_reward(player_id: int, ammo_id: String, n: int, pos: Vector3) -> void:
 	var icon := Hud.AmmoSlot.new()
 	icon.ammo = def
 	icon.icon_only = true
-	icon.custom_minimum_size = Vector2(76, 76)
+	icon.custom_minimum_size = Vector2(54, 54)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(icon)
-	var cnt: Label = UITheme.label("+%d" % n, 40, Color("#ffd93b"), true, 8)
+	var cnt: Label = UITheme.label("+%d" % n, 28, Color("#ffd93b"), true, 7)
 	cnt.add_theme_font_override("font", ComicText.comic_font())
 	cnt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(cnt)
 	box.add_child(row)
+	# line 1: the player (in their colour), line 2: the weapon
 	var who: String = p.name if p != null else ""
-	var nm: Label = UITheme.label((who + ": " if who != "" else "") + I18n.t("ammo." + ammo_id), 18, Color.WHITE, true, 5)
-	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(nm)
+	if who != "":
+		var pn: RichTextLabel = UITheme.rich_label(who, 15, Color.WHITE, true, 5, true)
+		pn.custom_minimum_size = Vector2(190, 0)
+		box.add_child(pn)
+	var wn: RichTextLabel = UITheme.rich_label(I18n.t("ammo." + ammo_id), 14, Color.WHITE, false, 5, true)
+	wn.custom_minimum_size = Vector2(190, 0)
+	box.add_child(wn)
 	box.pivot_offset = Vector2.ZERO
 	add_child(box)
 	# several rewards at once (one shot, one place) are stacked side by side instead of lying on top of each other
