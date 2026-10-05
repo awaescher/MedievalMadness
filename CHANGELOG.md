@@ -4,6 +4,7 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
+- **Animals (horses, cows, sheep ...) follow the ground**: they lean with the slope and are lowered / raised with the soil when a crater or landslide changes it under them, also while standing still (before: upright, and they hung in the air until they moved).
 - **Rocks, bushes and flowers follow the ground**: they are tilted to the slope normal and sink in a little on steep ground (before: always upright at the height of the centre, so they stuck out sideways on slopes), and after a crater / landslide / drill they are re-seated on the new ground (hidden if it is now under water). The rock colliders stay where they were.
 - **Release downloads are one ZIP per platform** with clear names: `MedievalMadness-<version>-Windows.zip`, `-macOS.zip`, `-Linux.zip` (before: a bare `.exe`, a zip and a bare Linux binary). The CI artifact holds the same three ZIPs.
 - **macOS build is ad-hoc signed** (`codesign/codesign=1`, Godot's built-in signer, works in the Linux CI): downloaded builds were unsigned and macOS (Apple Silicon) said "is damaged and cannot be opened". Now Gatekeeper only asks once (right-click → Open, or `xattr -dr com.apple.quarantine "Medieval Madness.app"`); a real fix needs a paid Developer ID + notarization.
