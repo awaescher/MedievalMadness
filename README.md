@@ -9,11 +9,11 @@ shout jokes. Lose all 5 catapults and you are out - the last player standing win
 
 ## Physics is the game
 
-<p align="center"><img src="docs/physics.gif" alt="A Drill Bomb makes a whole village cave in" width="520"></p>
-<p align="center"><sub>One Drill Bomb: it drills to sea level, explodes underground and the village collapses into the pit - all of it simulated, nothing scripted.</sub></p>
-
 Nothing in Medieval Madness is a canned animation: a village is a pile of real rigid bodies (Jolt Physics, 60 Hz) and every shot is
 just something heavy flying into it. What happens next is up to the simulation.
+
+<p align="center"><img src="docs/physics.gif" alt="A Drill Bomb makes a whole village cave in" width="552"></p>
+<p align="center"><sub>One Drill Bomb: it drills to sea level, explodes underground and the village collapses into the pit - all of it simulated, nothing scripted.</sub></p>
 
 **Buildings are made of parts.** A house is dozens to hundreds of single planks, beams, stones, shingles, bells and barrels. Each part
 has its own material (wood, plank, stone, brick, thatch, cloth, metal, hay, glass) with density, friction, bounciness, break strength and

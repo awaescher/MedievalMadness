@@ -4,6 +4,7 @@ Rough release notes, newest first. Versions before 1.10.0 are reconstructed from
 **Rule: this file and `SPEC.md` are updated with every change.** The patch number rises with every build (`export.sh`).
 
 ## Unreleased
+- **Physics GIF re-recorded**: starts earlier (the Drill Bomb is seen flying in over the village and lying there before it goes off), 15 % bigger (552 px instead of 480 px, shown at its full width); 39 frames, 775 KB (the slow end part uses fewer frames to stay under 800 KB). The intro sentence of the physics section now stands above the GIF.
 - **README "Physics is the game" expanded**: parts and materials, support rule, ballistics with wind, the ground (craters, landslides, Drill Bomb), fire / water / powder and ragdolls, each with what the simulation really does.
 - **README slimmed down**: removed the outdated sections "Ready-made builds", "Weapons, posts and rules (v1.1)", "Powder, dents and landslides (v1.2)", "Versions" and "Phones and tablets"; "Rules in one minute" is now "Rules in twenty seconds".
 - **New README screenshot** (`docs/game.png`, 4 players, a catapult in the foreground and further villages on the hills behind); **longer physics GIF** (`docs/physics.gif`): 10 fps in real time, 42 frames (about 4 s plus a pause on the last frame, 480 px, 730 KB; starts when the bomb hits the village, ends a bit after the debris has settled): the explosion, the collapse and the debris rolling together in the pit (the earlier versions were too short and thinned out, which stuttered).
