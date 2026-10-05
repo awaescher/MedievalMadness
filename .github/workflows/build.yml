@@ -40,10 +40,19 @@ jobs:
           MM_BUILD_NUMBER: ${{ github.run_number }}
         run: ./export.sh
 
+      - name: Package one ZIP per platform
+        run: |
+          VER="$(tr -d '[:space:]' < VERSION)"
+          mkdir -p dist
+          (cd build/windows && zip -q "../../dist/MedievalMadness-$VER-Windows.zip" MedievalMadness.exe)
+          cp build/macos/MedievalMadness.zip "dist/MedievalMadness-$VER-macOS.zip"
+          (cd build/linux && zip -q "../../dist/MedievalMadness-$VER-Linux.zip" MedievalMadness.x86_64)
+          ls -l dist
+
       - uses: actions/upload-artifact@v4
         with:
           name: medieval-madness
-          path: build/
+          path: dist/
           if-no-files-found: error
 
       - name: Release notes from CHANGELOG.md
@@ -68,7 +77,4 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: v${{ env.VER }}
           body_path: release_notes.md
-          files: |
-            build/windows/*
-            build/macos/*.zip
-            build/linux/*
+          files: dist/*.zip
