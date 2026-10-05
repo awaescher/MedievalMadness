@@ -121,6 +121,15 @@ static func add_puddle(pos: Vector3, radius: float) -> void:
 		return
 	if _disc == null:
 		_disc = MeshGen.disc_mesh(1.0, 24)
+	# water does not lie on a slope: a flat disc would hover over the downhill side (and the water would just run off)
+	var probes: PackedFloat32Array = _probe_heights(pos, radius)
+	var lo: float = probes[0]
+	var hi: float = probes[0]
+	for hv in probes:
+		lo = minf(lo, hv)
+		hi = maxf(hi, hv)
+	if hi - lo > 0.18 + radius * 0.04:
+		return
 	var pd := Puddle.new()
 	pd.node = MeshInstance3D.new()
 	pd.node.mesh = _disc
