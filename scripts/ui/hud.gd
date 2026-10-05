@@ -70,6 +70,7 @@ class AmmoSlot extends Control:
 	var hovered: bool = false
 	var enabled: bool = true
 	var gift_from: String = ""         # a team mate offers this weapon for this turn
+	var icon_only: bool = false        # draw only the icon (no frame, key or count): used in the menus
 	signal clicked
 	func _init() -> void:
 		custom_minimum_size = Vector2(52, 52)
@@ -121,6 +122,13 @@ class AmmoSlot extends Control:
 	const ICON_SCALE := 0.6
 	func _draw() -> void:
 		if ammo == null:
+			return
+		if icon_only:
+			# just the weapon icon, scaled to the control (menus)
+			var isc: float = size.x / 52.0 * 0.85
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2(isc, isc))
+			_draw_icon(size * 0.5 / isc - Vector2(0, 2), true)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			return
 		var action: bool = ammo.is_action()
 		var bg: Color = Color("#f4e4bc") if enabled else Color("#b9a98a")

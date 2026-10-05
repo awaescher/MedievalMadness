@@ -799,10 +799,12 @@ func _open_arsenal() -> void:
 			continue
 		var hb := HBoxContainer.new()
 		hb.add_theme_constant_override("separation", 10)
-		var dot := ColorRect.new()
-		dot.custom_minimum_size = Vector2(22, 22)
-		dot.color = ammo.color
-		hb.add_child(dot)
+		var icon := Hud.AmmoSlot.new()
+		icon.ammo = ammo
+		icon.icon_only = true
+		icon.custom_minimum_size = Vector2(44, 44)
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_child(icon)
 		var nm: Label = UITheme.label(I18n.t("ammo." + ammo.id), 17, UITheme.INK, true)
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		hb.add_child(nm)
