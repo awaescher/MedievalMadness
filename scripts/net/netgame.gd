@@ -90,7 +90,7 @@ static func make_cfg(rows_cfg: Array, seat_count: int) -> Dictionary:
 			row["net_peer"] = -1
 		row["color"] = int(row["color"])
 		players.append(row)
-	return {"k": "start", "seed": Settings.seed_text, "nonce": str(randi()), "players": players, "timer": Settings.timer, "cats": Settings.catapult_count, "posts": Settings.palisade_count, "hills": Settings.terrain_hills, "arsenal": Settings.arsenal.duplicate(), "rules": Settings.effective_rule_level(), "crates": Settings.crates_on, "rquarry": Settings.arsenal_preset == "quarry", "ver": Cfg.game_version()}
+	return {"k": "start", "seed": Settings.seed_text, "nonce": str(randi()), "players": players, "timer": Settings.timer, "cats": Settings.catapult_count, "posts": Settings.palisade_count, "hills": Settings.terrain_hills, "arsenal": Settings.arsenal.duplicate(), "rules": Settings.effective_rule_level(), "crates": Settings.crates_on, "wind": Settings.wind_level, "rquarry": Settings.arsenal_preset == "quarry", "ver": Cfg.game_version()}
 
 static func host_start(cfg: Dictionary) -> void:
 	Net.send_all(cfg)
