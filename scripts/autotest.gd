@@ -1319,6 +1319,12 @@ static func run(main: Node, name: String) -> void:
 			var hp1: float = Breakable.village_hp(1)
 			say("meteor: village HP %.0f -> %.0f (%.0f%% destroyed), crater depth at the point %.1f m, bullet time seen: %s, time scale %.2f" % [hp0, hp1, 100.0 * (1.0 - hp1 / maxf(hp0, 1.0)), ground0 - Terrain.h(tp.x, tp.z), str(slow_seen), Engine.time_scale])
 			await shot("meteor_5_after")
+		"arsenal":
+			await wait_loaded()
+			await seconds(1.0)
+			(m.get("menu") as Menu).call("_open_arsenal")
+			await seconds(0.6)
+			await shot("arsenal_dialog")
 		"drillbomb":
 			await wait_loaded()
 			Settings.palisade_count = 1

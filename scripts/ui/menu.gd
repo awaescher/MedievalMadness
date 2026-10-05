@@ -784,6 +784,15 @@ func _open_arsenal() -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.custom_minimum_size = Vector2(540, 0)
 	vb.add_child(hint)
+	# the weapon rows scroll when the window is too small for all of them
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(0, clampf(get_viewport_rect().size.y - 230.0, 200.0, 560.0))
+	vb.add_child(scroll)
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", 8)
+	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(rows)
 	for a in AmmoDef.all():
 		var ammo: AmmoDef = a
 		if ammo.is_action():
@@ -831,7 +840,7 @@ func _open_arsenal() -> void:
 			hb.add_child(inf)
 		else:
 			hb.add_child(UITheme.label(I18n.t("menu.always"), 16, Color("#2e7d32"), true))
-		vb.add_child(hb)
+		rows.add_child(hb)
 	var ok: Button = UITheme.dialog_button(I18n.t("menu.ok"), "GreenButton")
 	var commit := func() -> void:
 		if Settings.arsenal_preset == "custom":
