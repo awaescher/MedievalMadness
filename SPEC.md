@@ -1181,13 +1181,13 @@ Goal: a player downloads one file per platform, double-clicks it, and plays. No 
 |---|---|---|
 | `Windows` | Windows Desktop, x86_64 | output `build/windows/MedievalMadness.exe`; **embed PCK** on (single .exe); no code signing; icon from `icon.svg` if the toolchain allows, otherwise engine default |
 | `macOS` | macOS, **universal** (arm64 + x86_64) | output `build/macos/MedievalMadness.zip` containing `MedievalMadness.app`; bundle id `com.example.medievalmadness`; ad-hoc/no signing and no notarization (documented in README: right-click → Open); `application/min_macos_version` 12.0 |
-| `Linux` | Linux, x86_64 | output `build/linux/MedievalMadness.x86_64`; **embed PCK** on (single file); README notes `chmod +x` |
+| `Linux` | Linux, x86_64 | output `build/linux/MedievalMadness`; **embed PCK** on (single file); README notes `chmod +x` |
 
 Export runs headless with the matching export templates installed:
 ```
 godot --headless --path . --export-release "Windows" build/windows/MedievalMadness.exe
 godot --headless --path . --export-release "macOS"   build/macos/MedievalMadness.zip
-godot --headless --path . --export-release "Linux"   build/linux/MedievalMadness.x86_64
+godot --headless --path . --export-release "Linux"   build/linux/MedievalMadness
 ```
 `export.sh` / `export.bat` create the `build/*` directories, run all three exports, print sizes and fail loudly on error. `build/` is git-ignored (add `.gitignore`).
 `export.sh` / `export.bat` also (1) **increase the patch number in `VERSION` and write the version into `export_presets.cfg`** (macOS `application/short_version` + `application/version`, Windows file / product version, iOS, Android `version/name` + `version/code` = major×10000 + minor×100 + patch; so Finder, Explorer and the stores show the real version) (so the version in the menu counts up with every build), (2) copy `relay/PROTOCOL.md`, `relay/template/relay_node.mjs` and `relay/template/check.mjs` to `assets/relay_help/{spec,relay_node,check}.txt` (the presets use `include_filter="VERSION, assets/relay_help/*"` and `exclude_filter="build/*, *.md, run.sh, run.bat, export.sh, export.bat, relay/*"`).
@@ -1204,7 +1204,7 @@ godot --headless --path . --export-release "Linux"   build/linux/MedievalMadness
 - Test matrix to run at least once per platform available to the implementer: start game → menu → 2-player human vs. Peasant game to completion → quit; verify settings persist after restart.
 
 ### 25.2b GitHub Actions
-`.github/workflows/build.yml` (repository root = the project folder) installs Godot 4.7.2 and its export templates on `ubuntu-latest`, runs `./export.sh` with `MM_BUILD_NUMBER=$GITHUB_RUN_NUMBER - BUILD_BASE` (becomes the patch number) and uploads `build/` as an artifact; every push to `main` and every tag `v*` also creates a GitHub release `v<major.minor.run>` with one ZIP per platform attached (Windows, macOS, Linux and the ARM64 builds of Windows and Linux) (`MedievalMadness-<version>-Windows.zip` / `-macOS.zip` / `-Linux.zip`, built by a packaging step after `./export.sh`; the CI artifact holds the same ZIPs) (release text from `CHANGELOG.md`: only what is new since the previous release; the patch is the run number minus `BUILD_BASE`). The macOS build is **ad-hoc signed** by Godot's built-in signer (`codesign/codesign=1`, no certificate needed, works on Linux): without any signature Apple-Silicon Macs report downloaded apps as "damaged". It is not notarized, so Gatekeeper still asks on first launch.
+`.github/workflows/build.yml` (repository root = the project folder) installs Godot 4.7.2 and its export templates on `ubuntu-latest`, runs `./export.sh` with `MM_BUILD_NUMBER=$GITHUB_RUN_NUMBER - BUILD_BASE` (becomes the patch number) and uploads `build/` as an artifact; every push to `main` and every tag `v*` also creates a GitHub release `v<major.minor.run>` with one ZIP per platform attached (Windows, macOS, Linux and the ARM64 builds of Windows and Linux) (`MedievalMadness-<version>-Windows-x64.zip` / `-Windows-arm64.zip` / `-macOS-universal.zip` / `-Linux-x64.zip` / `-Linux-arm64.zip`, built by a packaging step after `./export.sh`; the CI artifact holds the same ZIPs) (release text from `CHANGELOG.md`: only what is new since the previous release; the patch is the run number minus `BUILD_BASE`). The macOS build is **ad-hoc signed** by Godot's built-in signer (`codesign/codesign=1`, no certificate needed, works on Linux): without any signature Apple-Silicon Macs report downloaded apps as "damaged". It is not notarized, so Gatekeeper still asks on first launch.
 
 ### 25.3 Optional (out of scope unless everything else is done)
 Web export, mobile, gamepad, online multiplayer, code signing/notarization, auto-updater, installers.

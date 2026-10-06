@@ -30,10 +30,10 @@ All graphics are procedural and all sounds are synthesized at startup; the only 
 
 **Download** (Releases page, one ZIP per platform), unzip, start:
 
-* **Windows**: run `MedievalMadness.exe` (ARM PCs: the `Windows-ARM64` ZIP).
+* **Windows**: run `MedievalMadness.exe` (ARM PCs: the `Windows-arm64` ZIP).
 * **macOS**: the app is only ad-hoc signed (no paid Apple developer account), so macOS warns on the first start ("cannot be opened" / "is damaged"). Either right-click the app -> *Open* -> *Open*, or on newer macOS go to *System Settings -> Privacy & Security* and press *Open Anyway* after the first blocked start, or remove the quarantine flag once:
   `xattr -dr com.apple.quarantine "Medieval Madness.app"`
-* **Linux** (any current distribution, e.g. Ubuntu, Arch / CachyOS; `uname -m` tells your CPU: `x86_64` -> the `Linux` ZIP, `aarch64` -> the `Linux-ARM64` ZIP): `chmod +x MedievalMadness.x86_64 && ./MedievalMadness.x86_64` (ARM: `MedievalMadness.arm64`). It needs no Vulkan: Linux uses the OpenGL (Compatibility) renderer by default. With a working Vulkan driver you can get the full look: `./MedievalMadness.x86_64 --rendering-method forward_plus`.
+* **Linux** (any current distribution, e.g. Ubuntu, Arch / CachyOS; `uname -m` tells your CPU: `x86_64` -> the `Linux-x64` ZIP, `aarch64` -> the `Linux-arm64` ZIP): `chmod +x MedievalMadness && ./MedievalMadness`. It needs no Vulkan: Linux uses the OpenGL (Compatibility) renderer by default. With a working Vulkan driver you can get the full look: `./MedievalMadness.x86_64 --rendering-method forward_plus`.
 
 **From source** (needs Godot):
 
@@ -53,7 +53,7 @@ Needs `godot` (4.4 or newer, standard non-.NET build) on the `PATH`; on macOS `b
 Every export increases the patch number in `VERSION` (shown in the menu and sent when joining online).
 
 The export presets live in `export_presets.cfg` (Windows x86_64 single .exe with embedded PCK, macOS universal .zip,
-Linux x86_64 single file). They need the matching Godot **export templates** (Editor -> Manage Export Templates).
+Linux x64 and arm64 single files, Windows arm64 too). They need the matching Godot **export templates** (Editor -> Manage Export Templates).
 `build/` is git-ignored.
 
 ## Controls

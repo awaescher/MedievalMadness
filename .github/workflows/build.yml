@@ -47,11 +47,11 @@ jobs:
         run: |
           VER="$(tr -d '[:space:]' < VERSION)"
           mkdir -p dist
-          (cd build/windows && zip -q "../../dist/MedievalMadness-$VER-Windows.zip" MedievalMadness.exe)
-          cp build/macos/MedievalMadness.zip "dist/MedievalMadness-$VER-macOS.zip"
-          (cd build/linux && zip -q "../../dist/MedievalMadness-$VER-Linux.zip" MedievalMadness.x86_64)
-          (cd build/windows-arm64 && zip -q "../../dist/MedievalMadness-$VER-Windows-ARM64.zip" MedievalMadness.exe)
-          (cd build/linux-arm64 && zip -q "../../dist/MedievalMadness-$VER-Linux-ARM64.zip" MedievalMadness.arm64)
+          (cd build/windows && zip -q "../../dist/MedievalMadness-$VER-Windows-x64.zip" MedievalMadness.exe)
+          cp build/macos/MedievalMadness.zip "dist/MedievalMadness-$VER-macOS-universal.zip"
+          (cd build/linux && zip -q "../../dist/MedievalMadness-$VER-Linux-x64.zip" MedievalMadness)
+          (cd build/windows-arm64 && zip -q "../../dist/MedievalMadness-$VER-Windows-arm64.zip" MedievalMadness.exe)
+          (cd build/linux-arm64 && zip -q "../../dist/MedievalMadness-$VER-Linux-arm64.zip" MedievalMadness)
           ls -l dist
 
       - uses: actions/upload-artifact@v4
