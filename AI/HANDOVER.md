@@ -166,9 +166,8 @@ godot --headless --import --path .
 
 1. **Run the tests before you call something done.** The logic tests are fast and catch most breakage (i18n key mismatches, map
    generation, ballistics, building generation). If you only ran some of them, say which.
-2. **Update `SPEC.md` and `CHANGELOG.md` in the same change.** SPEC is how the next agent understands the rules; stale documentation
-   caused real drift in the past (the renderer section said "Mobile" while the project used Forward+ / Compatibility). CHANGELOG gets one
-   short, player-facing line under `## Unreleased` (see section 7).
+2. **Update `SPEC.md` in the same change.** SPEC is how the next agent understands the rules; stale documentation
+   caused real drift in the past (the renderer section said "Mobile" while the project used Forward+ / Compatibility). Release notes come from your commit messages (see section 7).
 3. **Both languages, always.** Texts are keys in `scripts/lang/en.gd` and `de.gd`. The two files must have identical key sets
    (`tests/test_i18n.gd` fails otherwise). Never hard-code a visible string. Names of players and the language names are the only exceptions.
 4. **Online correctness.** The host decides gameplay; guests only display. Consequences: gameplay randomness uses `Game.rng_battle`
@@ -211,7 +210,7 @@ menu UI. Missing one gives a bug that only shows online. The reference implement
    `_host_only(control)` so guests see it disabled.
 6. `scripts/lang/en.gd` + `de.gd`: the label under `"menu"`.
 7. Use it where the behaviour happens (e.g. `Placement.start`).
-8. SPEC.md (options section / the system that uses it) and CHANGELOG.md.
+8. SPEC.md (options section / the system that uses it) and a player-facing commit message.
 
 ### 5.2 Add a **weapon (ammo)**
 
@@ -239,7 +238,7 @@ Create the script, add `class_name X`, run `godot --headless --import --path .`,
 ### 5.6 Add a **gameplay rule that grants / punishes**
 
 Put the rule in the system that owns the topic (rewards in `Unlocks`, scoring in `Scoring`), use `Game.rng_battle` for randomness, make it
-host-only, add texts (5.3), document it in SPEC and write a player-facing line in CHANGELOG.
+host-only, add texts (5.3), document it in SPEC and describe it for players in the commit message.
 
 ### 5.7 Add or change **UI**
 
@@ -374,10 +373,9 @@ by `save_settings()`. Autotests do not save. "Reset options" (`reset_options`) r
   artifact, and (for `main` and tags) creates a GitHub release `v<major.minor.patch>`. **CI does not run the tests**; you must.
 - **Patch number in CI** = GitHub run number minus the number in the file `BUILD_BASE`. When the minor (or major) version is raised, set `VERSION`
   and set `BUILD_BASE` to the run number of the last run, so the new series starts at `.1`.
-- **Release text** comes from `CHANGELOG.md`: the CI takes the `## Unreleased` section and, if a previous release exists, only the lines that
-  are new compared to that release's own `## Unreleased`. While `## Unreleased` is empty (first build of a new minor), it uses
-  `## <major>.<minor>.0`. When you raise the minor version: move the content of `## Unreleased` into a new `## X.Y.0` section.
-- Write release notes **for players**, one line per change, bold lead phrase, no code names, no file names. Technical details belong in SPEC.md.
+- **Release text** = the commit messages between the previous release tag and this build (`git log PREV..HEAD`, merge and "Bump build number"
+  commits skipped): subject as a bold line, body lines below it. There is no changelog file. v1.11.12 therefore contains only what came in since
+  v1.11.11. Write commit messages **for players**: what changed, short, no code or file names; technical details belong in SPEC.md.
 - **macOS builds are ad-hoc signed** (`codesign/codesign=1`, Godot's built-in signer, works in the Linux CI). Without a paid Apple developer account
   a downloaded app still triggers Gatekeeper once (README explains the manual steps). Real notarisation is not set up.
 - Do not create or delete GitHub releases or tags unless the owner asks.
@@ -397,8 +395,8 @@ This is the history of the last working days, so you understand why things look 
 - **Wind option** (none / light / strong, host only online) with re-tuned strengths.
 - **Drill bomb** weapon (drills to sea level, explodes underground, the ground caves in), earned by wrecking an enemy church or watchtower; starting
   arsenal dialog got real weapon icons and scrolls.
-- **Release pipeline**: CI releases every push, one ZIP per platform, macOS ad-hoc signed, patch numbers relative to `BUILD_BASE`, short
-  player-facing `CHANGELOG.md` (the GitHub release text is generated from it).
+- **Release pipeline**: CI releases every push, one ZIP per platform, macOS ad-hoc signed, patch numbers relative to `BUILD_BASE`, release
+  text generated from the commit messages since the previous release.
 - **Everything follows the ground**: rocks / bushes / flowers lean with the slope and are re-seated after terrain changes; animals and settlers
   follow the soil every frame (also when standing); puddles vanish when the ground changes and are never created on slopes.
 - **Leaked flames fixed**: burning settlers / animals that died kept a flame in the world.
@@ -409,7 +407,7 @@ This is the history of the last working days, so you understand why things look 
 - **HUD polish**: proper catapult icons (`CatGlyph`), selector directly above Fast-forward, autosizing aim box, an announcer banner that fits the window
   (a first version using `fit_content` was far too big and was fixed), scrollable menu options, translated loading screen.
 - **Docs**: README rewritten (run instructions for all platforms, "Physics is the game" with GIF, new screenshot, outdated sections removed),
-  renderer facts corrected (Forward+ / Compatibility on Linux / Mobile on phones), `AGENTS.md`, this guide, and a short, player-facing 1.11.0 section in `CHANGELOG.md` (the older technical detail stays in the git history).
+  renderer facts corrected (Forward+ / Compatibility on Linux / Mobile on phones), `AGENTS.md`, this guide; no changelog file any more (the release text comes from the commit messages).
 
 ---
 
@@ -465,7 +463,7 @@ This is the history of the last working days, so you understand why things look 
 - The owner reviews visually and will tell you when something looks wrong ("zu groß", "ruckelt"). When you have a screenshot or GIF, check it
   yourself first and describe what you see, including weaknesses.
 - Keep answers short and concrete: what changed, what you verified, what is open. Give a recommendation when you ask a question.
-- Update the documents (SPEC, CHANGELOG) yourself; do not leave it for later.
+- Update the documents (SPEC) yourself; do not leave it for later.
 - Commit messages: short, imperative, one line plus an optional short body. Do not add co-author trailers. Commit when a change is finished and
   verified; push only when asked. Never run history-changing or destructive git commands unless the owner explicitly asks for that exact action.
 - If a tool or permission is denied, do not look for a workaround that achieves the same thing; report what you wanted to do and why, and let

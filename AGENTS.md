@@ -7,7 +7,8 @@ build and test it). The long guide with background, rules of thumb and lessons l
 ## What this is
 
 Medieval Madness: a turn-based, physics-heavy 3D artillery game (Godot 4, GDScript only, Jolt Physics) for 2-8 players, hot-seat or
-online. Everything (graphics, sounds, jokes) is generated in code; there are no art or audio assets. `SPEC.md` is the full
+online. Graphics, sounds and jokes are generated in code; there are no audio, font or model assets. The only image files are a few CC0 ambientCG
+textures in `assets/textures/` that the "Natural" graphics style projects onto buildings and terrain. `SPEC.md` is the full
 specification and the source of truth for rules, numbers and file contracts.
 
 ## Rules for every change
@@ -15,10 +16,11 @@ specification and the source of truth for rules, numbers and file contracts.
 1. **Run the tests** before you say something is done:
    `godot --headless --path . --script res://tests/run_tests.gd` (logic, about 3900 assertions) and, for gameplay code,
    `godot --path . -- --autotest=units` (in-scene physics, fire, ragdolls).
-2. **Keep documents current in the same change**: `SPEC.md` (rules, numbers, contracts) and `CHANGELOG.md` (one short,
-   player-facing line under `## Unreleased`, bold lead phrase, no code or file names). **The GitHub release text is generated from
-   the CHANGELOG** and shows only the entries the previous release does not have yet, so a change without an entry is
-   missing from the release. When the minor version is raised, move `## Unreleased` into `## <major>.<minor>.0` and raise `BUILD_BASE`.
+2. **Keep `SPEC.md` current in the same change** (rules, numbers, contracts). There is no changelog file: **the GitHub release text is
+   built from the commit messages** between the previous release tag and the build (v1.11.12 lists only what came in since v1.11.11).
+   So write every commit message for players: a short subject that says what changed, optionally a few `- ` bullet lines in the body;
+   no code or file names, no "fix typo" noise (merge and "Bump build number" commits are skipped). When the minor version is raised,
+   raise `BUILD_BASE`.
 3. **Build a binary** after a change with `./export.sh` (it also raises the patch number in `VERSION`).
 4. **Both languages**: every visible text lives in `scripts/lang/en.gd` and `de.gd` with identical keys (`tests/test_i18n.gd` checks it).
 5. **Online play is host-authoritative**: gameplay randomness uses `Game.rng_battle`, never `randf()`; every match option must travel in

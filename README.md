@@ -24,7 +24,7 @@ just something heavy flying into it. What happens next is up to the simulation.
 * **Settlers and animals are ragdolls**: hit one and it flies.
 
 Built with **Godot 4.4+ (tested with 4.7.2)**, GDScript only, Jolt Physics. Renderer: Forward+ on Windows and macOS, Compatibility (OpenGL) on Linux, Mobile on phones.
-All graphics are procedural and all sounds are synthesized at startup; the only image files are CC0 textures used by the Natural graphics style (see Credits).
+Meshes, shaders and sounds are generated in code at startup. The only image files are a few CC0 material textures (ambientCG) that the Natural graphics style projects onto buildings, ground and trees; all other styles use no image files (see Credits).
 
 ## Run
 
@@ -91,7 +91,7 @@ a match needs at least two colours). Turn order stays as it is. A team wins toge
 left. Allies are not targeted by the bots or by `R`, hits on allies count as own goals, markers set on the map are shown to the
 whole team (online too), every village has a flagpole in its team colour and window frames in a darker shade of it.
 
-See [CHANGELOG.md](CHANGELOG.md) for the release notes (kept up to date together with `SPEC.md`).
+The release notes of every GitHub release are the commit messages since the previous release.
 
 ## Rules in twenty seconds
 
@@ -133,3 +133,7 @@ The **Natural** graphics style uses material textures from ambientCG:
 Created using [Bark014](https://ambientcg.com/a/Bark014), [Wood092](https://ambientcg.com/a/Wood092), [Granite002A](https://ambientcg.com/a/Granite002A), [Bricks097](https://ambientcg.com/a/Bricks097), [ThatchedRoof001A](https://ambientcg.com/a/ThatchedRoof001A), [Fabric081C](https://ambientcg.com/a/Fabric081C), [Metal049A](https://ambientcg.com/a/Metal049A), [Grass004](https://ambientcg.com/a/Grass004), [Grass007](https://ambientcg.com/a/Grass007), [Ground110](https://ambientcg.com/a/Ground110), [RoofingTiles004](https://ambientcg.com/a/RoofingTiles004) and [PavingStones150](https://ambientcg.com/a/PavingStones150) from [ambientCG.com](https://ambientcg.com), licensed under the Creative Commons CC0 1.0 Universal License.
 
 Made with Godot Engine. Everything else (code, look, sounds, jokes) is original; no other external assets are used.
+
+## License
+
+The code is released under the [MIT License](LICENSE). The ambientCG textures are CC0 (public domain).
