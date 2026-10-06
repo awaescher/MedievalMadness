@@ -30,10 +30,10 @@ All graphics are procedural and all sounds are synthesized at startup; the only 
 
 **Download** (Releases page, one ZIP per platform), unzip, start:
 
-* **Windows**: run `MedievalMadness.exe`.
+* **Windows**: run `MedievalMadness.exe` (ARM PCs: the `Windows-ARM64` ZIP).
 * **macOS**: the app is only ad-hoc signed (no paid Apple developer account), so macOS warns on the first start ("cannot be opened" / "is damaged"). Either right-click the app -> *Open* -> *Open*, or on newer macOS go to *System Settings -> Privacy & Security* and press *Open Anyway* after the first blocked start, or remove the quarantine flag once:
   `xattr -dr com.apple.quarantine "Medieval Madness.app"`
-* **Linux** (x86_64 only; any current distribution, e.g. Ubuntu, Arch / CachyOS): `chmod +x MedievalMadness.x86_64 && ./MedievalMadness.x86_64`. It needs no Vulkan: Linux uses the OpenGL (Compatibility) renderer by default. With a working Vulkan driver you can get the full look: `./MedievalMadness.x86_64 --rendering-method forward_plus`.
+* **Linux** (any current distribution, e.g. Ubuntu, Arch / CachyOS; `uname -m` tells your CPU: `x86_64` -> the `Linux` ZIP, `aarch64` -> the `Linux-ARM64` ZIP): `chmod +x MedievalMadness.x86_64 && ./MedievalMadness.x86_64` (ARM: `MedievalMadness.arm64`). It needs no Vulkan: Linux uses the OpenGL (Compatibility) renderer by default. With a working Vulkan driver you can get the full look: `./MedievalMadness.x86_64 --rendering-method forward_plus`.
 
 **From source** (needs Godot):
 

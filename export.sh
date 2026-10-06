@@ -36,7 +36,7 @@ if ! command -v "$GODOT" >/dev/null 2>&1; then
 fi
 echo "Using $($GODOT --version)"
 
-mkdir -p build/windows build/macos build/linux
+mkdir -p build/windows build/macos build/linux build/windows-arm64 build/linux-arm64
 "$GODOT" --headless --path . --import >/dev/null 2>&1 || true
 
 fail=0
@@ -52,6 +52,8 @@ export_one() {
 export_one "Windows" "build/windows/MedievalMadness.exe"
 export_one "macOS" "build/macos/MedievalMadness.zip"
 export_one "Linux" "build/linux/MedievalMadness.x86_64"
+export_one "Windows ARM" "build/windows-arm64/MedievalMadness.exe"
+export_one "Linux ARM" "build/linux-arm64/MedievalMadness.arm64"
 
 # optional: Xcode project for iOS (IOS=1 ./export.sh); the .ipa step of Godot needs the iOS platform component of Xcode
 if [ "${IOS:-0}" = "1" ]; then
@@ -77,7 +79,7 @@ fi
 
 echo
 echo "Sizes:"
-for f in build/windows/MedievalMadness.exe build/macos/MedievalMadness.zip build/linux/MedievalMadness.x86_64; do
+for f in build/windows/MedievalMadness.exe build/macos/MedievalMadness.zip build/linux/MedievalMadness.x86_64 build/windows-arm64/MedievalMadness.exe build/linux-arm64/MedievalMadness.arm64; do
   if [ -f "$f" ]; then
     printf '  %-45s %s\n' "$f" "$(du -h "$f" | cut -f1)"
   else
