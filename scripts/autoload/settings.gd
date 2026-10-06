@@ -24,7 +24,8 @@ var crates_on: bool = true               # supply crates (meteor crate + small b
 var auto_quality: bool = true
 var fullscreen: bool = false
 var vsync: bool = false
-var cinema: bool = false                # cinema mode: the camera follows the action of the others like a film
+var cinema: bool = false                # cinematic camera (not saved: every new game starts with it off)
+var music_volume: float = 0.3          # background music (own bus), quieter than the effects by default
 var glass: bool = true                   # frosted-glass look of menus and HUD (off: plain translucent panels)
 var cpu_particles: bool = false
 var win_size: Vector2i = Vector2i(1600, 900)
@@ -97,7 +98,7 @@ func load_settings() -> void:
 	fullscreen = bool(cf.get_value("main", "fullscreen", fullscreen))
 	vsync = bool(cf.get_value("main", "vsync", vsync))
 	glass = bool(cf.get_value("main", "glass", glass))
-	cinema = bool(cf.get_value("main", "cinema", cinema))
+	music_volume = clampf(float(cf.get_value("main", "music_volume", music_volume)), 0.0, 1.0)
 	cpu_particles = bool(cf.get_value("main", "cpu_particles", cpu_particles))
 	player_count = clampi(int(cf.get_value("main", "player_count", player_count)), Cfg.MIN_PLAYERS, Cfg.MAX_PLAYERS)
 	seed_text = str(cf.get_value("main", "seed_text", seed_text))
@@ -190,6 +191,7 @@ func reset_display_options() -> void:
 	auto_quality = true
 	vsync = false
 	glass = true
+	music_volume = 0.3
 	fullscreen = false
 	apply_display()
 	apply_volume()
@@ -235,7 +237,7 @@ func _save_now() -> void:
 	cf.set_value("main", "fullscreen", fullscreen)
 	cf.set_value("main", "vsync", vsync)
 	cf.set_value("main", "glass", glass)
-	cf.set_value("main", "cinema", cinema)
+	cf.set_value("main", "music_volume", music_volume)
 	cf.set_value("main", "cpu_particles", cpu_particles)
 	cf.set_value("main", "player_count", player_count)
 	cf.set_value("main", "seed_text", seed_text)
@@ -287,6 +289,9 @@ func toggle_fullscreen() -> void:
 	set_fullscreen(not fullscreen)
 
 func apply_volume() -> void:
+	var mus: Node = get_node_or_null("/root/Music")
+	if mus != null:
+		mus.call("apply_volume")
 	var v: float = clampf(volume, 0.0, 1.0)
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(v, 0.0001)))
 	AudioServer.set_bus_mute(0, v <= 0.001)

@@ -533,6 +533,7 @@ func _build_net_players(cfg: Dictionary) -> Array[PlayerData]:
 func _start_game(seed_text: String, keep_layout: bool = false, net_cfg: Dictionary = {}) -> void:
 	if _generating:
 		return
+	Settings.cinema = false          # the cinematic camera is never kept from a previous game
 	if not net_cfg.is_empty():
 		Game.layout_nonce = str(net_cfg["nonce"])
 	# the seed decides the terrain; the village layout gets a fresh nonce for every new match (kept for "same map")

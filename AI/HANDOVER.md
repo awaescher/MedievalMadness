@@ -354,7 +354,9 @@ per-instance shader parameter, add a Compatibility path too.
 ### 6.10 Audio
 
 All sound is synthesised at start-up (`core/synth.gd`, `core/sound_recipes.gd`, `autoload/sfx.gd`). There are no audio files. New sounds are new
-recipes.
+recipes. The background music (`core/music_gen.gd`, `autoload/music.gd`) is composed and rendered by the game too; to add a song add an entry to `MusicGen.SONGS`
+(mode, tempo, lead instrument, chord progression, seed). Check new songs by rendering them headless (about 6 s each) and by listening - the numbers
+(rms, peak) do not tell you whether it sounds good.
 
 ### 6.11 Settings
 

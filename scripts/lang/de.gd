@@ -915,6 +915,7 @@ const DATA := {
 		"sound": "Ton",
 		"graphics_note": "Höhere Qualität und Raymarching-Licht brauchen eine schnelle Grafikkarte. Auto-Qualität senkt das Detail, wenn das Spiel ruckelt.",
 		"reset": "Einstellungen zurücksetzen",
+		"music": "Musiklautstärke",
 		"glass": "Transparenzeffekte (nach Neustart)",
 	},
 	"pause": {

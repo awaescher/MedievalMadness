@@ -915,6 +915,7 @@ const DATA := {
 		"sound": "Sound",
 		"graphics_note": "Higher quality and ray-marched lighting need a fast graphics card. Auto quality lowers the detail when the game gets slow.",
 		"reset": "Reset settings",
+		"music": "Music volume",
 		"glass": "Transparency effects (after restart)",
 	},
 	"pause": {

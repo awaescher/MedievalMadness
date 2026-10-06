@@ -103,6 +103,15 @@ func _build() -> void:
 		Settings.apply_volume())
 	vs.drag_ended.connect(func(_ch: bool) -> void: Sfx.play("ui_click", Vector3.INF, 0.7, 0))
 	right.add_child(_row(I18n.t("menu.volume"), vs))
+	var ms := HSlider.new()
+	ms.min_value = 0.0
+	ms.max_value = 1.0
+	ms.step = 0.05
+	ms.value = Settings.music_volume
+	ms.value_changed.connect(func(x: float) -> void:
+		Settings.music_volume = x
+		Music.apply_volume())
+	right.add_child(_row(I18n.t("settings.music"), ms))
 	# ---- language
 	right.add_child(_section(I18n.t("menu.language")))
 	var flags := HBoxContainer.new()

@@ -49,7 +49,7 @@ func _ready() -> void:
 		var p3 := AudioStreamPlayer3D.new()
 		p3.unit_size = 20.0
 		p3.max_distance = 250.0
-		p3.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE
+		p3.attenuation_model = AudioStreamPlayer3D.ATTENUATION_DISABLED          # no volume falloff with the distance (enemy villages were too quiet); only the direction (panning) stays
 		p3.bus = "Master"
 		add_child(p3)
 		_players_3d.append(p3)
@@ -191,8 +191,9 @@ func play(sname: String, pos: Vector3 = Vector3.INF, volume: float = 1.0, priori
 		p3.stream = stream
 		p3.pitch_scale = pitch
 		var creature: bool = CREATURES.has(sname)
+		p3.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE if creature else AudioStreamPlayer3D.ATTENUATION_DISABLED
 		p3.unit_size = 5.0 if creature else 20.0
-		p3.max_distance = 70.0 if creature else 250.0
+		p3.max_distance = 70.0 if creature else 0.0          # (0 = no limit)
 		p3.volume_db = db - (3.0 if creature else 0.0)
 		p3.global_position = pos
 		_prio_3d[idx3] = priority

@@ -17,6 +17,7 @@ Settings="*res://scripts/autoload/settings.gd"
 I18n="*res://scripts/autoload/i18n.gd"
 Game="*res://scripts/autoload/game.gd"
 Sfx="*res://scripts/autoload/sfx.gd"
+Music="*res://scripts/autoload/music.gd"
 Net="*res://scripts/autoload/net.gd"
 
 [debug]
