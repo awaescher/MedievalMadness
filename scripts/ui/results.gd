@@ -19,6 +19,13 @@ func _ready() -> void:
 	Glass.watch(self)
 	visible = false
 
+## Joke explanation of a title (looked up by its translated name)
+func tip_for(title_text: String) -> String:
+	for k in ["cow_launcher", "pyro", "pacifist", "sniper", "fisherman", "destroyer", "settler_bowler", "self_own", "firefighter", "cheesemaster", "longshot", "survivor", "loser"]:
+		if I18n.t("title." + k) == title_text:
+			return I18n.t("title_tip." + k)
+	return ""
+
 func show_results(winner: int, replay_available: bool) -> void:
 	_winner = winner
 	has_replay = replay_available
@@ -173,6 +180,8 @@ func show_results(winner: int, replay_available: bool) -> void:
 				chip.add_theme_stylebox_override("panel", _row_style(Color("#e8943a"), Color("#8a4b0a"), 2, 10, 3))
 				var cl2: Label = UITheme.label("★ " + str(tn), 14, Color("#ffffff"), true, 4, Color("#6a3a05"))
 				chip.add_child(cl2)
+				chip.tooltip_text = tip_for(str(tn))
+				chip.mouse_filter = Control.MOUSE_FILTER_STOP
 				flow.add_child(chip)
 		if not is_win and winner >= 0:
 			card.modulate = Color(1, 1, 1, 0.92)
