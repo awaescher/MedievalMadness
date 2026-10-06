@@ -791,7 +791,7 @@ static func run(main: Node, name: String) -> void:
 			var cat14: Catapult = Turn.sel
 			var fwd14: Vector3 = Util.yaw_to_dir(cat14.yaw)
 			var cow14: Animal = Animal.spawn("cow", cat14.global_pos() + fwd14 * 6.0, 0, 0.1, Rng.new(3))
-			cow14.rotation.y = cat14.yaw + PI * 0.5
+			cow14.rotation.y = cat14.yaw - PI * 0.5
 			cow14._timer = 999.0
 			Turn.phase = Turn.Phase.NONE
 			var rig14: CameraRig = m.get("cam_rig") as CameraRig
@@ -1635,6 +1635,26 @@ static func run(main: Node, name: String) -> void:
 						seen[bid] = true
 						say("FAST %s speed %.1f vel %s at %s (explosions active %s, slides %s)" % [pbx.kind, vv.length(), str(vv.snapped(Vector3.ONE * 0.1)), str(pbx.xform.origin.snapped(Vector3.ONE * 0.1)), str(Explosion.is_active()), str(Landslide.active())])
 			say("DEBRISSPEED worst %.1f m/s, %d bodies went above 18" % [worst, seen.size()])
+		"bucket":
+			# the ammo in the bucket of a catapult, from the side
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "peasant"])
+			await auto_place_all()
+			await wait_phase(Turn.Phase.AIMING)
+			(m.get("ui_root") as Control).visible = false
+			var bc: Catapult = Game.cur().living_catapults()[0] as Catapult
+			var brig: CameraRig = m.get("cam_rig") as CameraRig
+			var bsid: Vector3 = bc.global_transform.basis.z.normalized()
+			var bi: int = 0
+			for aid in uarg("ids", "log,boulder,cow").split(","):
+				bc.set_ammo_visual(aid)
+				brig.hold_overview = true
+				brig.overview(bc.global_pos() + Vector3(0, 4.2, 0), float(uarg("d", "5.5")), 6.0)
+				brig.yaw = atan2(bsid.x, bsid.z) - PI * 0.5
+				brig.snap()
+				await seconds(0.8)
+				await shot("bucket_%s" % aid)
+				bi += 1
 		"drillbomb":
 			await wait_loaded()
 			Settings.palisade_count = 1

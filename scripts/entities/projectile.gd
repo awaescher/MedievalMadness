@@ -1166,15 +1166,16 @@ static func bucket_visual(ammo_id: String) -> Node3D:
 	tmp.ammo = AmmoDef.get_def(ammo_id)
 	var sc: float = 1.0
 	var basis := Basis()
+	var off := Vector3.ZERO
 	match ammo_id:
 		"boulder":
 			tmp._boulder_mesh = _boulder_geometry(Rng.new(7), tmp.ammo.radius)["mesh"] as ArrayMesh
-			sc = 0.5
+			sc = 0.66
 		"chain":
 			sc = 0.42
 		"log":
 			basis = Basis(Vector3(0, 0, 1), PI * 0.5)
-			sc = 0.3
+			sc = 0.5
 		"firebarrel", "powderkeg":
 			basis = Basis(Vector3(0, 0, 1), PI * 0.5)
 			sc = 0.7 if ammo_id == "firebarrel" else 0.8
@@ -1185,7 +1186,9 @@ static func bucket_visual(ammo_id: String) -> Node3D:
 			basis = Basis(Vector3(0, 0, 1), PI * 0.5)
 			sc = 0.55
 		"cow":
-			sc = 0.36
+			sc = 0.56
+			basis = Basis(Vector3.RIGHT, deg_to_rad(48.0)) * Basis(Vector3.UP, PI)          # faces the front (the model looks to +Z, the catapult to -Z), head tilted up
+			off = -(basis * Vector3(0, 1.0, 0)) * sc + Vector3(0, 0.38, 0)          # the model's origin is at the hooves: centre the body above the bucket plate
 		"scatter":
 			sc = 0.85
 		"quad":
@@ -1199,7 +1202,7 @@ static func bucket_visual(ammo_id: String) -> Node3D:
 			tmp = null
 	if tmp != null:
 		var vis: MeshInstance3D = tmp._make_visual() as MeshInstance3D
-		vis.transform = Transform3D(basis.scaled(Vector3(sc, sc, sc)), Vector3.ZERO)
+		vis.transform = Transform3D(basis.scaled(Vector3(sc, sc, sc)), off)
 		holder.add_child(vis)
 	return holder
 
