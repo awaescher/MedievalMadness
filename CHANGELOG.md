@@ -9,54 +9,33 @@ Release notes, newest first. Versions before 1.10.0 are reconstructed from the s
 
 **New**
 
-- **Drill Bomb**: a new weapon that drills down to sea level, explodes underground and lets the ground cave in. Earned by wrecking an enemy church or watchtower.
-- **Wind as a match option**: none, light or strong (host decides online).
-- **Auto-place option**: catapults and palisades can be placed automatically (match option, host only online).
+- **Drill Bomb**: a new weapon that drills down to sea level, explodes underground and lets the ground cave in. Earned by wrecking an enemy church or watchtower, by hitting the hub of an enemy windmill, and in Chaos by knocking all the sails off one without wrecking it (2 bombs).
+- **Cinematic camera** (`C`): while the others play, the camera follows the catapult that aims, the flight of the shot and the impact from good angles. Random events (dragon, geese ...) ride into the camera too; any key skips the ride.
+- **Watching on the map** (`M`, any time while others play): the player on turn is marked with a ring in their colour and the projectile is followed with a bright marker.
+- **Music**: three long, quiet medieval songs composed by the game itself, with their own volume slider.
+- **Weapon rewards you can see**: a weapon you earn floats up from where it happened, with its icon and count and the player's name in colour.
+- **Frosted-glass look** for the HUD, menus and buttons (can be switched off as "Transparency effects"), a separate **Settings** dialog (graphics, display, sound, language) next to the match rules, a Quit button and a calmer pause menu with "Restart on a new map" and the seed.
 - **Graphics styles**: Toon, Natural (golden hour), Pop art, Watercolor, Retro, Neon and Noir.
-- **Rewards you can see**: a weapon you earn (crates, wrecked buildings, felled trees, fires ...) floats up from where it happened, with icon, count and the player's name in their colour.
-- **Player names in their colour** in the feed, toasts and banners.
+- **Options**: wind (none / light / strong), auto-place catapults and palisades.
+- **Titles explain themselves** with a joke when you hover them on the results screen; 60 silly player names in a new order at every start; many more "your turn" lines.
+- **Downloads** for Windows (x64, arm64), macOS (universal) and Linux (x64, arm64).
 
 **Better**
 
-- **Everything follows the ground**: rocks, bushes, flowers, animals and settlers lean with slopes and sink with craters and landslides. Buildings, posts, flags, flames and puddles no longer hang in the air when the ground gives way.
-- **Chaos mode with fewer cows**: your own cow dying pays 2, any other animal of your camp 1. The "own goal" keg needs a whole building, not just a palisade.
-- **Redesigned results screen**, new catapult icons, a starting-arsenal dialog with weapon icons that scrolls, a banner that fits the window, scrollable menu options.
-- **Supply crates** are easier to tell from village crates; late in the match more of them hold powder kegs and fire barrels.
-- **Aim elevation** is limited to 15°-60°.
-- **Bottom-right buttons**: order Fast-forward, Map, Skip turn, Sound; keys and labels line up; Skip turn has to be held (`F12` or the mouse) with a progress fill inside the button, so it cannot be clicked by accident; `F10` switches the sound on/off (fullscreen stays on `F11`); weapon tiles look like every other button (no coloured frames), and without the glass effect (OpenGL) panels are much less transparent. Settings: toggles line up with the labels, dropdown lists are opaque again.
-- **Catapults are hit everywhere**: a shot that hit only the throwing arm or the frames flew straight through; the whole catapult is hit zone now. "Elevation" is "Höhenwinkel" in German, the Fast-forward button only lights up (no colour), and the frosted-glass look can be switched off in the settings.
-- **Watching the others**: the map (`M`) can be opened any time while somebody else plays and now shows who is on turn (a pulsing ring and beam in the player's colour on the catapult) and follows the shot with a bright marker and trail. New **Cinematic camera** (`C`, a button at the bottom right, saved): while others play, the camera is directed like a film - the catapult that aims, the flight of the shot from the side and the impact from above the village, from a different angle every turn; your own turn always uses the normal camera. Fast-forward runs while a CPU is on turn and in your own turn as soon as your shot is fired (not while you aim, never online, where the button is gone); it is not remembered. The debug key for collider wireframes moved from `C` to `J`.
-- **Fixes**: the settings dialog stays open when you switch the language (it was closed by the rebuild of the menu), and in the cinematic camera buildings between the camera and the aiming catapult turn transparent like in your own turn.
-- **Camera rides**: random events (dragon, geese, fireworks, ...) move into the camera for everybody; any key or click skips the ride. Fast-forward is greyed out until your shot is fired. The cinematic camera now stands near the place of impact, off to the side, so you see the target area before the shot lands and watch the projectile come in (a clear view, ~38 m away), and carries on from that angle after the impact.
-- **Cleaner HUD**: the "X is on turn" panel at the top is gone (the arrow in the player list shows who is up; only the turn timer keeps a small panel), the player list is exactly as wide as its content, the skip-turn button and key are gone, `F12` switches the sound on/off (the button follows every change), the glass option is called "Transparency effects".
-- **Flying debris**: found two causes of things being flung across the map: the terrain collider was refreshed on the real-time clock, so with fast-forward the soil changed under debris 3x as fast and pushed it out at up to 340 m/s (now it follows the game clock), and big blasts launched settlers at 60-80 m/s (everything that is not a shot is now capped at 40 m/s). Normal speed was already fine.
-- More lines for the "your turn" announcement (21 instead of 5, English and German).
-- **Background music**: three long songs (3.5 to 3.75 minutes each, "Tavern Dance", "Pilgrim's Road", "Castle Morning") composed and synthesised by the game itself - lute, flute / recorder / fiddle, a drone, frame drum, shaker and bells in Dorian / Aeolian / Mixolydian - play one after the other, quietly, in the menu and in the game. Own volume slider in the settings ("Music volume", quieter than the effects by default, 0 = off). The first song starts a few seconds after the game has started.
-- **Sound effects no longer fade with the distance** (enemy villages were too quiet); only the direction stays, voices of people and animals still stay local. The cinematic camera is no longer remembered between games.
-- **Bigger ammo in the catapult bucket**: log, boulder and cow are larger; the cow sits with its head up and to the front.
-- **Titles explain themselves**: hover a title on the results screen for a short joke about what it means.
-- **GitHub releases show only the delta**: a release text lists the CHANGELOG entries (sections "Unreleased" and "<major>.<minor>.0") that the previous release tag does not already contain; the first build of a new minor version shows everything of it.
-- **Download names**: `MedievalMadness-<version>-Windows-x64.zip`, `-Windows-arm64.zip`, `-macOS-universal.zip`, `-Linux-x64.zip`, `-Linux-arm64.zip`; the program inside is simply `MedievalMadness` (`.exe` on Windows).
-- **ARM downloads**: Windows ARM64 and Linux ARM64 builds (`-Windows-arm64.zip`, `-Linux-arm64.zip`) for ARM PCs and ARM Linux machines or VMs (a "Format error" on Linux means the wrong CPU type).
-- **Windmills pay drill bombs**: hit the hub of an enemy windmill and you get a Drill Bomb; in Chaos mode, knocking all the sails off an enemy mill without wrecking it gives two (one reward per mill).
-- **Cleaner buttons**: the thin light edge of the glass buttons is gone (it frayed at the corners, pink / white pixels); a **Quit** button in the menu; the start-up splash image is off and fullscreen is re-applied after the window is up (it drew only the top left corner on macOS).
-- **Menu polish**: a proper cog for the settings button, smaller shadows with room around the fields (they were clipped), the weapon fields of the starting-arsenal dialog are glass instead of pink, dropdown lists are milky translucent.
-- **Pause menu**: "Restart" (no more "same seed"), the new "Restart on a new map" (random seed, everything else kept), and the seed of the map is always shown under the menu.
-- **Marker readable from far away**: the marker beacon now grows in proportion (pole, pennant, ring and beam) instead of showing a huge triangle when zoomed far out; the catapult counts in the player list are simple dots.
-- **Funny names, new order every start**: 60 silly player names (it were 16); the order of the default names is drawn anew each time the game starts (names you typed yourself stay).
-- **Modern menus**: every menu and dialog is frosted glass now, buttons and inputs are frosted glass tiles themselves with only a light tint and the same soft shadow everywhere, in the menus and in the game (no more playful colours or wobbling), language flags and a cog are three separate buttons at the top right, the pause menu is narrower, and the technical settings (graphics, display, sound, language) have their own **Settings** dialog, separate from the match rules. The unlock rules are shown as a plain line with a "Show rules" button instead of a disabled dropdown (the tier of a Custom arsenal is set in its Edit dialog).
-- **Cleaner HUD**: the pause button is gone (Esc still opens the pause menu), the buttons at the bottom right are smaller, and the padlock on unavailable weapons is gone (they are simply more transparent).
-- **New keys**: the map (overview) is on `M` and called "Map" / "Karte"; `X` sets your marker while the map is open and turns the catapult towards it while aiming; skipping a turn is `F12` (one press, no holding). The map has its own button at the bottom right (it is no move of the turn); "To enemy" (`R`) and "To marker" (`X`) stay in the strip in the middle.
+- **Everything follows the ground**: rocks, bushes, flowers, animals and settlers lean with slopes and sink with craters and landslides; buildings, posts, flags, flames and puddles no longer hang in the air when the ground gives way.
+- **Chaos mode**: far fewer cows (your own cow dying pays 2, any other animal of your camp 1) and the "own goal" keg needs a whole building.
+- **Whole catapults are hit zone** (shots through the throwing arm used to fly through), and the ammo in the bucket is bigger.
+- **Fast-forward** works while a CPU plays and after your own shot is fired, never while aiming and never online.
+- **Sound effects** no longer get quieter with distance (enemy villages were too quiet).
+- **Keys**: `M` map, `X` marker, `C` cinematic camera, `F10` sound on/off, `F11` fullscreen; the skip-turn button is gone.
+- **HUD**: new catapult dots, a clear arrow for who is on turn, an announcer banner that fits the window, scrollable menu options, a supply-crate look that is easy to tell from village crates, aim elevation limited to 15°-60°.
+- **Supply crates** more often hold powder kegs and fire barrels late in a match.
 
 **Fixed**
 
-- Supply crates on their parachute show the painted bomb with its fuse and spark (they only showed black dots).
-- The Meteor Marker icon shows the meteor falling towards the marker with its flaming tail behind it.
-- The loading screen is translated; burning settlers and animals no longer leave their flame behind; puddles never lie on slopes.
-
-**Downloads**
-
-- One ZIP per platform (Windows, macOS, Linux); the macOS app is ad-hoc signed.
+- Debris flung across the map (the terrain collider followed the real-time clock, so fast-forward tripled it; extreme speeds are capped).
+- Burning settlers and animals no longer leave their flame behind; puddles never lie on slopes.
+- The loading screen is translated; the settings dialog survives a language switch.
 
 ## 1.10.17
 - Linux / OpenGL: the Compatibility renderer only has 4096 slots for per-instance shader values and the toon shader used three per object, so thousands of objects got garbage colours (orange / purple) and the console flooded with "Too many instances using shader instance variables". The toon shader is now a constant-value copy in the OpenGL renderer; part colours come from cached materials, glow / wet are skipped there. Forward+ / Mobile are unchanged.
