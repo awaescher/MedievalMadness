@@ -165,6 +165,17 @@ static func run(main: Node, name: String) -> void:
 			var vp: Vector2 = m.get_viewport().get_visible_rect().size
 			say("viewport %s" % str(vp))
 			await shot("hud")
+		"occl":
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "peasant"])
+			await auto_place_all()
+			await wait_phase(Turn.Phase.AIMING)
+			await seconds(4.0)
+			for k in 6:
+				Turn.set_aim(float(k) * 1.0, 30.0, 0.5)
+				await seconds(2.0)
+				say("yaw %d occluded=%s" % [k, str((m.get("_occluded") as Array).map(func(x: Variant) -> String: return (x as Structure).kind))])
+				await shot("occl%d" % k)
 		"shoot":
 			await wait_loaded()
 			await start_match("autotest-a", ["human", "peasant"])

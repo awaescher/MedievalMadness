@@ -79,14 +79,38 @@ static func _btn(theme: Theme, type: String, base: String, col: Color, txt: Colo
 	theme.set_color("font_outline_color", type, Color(0.1, 0.05, 0.02))
 	theme.set_constant("outline_size", type, 0)
 
+## The original parchment look (transparency effects off): paper panels, dark frames, bright coloured buttons
+static func _plain_btn(theme: Theme, type: String, base: String, col: Color, txt: Color) -> void:
+	if type != base:
+		theme.add_type(type)
+		theme.set_type_variation(type, base)
+	var normal := box(col)
+	var hover := box(col.lightened(0.18))
+	var pressed := box(col.darkened(0.15))
+	pressed.shadow_size = 1
+	pressed.content_margin_top = 10
+	var disabled := box(col.darkened(0.4).lerp(Color(0.5, 0.5, 0.5), 0.5))
+	disabled.shadow_size = 0
+	theme.set_stylebox("normal", type, normal)
+	theme.set_stylebox("hover", type, hover)
+	theme.set_stylebox("pressed", type, pressed)
+	theme.set_stylebox("disabled", type, disabled)
+	theme.set_stylebox("focus", type, box(Color(0, 0, 0, 0), Color("#ffffff"), 2, 14, 0))
+	theme.set_color("font_color", type, txt)
+	theme.set_color("font_hover_color", type, txt)
+	theme.set_color("font_pressed_color", type, txt)
+	theme.set_color("font_disabled_color", type, Color(0.85, 0.85, 0.85))
+	theme.set_constant("outline_size", type, 0)
+
 static func build() -> Theme:
 	if _theme != null:
 		return _theme
+	var plain: bool = not Glass.supported()
 	var t := Theme.new()
 	t.default_font = font()
 	t.default_font_size = 17
 	# tooltips: parchment panel with ONE border (custom tooltip content has no frame of its own)
-	var tip := box(Color(0.97, 0.94, 0.86, 0.97), Color(0, 0, 0, 0.0), 0, 10, 4)
+	var tip := box(Color(0.97, 0.94, 0.86, 0.97), Color(0, 0, 0, 0.0), 0, 10, 4) if not plain else box(PARCH, INK, 2, 8, 0)
 	tip.content_margin_left = 10
 	tip.content_margin_right = 10
 	tip.content_margin_top = 6
@@ -99,33 +123,46 @@ static func build() -> Theme:
 	t.set_color("font_outline_color", "Label", Color(1, 1, 1, 0.0))
 	# panels
 	# (menus and dialogs put the frosted glass on their panels, see Glass.dialog; this is the plain fallback)
-	t.set_stylebox("panel", "PanelContainer", box(Color(0.97, 0.94, 0.86, 0.80), Color(1, 1, 1, 0.0), 0, 16, 8))
-	t.set_stylebox("panel", "Panel", box(Color(0.97, 0.94, 0.86, 0.80), Color(1, 1, 1, 0.0), 0, 16, 8))
+	if plain:
+		t.set_stylebox("panel", "PanelContainer", box(PARCH))
+		t.set_stylebox("panel", "Panel", box(PARCH))
+	else:
+		t.set_stylebox("panel", "PanelContainer", box(Color(0.97, 0.94, 0.86, 0.80), Color(1, 1, 1, 0.0), 0, 16, 8))
+		t.set_stylebox("panel", "Panel", box(Color(0.97, 0.94, 0.86, 0.80), Color(1, 1, 1, 0.0), 0, 16, 8))
 	# buttons (default bright red variants, with title/gold variations)
-	_btn(t, "Button", "Button", Color("#e9c46a"), INK, 0.34)
-	_btn(t, "RedButton", "Button", Color("#d9605a"), Color("#4a1410"), 0.40)
-	_btn(t, "GreenButton", "Button", Color("#4fa65f"), Color("#0f2f17"), 0.62)
-	_btn(t, "GoldButton", "Button", Color("#dcae3c"), INK, 0.62)
-	_btn(t, "ParchButton", "Button", Color("#ffffff"), INK, 0.32)
+	if plain:
+		_plain_btn(t, "Button", "Button", Color("#f0b429"), INK)
+		_plain_btn(t, "RedButton", "Button", RED, Color("#ffffff"))
+		_plain_btn(t, "GreenButton", "Button", Color("#27ae60"), Color("#ffffff"))
+		_plain_btn(t, "GoldButton", "Button", YELLOW, INK)
+		_plain_btn(t, "ParchButton", "Button", PARCH_DARK, INK)
+		t.set_font("font", "RedButton", font_bold())
+		t.set_font("font", "GreenButton", font_bold())
+	else:
+		_btn(t, "Button", "Button", Color("#e9c46a"), INK, 0.34)
+		_btn(t, "RedButton", "Button", Color("#d9605a"), Color("#4a1410"), 0.40)
+		_btn(t, "GreenButton", "Button", Color("#4fa65f"), Color("#0f2f17"), 0.62)
+		_btn(t, "GoldButton", "Button", Color("#dcae3c"), INK, 0.62)
+		_btn(t, "ParchButton", "Button", Color("#ffffff"), INK, 0.32)
 	t.set_font("font", "RedButton", font_bold())
 	t.set_font("font", "GreenButton", font_bold())
 	# line edit / option button / check
-	var le := soft(Color(1, 1, 1, 0.42), Color(1, 1, 1, 0.55), 10)
+	var le := soft(Color(1, 1, 1, 0.42), Color(1, 1, 1, 0.55), 10) if not plain else box(Color("#fff6da"), INK, 2, 8, 0)
 	le.content_margin_top = 4
 	le.content_margin_bottom = 4
 	t.set_stylebox("normal", "LineEdit", le)
-	t.set_stylebox("focus", "LineEdit", soft(Color(1, 1, 1, 0.62), Color("#c9962a"), 10, 2))
+	t.set_stylebox("focus", "LineEdit", soft(Color(1, 1, 1, 0.62), Color("#c9962a"), 10, 2) if not plain else box(Color("#ffffff"), RED, 2, 8, 0))
 	t.set_stylebox("read_only", "LineEdit", soft(Color(0.5, 0.5, 0.5, 0.16), Color(1, 1, 1, 0.2), 10))
 	t.set_color("font_uneditable_color", "LineEdit", Color(0.3, 0.25, 0.2, 0.55))
 	t.set_color("font_color", "LineEdit", INK)
 	t.set_color("caret_color", "LineEdit", INK)
 	t.set_color("font_placeholder_color", "LineEdit", Color(0.4, 0.3, 0.2, 0.6))
-	var ob := soft(Color(1, 1, 1, 0.42), Color(1, 1, 1, 0.55), 10)
+	var ob := soft(Color(1, 1, 1, 0.42), Color(1, 1, 1, 0.55), 10) if not plain else box(Color("#fff6da"), INK, 2, 8, 0)
 	ob.content_margin_top = 4
 	ob.content_margin_bottom = 4
 	t.set_stylebox("normal", "OptionButton", ob)
-	t.set_stylebox("hover", "OptionButton", soft(Color(1, 1, 1, 0.60), Color(1, 1, 1, 0.7), 10))
-	t.set_stylebox("pressed", "OptionButton", soft(Color(1, 1, 1, 0.32), Color(1, 1, 1, 0.4), 10))
+	t.set_stylebox("hover", "OptionButton", soft(Color(1, 1, 1, 0.60), Color(1, 1, 1, 0.7), 10) if not plain else box(Color("#ffffff"), INK, 2, 8, 0))
+	t.set_stylebox("pressed", "OptionButton", soft(Color(1, 1, 1, 0.32), Color(1, 1, 1, 0.4), 10) if not plain else box(Color("#ffe9a8"), INK, 2, 8, 0))
 	t.set_stylebox("disabled", "OptionButton", soft(Color(0.5, 0.5, 0.5, 0.14), Color(1, 1, 1, 0.15), 10))
 	t.set_stylebox("focus", "OptionButton", soft(Color(0, 0, 0, 0), Color("#c9962a"), 10, 2))
 	t.set_color("font_color", "OptionButton", INK)
@@ -133,7 +170,7 @@ static func build() -> Theme:
 	t.set_color("font_pressed_color", "OptionButton", INK)
 	t.set_color("font_focus_color", "OptionButton", INK)
 	t.set_color("font_disabled_color", "OptionButton", Color(0.3, 0.25, 0.2, 0.5))
-	var pm := box(Color(0.98, 0.96, 0.90, 1.0), Color(1, 1, 1, 0.65), 1, 12, 10)
+	var pm := box(Color(0.98, 0.96, 0.90, 1.0), Color(1, 1, 1, 0.65), 1, 12, 10) if not plain else box(PARCH, INK, 2, 8, 6)
 	pm.content_margin_left = 6
 	pm.content_margin_right = 6
 	pm.content_margin_top = 6
@@ -161,13 +198,13 @@ static func build() -> Theme:
 	t.set_color("font_color", "CheckBox", INK)
 	# sliders
 	var groove := StyleBoxFlat.new()
-	groove.bg_color = Color(0.23, 0.16, 0.10, 0.22)
+	groove.bg_color = Color(0.23, 0.16, 0.10, 0.22) if not plain else Color("#8a6d3b")
 	groove.set_corner_radius_all(6)
 	groove.content_margin_top = 5
 	groove.content_margin_bottom = 5
 	t.set_stylebox("slider", "HSlider", groove)
 	var fill := StyleBoxFlat.new()
-	fill.bg_color = Color("#d9a441")
+	fill.bg_color = Color("#d9a441") if not plain else RED
 	fill.set_corner_radius_all(6)
 	t.set_stylebox("grabber_area", "HSlider", fill)
 	t.set_stylebox("grabber_area_highlight", "HSlider", fill)

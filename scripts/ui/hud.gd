@@ -820,7 +820,7 @@ func _build() -> void:
 	if Glass.supported():
 		banner_panel.material = Glass.tinted(Color("#20130b"), 0.62)
 	else:
-		bsb.bg_color = Color(0.13, 0.08, 0.05, 0.80)
+		bsb = UITheme.box(Color("#3b2a1a"), Color("#ffd400"), 3, 16, 8)          # the original dark banner with a gold frame
 	banner_panel.add_theme_stylebox_override("panel", bsb)
 	add_child(banner_panel)
 	banner = UITheme.rich_label("", 44, Color("#ffd400"), true, 10, true)

@@ -63,7 +63,10 @@ static func reset() -> void:
 static func fill_color() -> Color:
 	return MARK if supported() else PLAIN
 
-const PLAIN := Color(0.98, 0.94, 0.84, 0.93)
+## Parchment look (transparency effects off / OpenGL): opaque paper with a dark brown frame, like the original game
+const PLAIN := Color("#f4e4bc")
+const PAPER_DARK := Color("#e6d0a0")
+const INK := Color("#3b2a1a")
 
 ## For controls that draw glass fills but have no glass material (no shader): a plain translucent fill instead of the magenta marker
 static func fit(sb: StyleBoxFlat, c: CanvasItem) -> StyleBoxFlat:
@@ -76,6 +79,17 @@ static func box(radius: int = 14, shadow: int = 8, accent: Color = Color(0, 0, 0
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = fill_color()
 	sb.set_corner_radius_all(radius)
+	if not supported():
+		sb.border_color = accent if (accent.a > 0.0 and accent_w > 0) else INK
+		sb.set_border_width_all(accent_w if (accent.a > 0.0 and accent_w > 0) else 3)
+		sb.shadow_color = Color(0, 0, 0, 0.35)
+		sb.shadow_size = shadow
+		sb.shadow_offset = Vector2(0, 3)
+		sb.content_margin_left = 14
+		sb.content_margin_right = 14
+		sb.content_margin_top = 8
+		sb.content_margin_bottom = 8
+		return sb
 	if accent.a > 0.0 and accent_w > 0:
 		sb.border_color = accent
 		sb.set_border_width_all(accent_w)
@@ -123,6 +137,23 @@ static func edge_of(a: float) -> Array:
 	return [Color(1, 1, 1, a), 1]
 
 static func tile(radius: int = 12, edge: float = 0.38, fill_a: float = 1.0, shadow: int = 4) -> StyleBoxFlat:
+	if not supported():
+		# parchment button: paper, dark frame (hover lighter, pressed darker, disabled faded)
+		var pb := StyleBoxFlat.new()
+		pb.bg_color = PAPER_DARK if edge < 0.5 else PLAIN
+		if fill_a < 0.9:
+			pb.bg_color = PAPER_DARK.darkened(0.12) if fill_a > 0.6 else PAPER_DARK.lerp(Color(0.6, 0.55, 0.5), 0.5)
+		pb.border_color = INK
+		pb.set_border_width_all(2)
+		pb.set_corner_radius_all(radius)
+		pb.shadow_color = Color(0, 0, 0, 0.3)
+		pb.shadow_size = mini(shadow, 3) if fill_a >= 0.9 else 0
+		pb.shadow_offset = Vector2(0, 2)
+		pb.content_margin_left = 14
+		pb.content_margin_right = 14
+		pb.content_margin_top = 4
+		pb.content_margin_bottom = 4
+		return pb
 	var ed: Array = edge_of(edge)
 	var sb: StyleBoxFlat = box(radius, shadow, ed[0] as Color, int(ed[1]))
 	sb.bg_color.a = fill_a if supported() else PLAIN.a * fill_a
