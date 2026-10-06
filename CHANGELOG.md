@@ -35,6 +35,7 @@ Release notes, newest first. Versions before 1.10.0 are reconstructed from the s
 - **Sound effects no longer fade with the distance** (enemy villages were too quiet); only the direction stays, voices of people and animals still stay local. The cinematic camera is no longer remembered between games.
 - **Bigger ammo in the catapult bucket**: log, boulder and cow are larger; the cow sits with its head up and to the front.
 - **Titles explain themselves**: hover a title on the results screen for a short joke about what it means.
+- **GitHub releases show only the delta**: a release text lists the CHANGELOG entries (sections "Unreleased" and "<major>.<minor>.0") that the previous release tag does not already contain; the first build of a new minor version shows everything of it.
 - **Download names**: `MedievalMadness-<version>-Windows-x64.zip`, `-Windows-arm64.zip`, `-macOS-universal.zip`, `-Linux-x64.zip`, `-Linux-arm64.zip`; the program inside is simply `MedievalMadness` (`.exe` on Windows).
 - **ARM downloads**: Windows ARM64 and Linux ARM64 builds (`-Windows-arm64.zip`, `-Linux-arm64.zip`) for ARM PCs and ARM Linux machines or VMs (a "Format error" on Linux means the wrong CPU type).
 - **Windmills pay drill bombs**: hit the hub of an enemy windmill and you get a Drill Bomb; in Chaos mode, knocking all the sails off an enemy mill without wrecking it gives two (one reward per mill).

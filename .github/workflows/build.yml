@@ -66,25 +66,16 @@ jobs:
           # export.sh wrote the build's version (major.minor.run_number) to VERSION
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VER="${GITHUB_REF_NAME#v}"; else VER="$(tr -d '[:space:]' < VERSION)"; fi
           echo "VER=$VER" >> "$GITHUB_ENV"
-          # tag: the "## <version>" section of CHANGELOG.md (else "## Unreleased"); push to main: always "## Unreleased"
-          # (CI run numbers collide with old, reconstructed version sections, so those must not be picked up there)
-          # (a new minor version: while "Unreleased" is still empty the section "<major>.<minor>.0" is the release text)
+          # Release text = what is NEW compared with the previous release: the lines of the sections "Unreleased" and
+          # "<major>.<minor>.0" of CHANGELOG.md that the previous release tag does not contain anywhere in its CHANGELOG.md.
+          # (The first build of a new minor version therefore shows everything of that version, later builds only their delta.)
           MINOR0="$(echo "$VER" | cut -d. -f1,2).0"
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then HEADS="$VER Unreleased"; else HEADS="Unreleased $MINOR0"; fi
-          FROM=""
-          for H in $HEADS; do
-            awk -v v="$H" '/^## /{p = ($2 == v); next} p' CHANGELOG.md | grep -v '^[[:space:]]*$' > release_body.md || true
-            if [ -s release_body.md ]; then FROM="$H"; break; fi
-          done
-          # push to main: only the lines that are new since the previous release (its CHANGELOG "Unreleased" is the baseline)
-          if [[ "$GITHUB_REF" != refs/tags/v* && "$FROM" == "Unreleased" ]]; then
-            PREV="$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)"
-            if [ -n "$PREV" ] && git show "$PREV:CHANGELOG.md" > old_changelog.md 2>/dev/null; then
-              awk '/^## /{p = ($2 == "Unreleased"); next} p' old_changelog.md > old_notes.md
-              grep -vxFf old_notes.md release_body.md > new_notes.md || true
-              if grep -q '[^[:space:]]' new_notes.md; then cp new_notes.md release_body.md; fi
-            fi
-          fi
+          awk -v a="Unreleased" -v b="$MINOR0" '/^## /{p = ($2 == a || $2 == b); next} p' CHANGELOG.md | grep -v '^[[:space:]]*$' > current_notes.md || true
+          PREV="$(git tag --list 'v*' --sort=-v:refname | grep -vx "v$VER" | head -1 || true)"
+          echo "previous release tag: ${PREV:-none}"
+          if [ -n "$PREV" ] && git show "$PREV:CHANGELOG.md" > old_changelog.md 2>/dev/null; then :; else : > old_changelog.md; fi
+          # keep the entries ("- ...") that are not in the old file; category headings ("**New**") only when an entry follows
+          awk 'NR==FNR { old[$0]=1; next } /^\*\*.*\*\*$/ { h=$0; next } /^- / { if (!($0 in old)) { if (h != "") { print h; h="" } print } }' old_changelog.md current_notes.md > release_body.md || true
           if [ ! -s release_body.md ]; then echo "Build $VER" > release_body.md; fi
           cat release_body.md
 
