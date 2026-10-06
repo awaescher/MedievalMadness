@@ -532,6 +532,8 @@ Village HP (for tie-breaking) = sum of part HP still existing.
 
 ## 9. Building Catalog (`scripts/buildings/*.gd`)
 
+**Walls with doors and windows** (`Kit.wall`): the courses of blocks are cut at the side edges of every opening (door, window), so the pieces beside, above and below it stay. A block that merely touches an opening is never dropped as a whole (that used to leave whole facades open). Pieces shorter than 0.12 m are left out.
+
 Common interface (every building module exports):
 ```gdscript
 const DEF := { "id": "farmhouse", "footprint_radius": 4.0, "prop_hints": [], "name_key": "building.farmhouse" }
@@ -550,13 +552,13 @@ Where `PartDef` (RefCounted): `material: String, size: Vector3, pos: Vector3` (r
 |---|---|---|---|---|---|
 | `farmhouse` | Cosy Cottage / Gemütliche Hütte | 4 | Stone foundation 5×5, brick/plank walls 3 m high, thatch or tile gable roof, chimney (brick, smoke particles), 2 windows, door. | 60–80 | thatch roof burns very fast; chimney topples nicely. |
 | `barn` | Big Hay Barn / Große Heuscheune | 6 | 8×6 plank walls 5 m, large gable plank roof, big double door, interior 4–6 hay bales. | 80–110 | Hay inside ignites everything; bursts into hay when hit. |
-| `tavern` | The Drunken Goose / Zur Betrunkenen Gans | 5 | Two-story plank + stone building, sign (cloth+wood, swings), balcony, 3 barrels (beer) outside, 4 mugs (tiny props) | 90–110 | Beer barrels: flammable liquids (burning puddle when broken, spawns a 4 s flame). Settlers gather here (many). Fun: when destroyed, spawns 6 "beer geysers" (blue-gold particles). |
-| `church` | Church of Holy Confusion / Kirche der Heiligen Verwirrung | 5 | Stone nave 6×10×5, steeple tower 3×3×10 with metal bell inside (dynamic, `metal` sphere-cyl), red tile roof, stained glass front window. | 90–110 | Bell clangs on any hit anywhere within 30 m (sound "BONG"), falls down when tower collapses and crushes stuff. |
+| `tavern` | The Drunken Goose / Zur Betrunkenen Gans | 5 | Two-story plank + stone building, sign (cloth+wood, swings), balcony, 3 barrels (beer) outside, 4 mugs (tiny props) | 90–120 | Beer barrels: flammable liquids (burning puddle when broken, spawns a 4 s flame). Settlers gather here (many). Fun: when destroyed, spawns 6 "beer geysers" (blue-gold particles). |
+| `church` | Church of Holy Confusion / Kirche der Heiligen Verwirrung | 5 | Stone nave 6×10×5, steeple tower 3×3×10 with metal bell inside (dynamic, `metal` sphere-cyl), red tile roof, stained glass front window. | 90–120 | Bell clangs on any hit anywhere within 30 m (sound "BONG"), falls down when tower collapses and crushes stuff. |
 | `watchtower` | Lookout Tower / Wachturm | 3 | Stone tower 3×3×9, wooden top platform with crenellations and cloth banner (player color), 1 archer settler on top. | 50–70 | Tall = falls in long arc, toppling as chain. |
 | `well` | Wishing Well / Wunschbrunnen | 1.6 | Stone ring, wooden roof frame, bucket, rope. Water inside. | 20–30 | If destroyed: gushes water fountain particles 10 s and puts out fire within 6 m; settlers use it for bucket brigade while intact. |
 | `stall` | Market Stall / Marktstand | 2 | Wood frame with striped cloth awning (player color or random palette), table with crates, fruit props (small spheres, dynamic). | 15–25 | Cloth burns; fruit rolls; spawn sound "splat" when fruit is hit. |
 | `stable` | Stable / Stall | 4 | Plank open shed 6×3.5×3, thatch roof, 2 horses (Animal type horse, ragdoll-lite) | 40–60 | Horses run away when burning. |
-| `granary` | Granary / Kornspeicher | 3 | Raised wooden building on 4 stone stilts (stilts anchor), plank walls, thatch roof, sacks | 40–55 | Collapses when stilts break. Sacks explode in flour cloud (white particles + small explosion when there is fire nearby: "flour dust explosion", radius 4, damage 250). |
+| `granary` | Granary / Kornspeicher | 3 | Raised wooden building on 4 stone stilts (stilts anchor), plank walls, thatch roof, sacks | 40–62 | Collapses when stilts break. Sacks explode in flour cloud (white particles + small explosion when there is fire nearby: "flour dust explosion", radius 4, damage 250). |
 | `powderstore` | Definitely Not Explosive / Ganz Sicher Nicht Explosiv | 3 | Stone shed 4×4×3 with metal-studded door, sign with skull, 6 powder kegs inside (barrel_wood, kind powder). | 40–50 | Any fire or big hit on it → all kegs explode in chain (each radius 5, damage 500). Big BOOM with mushroom cloud particle ("skull smoke"). |
 | `watertower` | Aqua Tower / Wasserturm | 3 | 4 wooden stilts 5 m tall + large round wooden tank on top (barrel, radius 2, height 2.5) full of water. | 25–35 | On tank break: huge water release, spawns 30 water particles/physics droplets (visual + impulse volume push radius 8) and extinguishes fire radius 10, pushes settlers around. |
 | `windmill` | Windy Windmill / Windige Windmühle | 4 | Stone round tower (8-sided) 8 m, wooden cap, 4 sails (each 5 m, dynamic body attached via a hinge joint (`joint_make_hinge`) to a hub; rotates slowly with motor while intact). | 60–80 | When hit, sails fall off and roll; burning sails spin faster (glow). |

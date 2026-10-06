@@ -89,16 +89,37 @@ static func wall(r: BuildResult, mat: String, a: Vector2, b: Vector2, y0: float,
 			l = minf(l, length - u)
 			if l < 0.12:
 				break
-			var uc: float = u + l * 0.5
-			var skip: bool = false
+			# a block touching an opening is cut at the opening's side edges; the pieces beside, above and below it stay
+			var cuts: Array[float] = [u, u + l]
 			for o in openings:
 				var rc: Rect2 = o as Rect2
-				if u < rc.position.x + rc.size.x - 0.01 and u + l > rc.position.x + 0.01 and vy0 < rc.position.y + rc.size.y - 0.01 and vy1 > rc.position.y + 0.01:
-					skip = true
-					break
-			if not skip:
-				var c2: Vector2 = a + dir2 * uc
-				box(r, mat, Vector3(l, rh, thick), Vector3(c2.x, y0 + vy0 + rh * 0.5, c2.y), rng, color, anchor_bottom and i == 0, tag, Vector3(0, yaw, 0))
+				if vy0 < rc.end.y - 0.01 and vy1 > rc.position.y + 0.01:
+					for e: float in [rc.position.x, rc.end.x]:
+						if e > u + 0.01 and e < u + l - 0.01:
+							cuts.append(e)
+			cuts.sort()
+			for ci in cuts.size() - 1:
+				var ua: float = cuts[ci]
+				var sl: float = cuts[ci + 1] - ua
+				if sl < 0.1:
+					continue
+				var um: float = ua + sl * 0.5
+				var free: Array[Vector2] = [Vector2(vy0, vy1)]
+				for o2 in openings:
+					var rc2: Rect2 = o2 as Rect2
+					if um > rc2.position.x and um < rc2.end.x:
+						var next_free: Array[Vector2] = []
+						for iv in free:
+							if rc2.position.y > iv.x + 0.01:
+								next_free.append(Vector2(iv.x, minf(iv.y, rc2.position.y)))
+							if rc2.end.y < iv.y - 0.01:
+								next_free.append(Vector2(maxf(iv.x, rc2.end.y), iv.y))
+						free = next_free
+				var c2: Vector2 = a + dir2 * um
+				for iv2 in free:
+					if iv2.y - iv2.x < 0.12:
+						continue
+					box(r, mat, Vector3(sl, iv2.y - iv2.x, thick), Vector3(c2.x, y0 + (iv2.x + iv2.y) * 0.5, c2.y), rng, color, anchor_bottom and i == 0 and iv2.x <= vy0 + 0.01, tag, Vector3(0, yaw, 0))
 			u += l
 
 ## Rectangle of 4 walls around a footprint (centered at c, half extents hx,hz). front = +Z side has openings list.

@@ -4,8 +4,8 @@ extends RefCounted
 
 # id -> [min parts, max parts] (spec table; a little slack for the generated variants)
 const RANGES: Dictionary = {
-	"farmhouse": [55, 85], "barn": [78, 115], "tavern": [85, 115], "church": [85, 115], "watchtower": [48, 75],
-	"well": [18, 32], "stall": [14, 27], "stable": [38, 62], "granary": [38, 58], "powderstore": [38, 55],
+	"farmhouse": [55, 85], "barn": [78, 115], "tavern": [85, 125], "church": [85, 125], "watchtower": [48, 75],
+	"well": [18, 32], "stall": [14, 27], "stable": [38, 62], "granary": [38, 65], "powderstore": [38, 55],
 	"watertower": [24, 38], "windmill": [58, 85], "blacksmith": [43, 65], "outhouse": [11, 17], "palisade": [6, 6], "stonewall": [19, 32],
 }
 
