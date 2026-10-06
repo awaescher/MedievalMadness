@@ -17,7 +17,7 @@ const RULES: Dictionary = {
 	"quad": [[0, "double"], [0, "team_kill"]],
 	"chain": [[0, "mowed"], [1, "demolition"]],
 	"firebarrel": [[0, "arsonist"], [0, "team_lost"], [2, "chaos_loss"]],
-	"drillbomb": [[0, "steeple"]],
+	"drillbomb": [[0, "steeple"], [0, "hub"], [2, "sails"]],
 	"meteor": [[0, "crate"]],
 }
 
@@ -165,6 +165,19 @@ static func on_catapult_destroyed(owner_id: int, source: Dictionary, _reason: St
 
 static func _is_fence_or_prop(kind: String) -> bool:
 	return kind.begins_with("prop_") or ["palisadepost", "playerwall", "palisade", "stonewall", "flagpole", "tree", "ruin"].has(kind)
+
+## Windmill of another player: the hub (axle) is shot away = a drill bomb (all modes); chaos: all four sails knocked off while
+## the rest of the mill is hardly damaged = two drill bombs
+static func on_windmill(s: Structure, what: String) -> void:
+	var att: int = _pid(s.last_source)
+	var ap: PlayerData = Game.player(att)
+	var op: PlayerData = Game.player(s.owner_id)
+	if ap == null or op == null or att == s.owner_id or ap.is_ally(op):
+		return
+	if what == "hub":
+		grant(att, "drillbomb", 1, "hub", s.center + Vector3.UP * 7.0)
+	elif what == "sails" and tier_on(2):
+		grant(att, "drillbomb", 2, "sails", s.center + Vector3.UP * 7.0)
 
 static func on_building_destroyed(kind: String, owner_id: int, source: Dictionary) -> void:
 	if kind == "blacksmith" and owner_id >= 0:

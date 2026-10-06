@@ -181,25 +181,7 @@ func _touch_input(event: InputEvent) -> bool:
 		_touches[sd.index] = sd.position
 	return false
 
-## Tab: a short tap switches to the next catapult (on release), holding it longer than `TAB_HOLD` is the "skip turn" gesture of the HUD
-const TAB_HOLD := 0.4
-var _tab_t: float = -1.0
-var _tab_shift: bool = false
-
-func _tab_event(k: InputEventKey) -> bool:
-	if k.pressed:
-		if not k.echo:
-			_tab_t = 0.0
-			_tab_shift = k.shift_pressed
-		return true
-	if _tab_t >= 0.0 and _tab_t < TAB_HOLD:
-		Turn.cycle_catapult(-1 if _tab_shift else 1)
-	_tab_t = -1.0
-	return true
-
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and (event as InputEventKey).keycode == KEY_TAB and not (event as InputEventKey).pressed and not _human_aiming():
-		_tab_t = -1.0
 	if Game.state != Game.State.BATTLE:
 		return
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
@@ -232,10 +214,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		cam.orbit_drag(mm.relative.x, mm.relative.y)
 		return
 	if not _human_aiming():
-		return
-	if event is InputEventKey and (event as InputEventKey).keycode == KEY_TAB:
-		if _tab_event(event as InputEventKey):
-			accept_event()
 		return
 	if Turn.is_action_mode():
 		# relocate / wall: Actions handles the mouse and the movement keys; only the weapon / catapult keys work here
@@ -288,6 +266,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				fired.emit()
 				Turn.fire()
 				accept_event()
+			KEY_TAB:
+				Turn.cycle_catapult(-1 if k.shift_pressed else 1)
+				accept_event()
 			KEY_R:
 				_face_next_enemy()
 				accept_event()
@@ -313,6 +294,10 @@ func _select_key(k: InputEventKey) -> void:
 			idx = 12
 		KEY_B:
 			idx = 13
+		KEY_TAB:
+			Turn.cycle_catapult(-1 if k.shift_pressed else 1)
+			accept_event()
+			return
 		_:
 			return
 	var list: Array[AmmoDef] = AmmoDef.all()
@@ -383,8 +368,6 @@ func _face_next_enemy() -> void:
 # ------------------------------------------------------------------ per-frame
 func _process(delta: float) -> void:
 	_release_flash = maxf(_release_flash - delta, 0.0)
-	if _tab_t >= 0.0:
-		_tab_t += delta
 	var aiming: bool = _human_aiming()
 	if not aiming:
 		if _preview != null:

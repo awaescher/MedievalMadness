@@ -76,7 +76,7 @@ func overview(f: Vector3, d: float = 80.0, p_deg: float = 50.0) -> void:
 	pitch = deg_to_rad(p_deg)
 
 func focus_on(f: Vector3, d: float = 45.0, p_deg: float = 42.0, yaw_rad: float = NAN) -> void:
-	if hold_overview and mode == Mode.OVERVIEW:
+	if (hold_overview and mode == Mode.OVERVIEW) or Director.active() or Director.event_active():
 		return
 	mode = Mode.FOCUS
 	focus = f
@@ -92,7 +92,7 @@ func start_orbit(f: Vector3, d: float, p_deg: float) -> void:
 	pitch = deg_to_rad(p_deg)
 
 func aim_at(p: Vector3, yaw_rad: float, elev_rad: float) -> void:
-	if hold_overview and mode == Mode.OVERVIEW:
+	if (hold_overview and mode == Mode.OVERVIEW) or Director.active() or Director.event_active():
 		return
 	if mode != Mode.AIM:
 		mode = Mode.AIM
@@ -113,7 +113,7 @@ func cinema(p: Vector3, t: Vector3, fov_deg: float = 60.0) -> void:
 	cin_fov = fov_deg
 
 func follow_projectile(p: Vector3, v: Vector3) -> void:
-	if hold_overview and mode == Mode.OVERVIEW:
+	if (hold_overview and mode == Mode.OVERVIEW) or Director.active() or Director.event_active():
 		return
 	if mode != Mode.FOLLOW:
 		mode = Mode.FOLLOW
@@ -125,7 +125,7 @@ func follow_projectile(p: Vector3, v: Vector3) -> void:
 ## Impact camera. With `shot_dir` it is set up once: behind the shot looking along it, high enough to see the whole
 ## village around the impact; without it only the focus point moves (rolling barrels) and the angle stays put.
 func impact_cam(p: Vector3, shot_dir: Vector3 = Vector3.ZERO) -> void:
-	if hold_overview and mode == Mode.OVERVIEW:
+	if (hold_overview and mode == Mode.OVERVIEW) or Director.active() or Director.event_active():
 		return
 	var fresh: bool = shot_dir.length() > 0.01
 	mode = Mode.IMPACT
@@ -233,14 +233,14 @@ func update(delta: float) -> void:
 		arm_origin = aim_pos + Vector3(0, 2.2, 0)
 	elif mode == Mode.FOLLOW:
 		arm_origin = follow_pos
-	if PhysWorld.space.is_valid() and (mode == Mode.AIM or mode == Mode.FOLLOW):
+	if PhysWorld.space.is_valid() and (mode == Mode.AIM or mode == Mode.FOLLOW or mode == Mode.CINEMA):
 		var arm: Vector3 = want_pos - arm_origin
 		var alen: float = arm.length()
 		if alen > 2.0:
 			var hit: Dictionary = PhysWorld.raycast(arm_origin, arm / alen, alen, Cfg.LAYER_STRUCT | Cfg.LAYER_PART)
 			if not hit.is_empty():
 				var hd: float = arm_origin.distance_to(hit["point"] as Vector3)
-				want_pos = arm_origin + arm / alen * maxf(hd - 0.9, alen * 0.6)
+				want_pos = arm_origin + arm / alen * maxf(hd - 0.9, alen * (0.3 if mode == Mode.CINEMA else 0.6))
 	if not _inited or _snap:
 		_pos = want_pos
 		_target = want_target

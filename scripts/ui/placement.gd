@@ -57,6 +57,7 @@ func _ready() -> void:
 	_mat_bad.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	# UI
 	bar = PanelContainer.new()
+	Glass.panel(bar)
 	bar.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	bar.anchor_left = 0.5
 	bar.anchor_right = 0.5

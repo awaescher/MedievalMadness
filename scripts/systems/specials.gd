@@ -167,6 +167,8 @@ class Windmill extends Behavior:
 	var owner_pid: int = -1
 	var speed: float = 0.7
 	var spin_boost: float = 0.0
+	var hub_paid: bool = false
+	var sails_paid: bool = false
 	func setup(s: Structure, world_pos: Vector3, yaw: float) -> void:
 		owner_pid = s.owner_id
 		pos = world_pos
@@ -220,6 +222,11 @@ class Windmill extends Behavior:
 		if not attached:
 			return
 		attached = false
+		if not sails_paid and not s.destroyed and s.destroyed_fraction() < 0.12:
+			sails_paid = true
+			if Unlocks.tier_on(2):
+				hub_paid = true                      # one reward per mill: the sails already paid
+			Unlocks.on_windmill(s, "sails")          # chaos: the sails alone were knocked off, the mill itself is fine
 		if joint.is_valid():
 			PhysWorld.free_joint(joint)
 			joint = RID()
@@ -249,9 +256,17 @@ class Windmill extends Behavior:
 		Fx.burst("splinter", xf.origin, Color("#8a5a2a"), 1.0)
 		Sfx.play("crunch", xf.origin, 1.0, 3)
 		Fx.comic_kind("wood", xf.origin + Vector3.UP * 2.0)
-	func on_hit(s: Structure, _p: Part, _amount: float) -> void:
+	func on_hit(s: Structure, p: Part, _amount: float) -> void:
+		_pay_hub(s, p)
 		detach(s)
-	func on_part_break(s: Structure, _p: Part) -> void:
+	## the hub (axle) was hit (damaged or shot away): a drill bomb, and then no extra sail reward for the same shot
+	func _pay_hub(s: Structure, p: Part) -> void:
+		if p.tag == "hub" and not hub_paid:
+			hub_paid = true
+			sails_paid = true
+			Unlocks.on_windmill(s, "hub")
+	func on_part_break(s: Structure, p: Part) -> void:
+		_pay_hub(s, p)
 		detach(s)
 	func on_fire(_s: Structure, _p: Part) -> void:
 		spin_boost = 2.0

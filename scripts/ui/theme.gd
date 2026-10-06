@@ -46,26 +46,36 @@ static func box(bg: Color, border: Color = INK, bw: int = 3, radius: int = 14, s
 	sb.content_margin_bottom = 8
 	return sb
 
-static func _btn(theme: Theme, type: String, base: String, col: Color, txt: Color) -> void:
+## Modern, quiet surface: a translucent fill, a hair-line light edge, no heavy frame (buttons, inputs, popups)
+static func soft(fill: Color, edge: Color = Color(1, 1, 1, 0.38), radius: int = 12, edge_w: int = 1) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = fill
+	sb.border_color = edge
+	sb.set_border_width_all(edge_w)
+	sb.set_corner_radius_all(radius)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 7
+	sb.content_margin_bottom = 7
+	sb.shadow_color = Color(0, 0, 0, 0.18)
+	sb.shadow_size = 3
+	sb.shadow_offset = Vector2(0, 2)
+	return sb
+
+## Button variation: only a light tint of `col` over the glass behind it (the tint amount `a` stays small), dark text
+static func _btn(theme: Theme, type: String, base: String, col: Color, txt: Color, a: float = 0.30) -> void:
 	if type != base:
 		theme.add_type(type)
 		theme.set_type_variation(type, base)
-	var normal := box(col)
-	var hover := box(col.lightened(0.18))
-	var pressed := box(col.darkened(0.15))
-	pressed.shadow_size = 1
-	pressed.content_margin_top = 10
-	var disabled := box(col.darkened(0.4).lerp(Color(0.5, 0.5, 0.5), 0.5))
-	disabled.shadow_size = 0
-	theme.set_stylebox("normal", type, normal)
-	theme.set_stylebox("hover", type, hover)
-	theme.set_stylebox("pressed", type, pressed)
-	theme.set_stylebox("disabled", type, disabled)
-	theme.set_stylebox("focus", type, box(Color(0, 0, 0, 0), Color("#ffffff"), 2, 14, 0))
+	theme.set_stylebox("normal", type, soft(Color(col.r, col.g, col.b, a)))
+	theme.set_stylebox("hover", type, soft(Color(col.r, col.g, col.b, minf(a + 0.16, 0.9)), Color(1, 1, 1, 0.6)))
+	theme.set_stylebox("pressed", type, soft(Color(col.r, col.g, col.b, maxf(a - 0.1, 0.12)), Color(1, 1, 1, 0.25)))
+	theme.set_stylebox("disabled", type, soft(Color(0.5, 0.5, 0.5, 0.14), Color(1, 1, 1, 0.15)))
+	theme.set_stylebox("focus", type, soft(Color(0, 0, 0, 0), Color(1, 1, 1, 0.7), 12, 2))
 	theme.set_color("font_color", type, txt)
 	theme.set_color("font_hover_color", type, txt)
 	theme.set_color("font_pressed_color", type, txt)
-	theme.set_color("font_disabled_color", type, Color(0.85, 0.85, 0.85))
+	theme.set_color("font_disabled_color", type, Color(0.3, 0.25, 0.2, 0.5))
 	theme.set_color("font_outline_color", type, Color(0.1, 0.05, 0.02))
 	theme.set_constant("outline_size", type, 0)
 
@@ -76,7 +86,7 @@ static func build() -> Theme:
 	t.default_font = font()
 	t.default_font_size = 17
 	# tooltips: parchment panel with ONE border (custom tooltip content has no frame of its own)
-	var tip := box(PARCH, INK, 2, 8, 0)
+	var tip := box(Color(0.97, 0.94, 0.86, 0.97), Color(0, 0, 0, 0.0), 0, 10, 4)
 	tip.content_margin_left = 10
 	tip.content_margin_right = 10
 	tip.content_margin_top = 6
@@ -88,40 +98,48 @@ static func build() -> Theme:
 	t.set_color("font_color", "Label", INK)
 	t.set_color("font_outline_color", "Label", Color(1, 1, 1, 0.0))
 	# panels
-	t.set_stylebox("panel", "PanelContainer", box(PARCH))
-	t.set_stylebox("panel", "Panel", box(PARCH))
+	# (menus and dialogs put the frosted glass on their panels, see Glass.dialog; this is the plain fallback)
+	t.set_stylebox("panel", "PanelContainer", box(Color(0.97, 0.94, 0.86, 0.80), Color(1, 1, 1, 0.0), 0, 16, 8))
+	t.set_stylebox("panel", "Panel", box(Color(0.97, 0.94, 0.86, 0.80), Color(1, 1, 1, 0.0), 0, 16, 8))
 	# buttons (default bright red variants, with title/gold variations)
-	t.set_stylebox("normal", "Button", box(YELLOW.darkened(0.05)))
-	_btn(t, "Button", "Button", Color("#f0b429"), INK)
-	_btn(t, "RedButton", "Button", RED, Color("#ffffff"))
-	_btn(t, "GreenButton", "Button", Color("#27ae60"), Color("#ffffff"))
-	_btn(t, "GoldButton", "Button", YELLOW, INK)
-	_btn(t, "ParchButton", "Button", PARCH_DARK, INK)
+	_btn(t, "Button", "Button", Color("#e9c46a"), INK, 0.34)
+	_btn(t, "RedButton", "Button", Color("#d9605a"), Color("#4a1410"), 0.40)
+	_btn(t, "GreenButton", "Button", Color("#4fa65f"), Color("#0f2f17"), 0.62)
+	_btn(t, "GoldButton", "Button", Color("#dcae3c"), INK, 0.62)
+	_btn(t, "ParchButton", "Button", Color("#ffffff"), INK, 0.32)
 	t.set_font("font", "RedButton", font_bold())
 	t.set_font("font", "GreenButton", font_bold())
 	# line edit / option button / check
-	var le := box(Color("#fff6da"), INK, 2, 8, 0)
+	var le := soft(Color(1, 1, 1, 0.42), Color(1, 1, 1, 0.55), 10)
 	le.content_margin_top = 4
 	le.content_margin_bottom = 4
 	t.set_stylebox("normal", "LineEdit", le)
-	t.set_stylebox("focus", "LineEdit", box(Color("#ffffff"), RED, 2, 8, 0))
+	t.set_stylebox("focus", "LineEdit", soft(Color(1, 1, 1, 0.62), Color("#c9962a"), 10, 2))
+	t.set_stylebox("read_only", "LineEdit", soft(Color(0.5, 0.5, 0.5, 0.16), Color(1, 1, 1, 0.2), 10))
+	t.set_color("font_uneditable_color", "LineEdit", Color(0.3, 0.25, 0.2, 0.55))
 	t.set_color("font_color", "LineEdit", INK)
 	t.set_color("caret_color", "LineEdit", INK)
 	t.set_color("font_placeholder_color", "LineEdit", Color(0.4, 0.3, 0.2, 0.6))
-	var ob := box(Color("#fff6da"), INK, 2, 8, 0)
+	var ob := soft(Color(1, 1, 1, 0.42), Color(1, 1, 1, 0.55), 10)
 	ob.content_margin_top = 4
 	ob.content_margin_bottom = 4
 	t.set_stylebox("normal", "OptionButton", ob)
-	t.set_stylebox("hover", "OptionButton", box(Color("#ffffff"), INK, 2, 8, 0))
-	t.set_stylebox("pressed", "OptionButton", box(Color("#ffe9a8"), INK, 2, 8, 0))
-	t.set_stylebox("focus", "OptionButton", box(Color(0, 0, 0, 0), RED, 2, 8, 0))
+	t.set_stylebox("hover", "OptionButton", soft(Color(1, 1, 1, 0.60), Color(1, 1, 1, 0.7), 10))
+	t.set_stylebox("pressed", "OptionButton", soft(Color(1, 1, 1, 0.32), Color(1, 1, 1, 0.4), 10))
+	t.set_stylebox("disabled", "OptionButton", soft(Color(0.5, 0.5, 0.5, 0.14), Color(1, 1, 1, 0.15), 10))
+	t.set_stylebox("focus", "OptionButton", soft(Color(0, 0, 0, 0), Color("#c9962a"), 10, 2))
 	t.set_color("font_color", "OptionButton", INK)
 	t.set_color("font_hover_color", "OptionButton", INK)
 	t.set_color("font_pressed_color", "OptionButton", INK)
 	t.set_color("font_focus_color", "OptionButton", INK)
-	var pm := box(PARCH, INK, 2, 8, 6)
+	t.set_color("font_disabled_color", "OptionButton", Color(0.3, 0.25, 0.2, 0.5))
+	var pm := box(Color(0.98, 0.96, 0.90, 1.0), Color(1, 1, 1, 0.65), 1, 12, 10)
+	pm.content_margin_left = 6
+	pm.content_margin_right = 6
+	pm.content_margin_top = 6
+	pm.content_margin_bottom = 6
 	t.set_stylebox("panel", "PopupMenu", pm)
-	t.set_stylebox("hover", "PopupMenu", box(Color("#f0b429"), INK, 0, 6, 0))
+	t.set_stylebox("hover", "PopupMenu", box(Color(0.91, 0.77, 0.42, 0.55), Color(0, 0, 0, 0), 0, 6, 0))
 	t.set_color("font_color", "PopupMenu", INK)
 	t.set_color("font_hover_color", "PopupMenu", INK)
 	t.set_color("font_disabled_color", "PopupMenu", Color(0.5, 0.4, 0.3))
@@ -130,7 +148,7 @@ static func build() -> Theme:
 		var flat := StyleBoxFlat.new()
 		flat.bg_color = Color(1, 1, 1, 0.0 if st != "hover" else 0.25)
 		flat.set_corner_radius_all(8)
-		flat.content_margin_left = 6
+		flat.content_margin_left = 0
 		flat.content_margin_top = 4
 		flat.content_margin_bottom = 4
 		t.set_stylebox(st, "CheckButton", flat)
@@ -143,13 +161,13 @@ static func build() -> Theme:
 	t.set_color("font_color", "CheckBox", INK)
 	# sliders
 	var groove := StyleBoxFlat.new()
-	groove.bg_color = Color("#8a6d3b")
+	groove.bg_color = Color(0.23, 0.16, 0.10, 0.22)
 	groove.set_corner_radius_all(6)
 	groove.content_margin_top = 5
 	groove.content_margin_bottom = 5
 	t.set_stylebox("slider", "HSlider", groove)
 	var fill := StyleBoxFlat.new()
-	fill.bg_color = RED
+	fill.bg_color = Color("#d9a441")
 	fill.set_corner_radius_all(6)
 	t.set_stylebox("grabber_area", "HSlider", fill)
 	t.set_stylebox("grabber_area_highlight", "HSlider", fill)
@@ -164,15 +182,11 @@ static func wobble(c: Control) -> void:
 	c.resized.connect(func() -> void: c.pivot_offset = c.size * 0.5)
 	c.mouse_entered.connect(func() -> void:
 		var tw: Tween = c.create_tween()
-		tw.set_parallel(true)
-		tw.tween_property(c, "scale", Vector2(1.05, 1.05), 0.10).set_trans(Tween.TRANS_BACK)
-		tw.tween_property(c, "rotation", deg_to_rad(randf_range(-2.0, 2.0)), 0.10)
-		Sfx.play("ui_hover", Vector3.INF, 0.3, 0))
+		tw.tween_property(c, "scale", Vector2(1.015, 1.015), 0.08)
+		Sfx.play("ui_hover", Vector3.INF, 0.25, 0))
 	c.mouse_exited.connect(func() -> void:
 		var tw2: Tween = c.create_tween()
-		tw2.set_parallel(true)
-		tw2.tween_property(c, "scale", Vector2.ONE, 0.10)
-		tw2.tween_property(c, "rotation", 0.0, 0.10))
+		tw2.tween_property(c, "scale", Vector2.ONE, 0.08))
 	if c is BaseButton:
 		(c as BaseButton).pressed.connect(func() -> void: Sfx.play("ui_click", Vector3.INF, 0.6, 0))
 

@@ -111,21 +111,20 @@ func _process(delta: float) -> void:
 		_label.text = p.name
 		_label.modulate = col.lightened(0.3)
 	_flag_mat.albedo_color = col
-	# keep it readable from far away: grow with camera distance
+	# keep it readable from far away: the whole beacon grows in proportion (pole, pennant, ring, beam), never only the pennant
 	var d: float = 60.0
 	if cam != null:
 		d = cam.camera_position().distance_to(position)
-	var s: float = clampf(d / 55.0, 1.0, 7.0)
-	_pole.scale = Vector3(s, 1.0 + (s - 1.0) * 0.6, s)
-	_pole.position = Vector3(0, 4.0 * (1.0 + (s - 1.0) * 0.6), 0)
-	var fs: float = s * (1.0 + clampf((s - 1.0) * 0.35, 0.0, 2.0))
-	_flag.scale = Vector3.ONE * fs
-	_flag.position = Vector3(1.6 * fs, 6.8 + (fs - 1.0) * 1.2, 0)
+	var hs: float = clampf(d / 70.0, 1.0, 5.0)
+	_pole.scale = Vector3(hs * 0.6, hs, hs * 0.6)
+	_pole.position = Vector3(0, 4.0 * hs, 0)
+	_flag.scale = Vector3.ONE * hs
+	_flag.position = Vector3(1.6 * hs, 6.8 * hs, 0)
 	var pulse: float = fmod(_t * 0.9, 1.0)
-	_ring.scale = Vector3(s, s, s) * 1.4 * (0.7 + pulse * 1.3)
+	_ring.scale = Vector3(hs, hs, hs) * 1.2 * (0.7 + pulse * 1.3)
 	var ring_col := Color(col.r, col.g, col.b, 1.0)
 	_ring_mat.albedo_color = ring_col * (1.0 - pulse) * 0.9
-	_beam.scale = Vector3(s * 0.9, 1.0, s * 0.9)
+	_beam.scale = Vector3(hs * 0.7, 1.0, hs * 0.7)
 	var bc: Color = col
 	_beam_mat.albedo_color = Color(bc.r, bc.g, bc.b, 1.0) * (0.42 + 0.1 * sin(_t * 3.0))
 	# the pennant waves a little

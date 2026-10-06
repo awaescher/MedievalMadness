@@ -214,6 +214,24 @@ static func spawn(id: int, kind: String, spot: Vector3, ammo: String, n: int) ->
 			d.rotation = Vector3(PI * 0.5, 0, 0) if k % 2 == 0 else Vector3(0, 0, PI * 0.5)
 			node.add_child(d)
 			hide_on_land.append(d)
+			# the fuse on top of the bomb, with a glowing spark (like the painted bomb of the landed crate)
+			var out: Vector3 = Vector3(sin(ang), 0.0, cos(ang)) * (sz * 0.5 + 0.015)
+			var fuse := BoxMesh.new()
+			fuse.size = Vector3(0.05, 0.16, 0.05)
+			var fz: MeshInstance3D = _mi(fuse, Color("#e8dcc0"))
+			fz.position = out + Vector3(0, sz * 0.37 + 0.33, 0)
+			node.add_child(fz)
+			hide_on_land.append(fz)
+			var spark := CylinderMesh.new()
+			spark.top_radius = 0.075
+			spark.bottom_radius = 0.075
+			spark.height = 0.03
+			spark.radial_segments = 8
+			var sp: MeshInstance3D = _mi(spark, Color("#ff7a1a"), 1.3)
+			sp.position = out + Vector3(0, sz * 0.37 + 0.45, 0)
+			sp.rotation = d.rotation
+			node.add_child(sp)
+			hide_on_land.append(sp)
 	var star_node: Node3D = null
 	var canopy := Node3D.new()
 	node.add_child(canopy)

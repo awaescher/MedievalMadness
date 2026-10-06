@@ -20,12 +20,52 @@ static func reset() -> void:
 	for e in active:
 		_free_event(e)
 	active.clear()
+	cam_cancelled = false
 	cooldown = 0
 	if Terrain.current != null:
 		Terrain.current.set_water_level(Cfg.WATER_LEVEL)
 
 static func busy() -> bool:
 	return not active.is_empty()
+
+## The camera moves to a running event; the player on turn (or anybody) cancels with a key press / click
+static var cam_cancelled: bool = false
+
+static func camera_on() -> bool:
+	return not active.is_empty() and not cam_cancelled and Game.state == Game.State.BATTLE
+
+## Where the interesting thing of the running event is right now (Vector3.INF: nothing to show)
+static func focus_point() -> Vector3:
+	if active.is_empty():
+		return Vector3.INF
+	var e: Dictionary = active[0]
+	match str(e["id"]):
+		"dragon":
+			if e.has("node") and is_instance_valid(e["node"]):
+				return (e["node"] as Node3D).global_position
+			var v0: PlayerData = Game.player(int(e.get("village", 0)))
+			return v0.village_center if v0 != null else Vector3.INF
+		"cheese_meteor":
+			return (e["pos"] as Vector3).lerp(e["target"] as Vector3, 0.4)
+		"cow_rain":
+			var c: Dictionary = (e["cows"] as Array)[0] as Dictionary
+			var p: Vector3 = c["pos"] as Vector3
+			return Vector3(p.x, Terrain.h(p.x, p.z) + 6.0, p.z)
+		"goose_army":
+			for g in (e["geese"] as Array):
+				if is_instance_valid(g):
+					return (g as Animal).global_pos()
+		"tax_collector":
+			if e.has("settler") and is_instance_valid(e["settler"]):
+				return (e["settler"] as Settler).global_pos()
+		"fireworks_accident":
+			return ((e["rockets"] as Array)[0] as Dictionary)["pos"] as Vector3
+		"bubble":
+			return (e["center"] as Vector3) + Vector3.UP * 2.0
+		"flood", "earthquake":
+			var cp: PlayerData = Game.cur()
+			return cp.village_center if cp != null else Vector3.INF
+	return Vector3.INF
 
 static func _free_event(e: Dictionary) -> void:
 	for k in ["node", "sphere"]:
@@ -70,7 +110,9 @@ static func trigger(id: String) -> void:
 	cooldown = 3
 	Events.event_start.emit(id)
 	Events.banner.emit(I18n.t("event." + id), "event")
+	Events.toast.emit(I18n.t("hud.event_skip"))
 	Sfx.play("stinger_event", Vector3.INF, 0.9, 5)
+	cam_cancelled = false
 	var e: Dictionary = {"id": id, "t": 0.0}
 	match id:
 		"dragon":

@@ -46,6 +46,7 @@ var _last_seed: String = ""
 var _feed_cool: Dictionary = {}
 var _fast_forward: bool = false
 var _overview: bool = false
+var tracker: MapTracker
 var _menu_orbit_seed: String = "medieval-madness-menu"
 var _test_ball_count: int = 0
 var _wall_time: float = 0.0
@@ -86,6 +87,8 @@ func _ready() -> void:
 			_autotest_wall = float(a.get_slice("=", 1))
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	Settings.apply_display()
+	if Settings.fullscreen:
+		Settings._relayout_window()
 	Settings.apply_volume()
 	if _autotest_lang != "":
 		Settings.language = _autotest_lang
@@ -122,6 +125,10 @@ func _ready() -> void:
 	marker = MapMarker.new()
 	marker.name = "MapMarker"
 	marker.cam = cam_rig
+	tracker = MapTracker.new()
+	tracker.name = "MapTracker"
+	tracker.cam = cam_rig
+	world.fx_root.add_child(tracker)
 	world.fx_root.add_child(marker)
 	for slot_i in Cfg.MAX_PLAYERS:
 		var mate_marker := MapMarker.new()
@@ -223,9 +230,12 @@ func _build_ui() -> void:
 	menu.start_requested.connect(_on_start_requested)
 	menu.online_requested.connect(func() -> void: lobby.open())
 	hud.overview_pressed.connect(_toggle_overview)
+	hud.cinema_pressed.connect(func() -> void:
+		var ev := InputEventKey.new()
+		ev.keycode = KEY_C
+		ev.pressed = true
+		_unhandled_input(ev))
 	hud.fast_pressed.connect(_toggle_fast)
-	hud.pause_pressed.connect(_open_pause)
-	hud.skip_requested.connect(func() -> void: Turn.skip_turn())
 	hud.ammo_clicked.connect(func(id: String) -> void: Turn.set_ammo(id))
 	hud.offer_toggled.connect(func(id: String, on: bool) -> void: NetGame.offer(id, on))
 	pause_menu.resume.connect(_close_pause)
@@ -233,6 +243,10 @@ func _build_ui() -> void:
 		_close_pause()
 		if not Net.active:
 			_restart_game(_last_seed, true))
+	pause_menu.restart_new_map.connect(func() -> void:
+		_close_pause()
+		if not Net.active:
+			_restart_game(menu._random_seed()))
 	pause_menu.quit_to_menu.connect(func() -> void:
 		_close_pause()
 		_show_menu(false))
@@ -621,12 +635,17 @@ func _close_pause() -> void:
 func _can_fast() -> bool:
 	if Game.state != Game.State.BATTLE:
 		return false
+	# never online; while a CPU plays, and in a human's own turn once the shot has been fired (not while aiming)
 	var p: PlayerData = Game.cur()
-	return not (p != null and p.is_human() and Turn.phase == Turn.Phase.AIMING)
+	if Net.active or p == null:
+		return false
+	if p.is_cpu():
+		return true
+	return Turn.phase == Turn.Phase.FIRING or Turn.phase == Turn.Phase.FLIGHT or Turn.phase == Turn.Phase.AFTERMATH
 
 func _toggle_fast() -> void:
-	if not _fast_forward and not _can_fast():
-		return
+	if Net.active or (not _fast_forward and not _can_fast()):
+		return          # nothing to fast-forward before the shot is fired
 	_fast_forward = not _fast_forward
 	Events.toast.emit(I18n.t("hud.fast") if _fast_forward else "")
 
@@ -702,7 +721,10 @@ func _process(delta: float) -> void:
 	delta = minf(delta, 1.0 / 20.0)
 	# the overview stays while others play (CPUs, online players): the game cameras must not pull it away
 	cam_rig.hold_overview = _overview and Game.state == Game.State.BATTLE and not (Game.cur() != null and Game.cur().is_human())
-	# slow motion (real-time timers)
+	# map mode while others play: who is on turn and where the shot is
+	tracker.active = _overview and Game.state == Game.State.BATTLE and not (Game.cur() != null and Game.cur().is_human() and not Game.cur().is_remote())
+	if not _overview:
+		Director.update(cam_rig, delta)	# slow motion (real-time timers)
 	var now: float = Time.get_ticks_msec() * 0.001
 	var target_scale: float = 1.0
 	if now < _slowmo_until:
@@ -712,8 +734,11 @@ func _process(delta: float) -> void:
 	elif _debug_slowmo:
 		target_scale = Cfg.SLOWMO_SCALE
 	if _fast_forward and not _can_fast():
-		_fast_forward = false
+		_fast_forward = false              # not remembered: it ends with the shot / when you have to aim again
 	hud.fast_on = _fast_forward
+	hud.fast_available = not Net.active
+	hud.fast_enabled = _can_fast()
+	hud.cinema_on = Settings.cinema
 	if not _paused:
 		_apply_speed(target_scale, delta)
 		# bullet time stretches the sound as well (pitch and speed follow the time scale)
@@ -775,7 +800,7 @@ func _update_nameplates() -> void:
 func _update_occluders() -> void:
 	var want: Array[Structure] = []
 	var active: bool = Game.state == Game.State.BATTLE and Turn.sel != null and is_instance_valid(Turn.sel) \
-		and (Turn.phase == Turn.Phase.AIMING or Turn.phase == Turn.Phase.FIRING) and cam_rig.mode == CameraRig.Mode.AIM
+		and (Turn.phase == Turn.Phase.AIMING or Turn.phase == Turn.Phase.FIRING) and (cam_rig.mode == CameraRig.Mode.AIM or (cam_rig.mode == CameraRig.Mode.CINEMA and Director.active()))
 	if active:
 		var from: Vector3 = cam_rig.camera_position()
 		var to: Vector3 = Turn.sel.global_pos() + Vector3(0, 1.8, 0)
@@ -862,6 +887,10 @@ func _auto_quality(delta: float) -> void:
 
 # ------------------------------------------------------------------ input
 func _unhandled_input(event: InputEvent) -> void:
+	if RandomEvents.camera_on() and ((event is InputEventKey and (event as InputEventKey).pressed and not (event as InputEventKey).echo) or (event is InputEventMouseButton and (event as InputEventMouseButton).pressed)):
+		RandomEvents.cam_cancelled = true          # any key / click: back to the normal camera
+		get_viewport().set_input_as_handled()
+		return
 	# a click, Space or Esc ends bullet time first (and does nothing else)
 	if Time.get_ticks_msec() * 0.001 < _slowmo_until and _slowmo_scale < 0.5 and Game.state == Game.State.BATTLE:
 		var cancel: bool = false
@@ -876,6 +905,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k: InputEventKey = event
 		match k.keycode:
+			KEY_F12:
+				hud.toggle_sound()          # F12 = sound on / off
 			KEY_F11:
 				Settings.toggle_fullscreen()
 			KEY_F3:
@@ -891,6 +922,13 @@ func _unhandled_input(event: InputEvent) -> void:
 						_open_pause()
 			KEY_M:
 				_toggle_overview()
+			KEY_C:
+				Settings.cinema = not Settings.cinema
+				Settings.save_settings()
+				Director.reset()
+				Events.toast.emit(I18n.t("hud.cinema_on") if Settings.cinema else I18n.t("hud.cinema_off"))
+				if not Settings.cinema and not _overview and Game.cur() != null:
+					cam_rig.focus_on(Game.cur().village_center, 46.0, 40.0)
 			KEY_X:
 				if _overview and Game.state == Game.State.BATTLE:
 					_place_marker(get_viewport().get_mouse_position(), k.shift_pressed)   # X in the map: set / move / remove the marker at the cursor
@@ -904,7 +942,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				if Game.state == Game.State.BATTLE:
 					if Turn.phase == Turn.Phase.AFTERMATH and not _overview:
 						Turn.skip_aftermath()
-					elif _can_fast() or _fast_forward:
+					elif _can_fast():
 						_toggle_fast()
 		if Settings.debug:
 			_debug_key(k)
@@ -959,7 +997,7 @@ func _debug_key(k: InputEventKey) -> void:
 			var hit2: Vector3 = Terrain.pick(cam_rig.cam.project_ray_origin(get_viewport().get_mouse_position()), cam_rig.cam.project_ray_normal(get_viewport().get_mouse_position()))
 			if hit2 != Vector3.INF:
 				Explosion.explode(hit2, 6.0, 700.0, {"source": {}})
-		KEY_C:
+		KEY_J:
 			get_tree().debug_collisions_hint = not get_tree().debug_collisions_hint
 		KEY_H:
 			for p in Game.players:

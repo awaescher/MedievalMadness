@@ -219,6 +219,23 @@ static func run(main: Node, name: String) -> void:
 			SupplyCrate.crates[0]["height"] = 0.05
 			await frames(60)
 			await shot("crate_landed")
+		"smallcrate":
+			# a small supply crate on its parachute, close up
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "peasant"])
+			await auto_place_all()
+			await wait_phase(Turn.Phase.AIMING)
+			var sp0: Vector3 = Game.players[0].village_center + Vector3(14, 0, 6)
+			sp0.y = Terrain.h(sp0.x, sp0.z)
+			(m.get("ui_root") as Control).visible = false
+			SupplyCrate.spawn(2, "small", sp0, "boulder", 3)
+			SupplyCrate.crates[0]["height"] = 5.0
+			SupplyCrate.tick(0.01)
+			var sc: CameraRig = m.get("cam_rig") as CameraRig
+			sc.cinema(sp0 + Vector3(5.5, 7.5, 5.5), sp0 + Vector3(0, 7.0, 0), 45.0)
+			sc.snap()
+			await frames(30)
+			await shot("smallcrate")
 		"cpugame":
 			await wait_loaded()
 			var types: Array = str(m.get("_autotest_types")).split(",")
@@ -1425,6 +1442,199 @@ static func run(main: Node, name: String) -> void:
 				Speech.inst.visible = false          # no speech bubble over the picture
 			await seconds(2.5)
 			await shot("readme_overview")
+		"icons":
+			# big copies of some weapon icons (to check how they are drawn)
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "peasant"])
+			await auto_place_all()
+			await frames(30)
+			var ix: float = 60.0
+			for iid in uarg("ids", "cow,scatter,quad,firebarrel").split(","):
+				var isl: Hud.AmmoSlot = Hud.AmmoSlot.new()
+				isl.ammo = AmmoDef.get_def(iid)
+				isl.count = 2
+				Glass.apply(isl)
+				isl.position = Vector2(ix, 300)
+				isl.scale = Vector2(5, 5)
+				(m.get("hud") as Hud).add_child(isl)
+				ix += 300.0
+			await seconds(0.5)
+			await shot("icons")
+		"settings":
+			# the settings dialog and the rules dialog of the main menu
+			await wait_loaded()
+			await seconds(1.5)
+			var smenu: Menu = m.get("menu") as Menu
+			smenu.call("_open_settings")
+			await seconds(0.8)
+			await shot("settings")
+			for ch in smenu._content.get_children():
+				if ch is SettingsDialog:
+					ch.queue_free()
+			smenu.call("_open_rules")
+			await seconds(0.6)
+			await shot("rules")
+		"pause":
+			# the pause menu and its settings dialog
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "peasant"])
+			await auto_place_all()
+			await seconds(2.0)
+			m.call("_open_pause")
+			await seconds(0.6)
+			await shot("pause")
+			var pm: PauseMenu = m.get("pause_menu") as PauseMenu
+			pm.get_child(pm.get_child_count() - 1)
+			for bt in pm.find_children("*", "Button", true, false):
+				if (bt as Button).text == I18n.t("pause.options"):
+					(bt as Button).pressed.emit()
+			await seconds(0.6)
+			I18n.set_lang("de" if I18n.get_lang() == "en" else "en")
+			await seconds(0.8)
+			say("PAUSE settings dialog alive after language switch: %s" % str(pm.has_node("Settings") and is_instance_valid(pm.get_node("Settings"))))
+			await shot("pause_settings")
+		"dropdown":
+			# an open dropdown of the menu
+			await wait_loaded()
+			await seconds(1.5)
+			var dmenu: Menu = m.get("menu") as Menu
+			var dd0: OptionButton = null
+			for nd in dmenu._content.find_children("*", "OptionButton", true, false):
+				dd0 = nd as OptionButton
+				if dd0.get_item_count() >= 5:
+					break
+			if dd0 != null:
+				dd0.show_popup()
+			await seconds(0.8)
+			await shot("dropdown")
+		"armhit":
+			# a stone shot straight at the throwing arm of an enemy catapult must damage it
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "peasant"])
+			await auto_place_all()
+			await wait_phase(Turn.Phase.AIMING)
+			var tc: Catapult = Game.players[1].living_catapults()[0] as Catapult
+			var hp0: float = tc.hp
+			var tp: Vector3 = tc.global_pos()
+			var from: Vector3 = tp + Vector3(-4, 0, 0)
+			from.y = tp.y + 3.4
+			var pr: Projectile = Projectile.launch("stone", from, Vector3(30, 0, 0), 0, null)
+			await seconds(2.5)
+			say("ARMHIT hp %.0f -> %.0f, impact %s, cat %s" % [hp0, tc.hp, str(pr.first_impact_pos), str(tp)])
+		"glassperf":
+			# frame time of an idle aiming view (vsync off), to compare the glass look on / off (MM_GLASS=0)
+			Settings.vsync = false
+			Settings.apply_display()
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "peasant"])
+			await auto_place_all()
+			DisplayServer.window_set_size(Vector2i(int(uarg("w", "2560")), int(uarg("h", "1440"))))
+			await wait_phase(Turn.Phase.AIMING)
+			await seconds(3.0)
+			var gms: Array[float] = []
+			for rep in 3:
+				var t0: int = Time.get_ticks_usec()
+				await frames(300)
+				gms.append(float(Time.get_ticks_usec() - t0) / 300000.0)
+			say("GLASSPERF glass=%s frame ms: %s" % [str(Glass.supported()), str(gms)])
+		"millreward":
+			# shoot the hub / the sails of an enemy windmill and see whether the drill bomb reward comes
+			await wait_loaded()
+			Settings.arsenal_preset = "chaos"
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant", "squire"])
+			Game.rule_level = int(uarg("lvl", "2"))
+			await auto_place_all()
+			await wait_phase(Turn.Phase.AIMING)
+			var mill: Structure = null
+			for sx in Breakable.structures:
+				if sx.kind == "windmill" and sx.owner_id != 0:
+					mill = sx
+					break
+			if mill == null:
+				say("MILLREWARD no enemy windmill in this seed")
+			else:
+				var ammo0: int = int(Game.players[0].ammo.get("drillbomb", 0))
+				var hub: Part = null
+				for pt in mill.parts:
+					if pt.tag == "hub":
+						hub = pt
+				var hubpos: Vector3 = hub.xf.origin
+				say("MILLREWARD hub at %s mill %s" % [str(hubpos), str(mill.center)])
+				var shot_dir: Vector3 = Util.flat(hubpos - Game.players[0].village_center).normalized()
+				var from2: Vector3 = hubpos - shot_dir * 6.0
+				Projectile.launch(str(uarg("ammo", "stone")), from2, shot_dir * 30.0, 0, null)
+				await seconds(4.0)
+				say("MILLREWARD drillbombs %d -> %d, hub alive %s, attached %s, destroyed %.2f" % [ammo0, int(Game.players[0].ammo.get("drillbomb", 0)), str(hub.state != Part.State.DEAD), str((mill.behavior as Specials.Windmill).attached), mill.destroyed_fraction()])
+		"cinema":
+			# cinema mode and the map tracker during a CPU turn
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "squire"])
+			await auto_place_all()
+			Settings.cinema = uarg("map", "0") == "0"
+			var cg: float = 0.0
+			while not (Game.cur() != null and Game.cur().is_cpu() and Turn.phase == Turn.Phase.AIMING) and cg < 120.0:
+				await tree.process_frame
+				cg += 1.0 / 60.0
+				if Game.cur() != null and Game.cur().is_human() and Turn.phase == Turn.Phase.AIMING:
+					Turn.skip_turn()
+			if uarg("map", "0") == "1":
+				m.call("_toggle_overview")
+			await seconds(1.5)
+			await shot("cinema_1_aim")
+			var cf: float = 0.0
+			while Turn.phase != Turn.Phase.FLIGHT and cf < 20.0:
+				await tree.process_frame
+				cf += 1.0 / 60.0
+			await seconds(1.2)
+			await shot("cinema_2_flight")
+			var ca: float = 0.0
+			while Turn.phase != Turn.Phase.AFTERMATH and ca < 20.0:
+				await tree.process_frame
+				ca += 1.0 / 60.0
+			await seconds(2.0)
+			await shot("cinema_3_impact")
+		"eventcam":
+			await wait_loaded()
+			await start_match("autotest-a", ["human", "squire"])
+			await auto_place_all()
+			await wait_phase(Turn.Phase.AIMING)
+			RandomEvents.trigger(uarg("id", "dragon"))
+			await seconds(3.0)
+			await shot("eventcam_1")
+			await seconds(2.5)
+			await shot("eventcam_2")
+		"debrisspeed":
+			# who flies away fast? drill bomb in a village, then every body that moves faster than 18 m/s is reported
+			await wait_loaded()
+			Settings.palisade_count = 1
+			await start_match(str(m.get("_autotest_seed")), ["human", "peasant"])
+			await auto_place_all()
+			Game.players[0].add_ammo("drillbomb", 2)
+			var gd: float = 0.0
+			while (Turn.phase != Turn.Phase.AIMING or Game.cur().id != 0) and gd < 60.0:
+				await tree.process_frame
+				gd += 1.0 / 60.0
+			await seconds(1.0)
+			var vcc: Vector3 = Game.players[1].village_center
+			Turn.select_catapult(Game.cur().living_catapults()[0] as Catapult)
+			await aim_and_fire(vcc, "drillbomb", 45.0)
+			m.set("_fast_forward", uarg("fast", "0") == "1")
+			var seen: Dictionary = {}
+			var t_end: float = Time.get_ticks_msec() * 0.001 + 40.0
+			var worst: float = 0.0
+			while Time.get_ticks_msec() * 0.001 < t_end:
+				await tree.process_frame
+				for bid in PhysWorld.bodies:
+					var pbx: PhysWorld.PBody = PhysWorld.bodies[bid] as PhysWorld.PBody
+					if pbx.mass <= 0.0 or pbx.kind == "projectile" or pbx.kind == "catapult":
+						continue
+					var vv: Vector3 = PhysWorld.get_velocity(bid)
+					vv.y = 0.0          # horizontal only: falling into the pit is fast but normal
+					worst = maxf(worst, vv.length())
+					if vv.length() > 14.0 and not seen.has(bid):
+						seen[bid] = true
+						say("FAST %s speed %.1f vel %s at %s (explosions active %s, slides %s)" % [pbx.kind, vv.length(), str(vv.snapped(Vector3.ONE * 0.1)), str(pbx.xform.origin.snapped(Vector3.ONE * 0.1)), str(Explosion.is_active()), str(Landslide.active())])
+			say("DEBRISSPEED worst %.1f m/s, %d bodies went above 18" % [worst, seen.size()])
 		"drillbomb":
 			await wait_loaded()
 			Settings.palisade_count = 1

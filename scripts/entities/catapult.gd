@@ -64,6 +64,8 @@ func setup(p: PlayerData, ground_pos: Vector3, yaw_rad: float) -> void:
 	_pos_cache = xf.origin
 	var d := PhysWorld.BodyDesc.new()
 	d.shapes.append(PhysWorld.box_desc(Vector3(1.9, 0.9, 2.4), Transform3D(Basis(), Vector3(0, 0.47, 0))))
+	# the frames and the throwing arm are hit zone too (a shot that hit only the arm used to fly through without damage)
+	d.shapes.append(PhysWorld.box_desc(Vector3(1.3, 3.0, 1.1), Transform3D(Basis(), Vector3(0, 2.3, PIVOT.z))))
 	d.xf = xf
 	d.mass = 400.0
 	d.friction = 0.8

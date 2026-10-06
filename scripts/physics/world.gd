@@ -475,8 +475,8 @@ func _integ(state: PhysicsDirectBodyState3D, pb: PBody) -> void:
 		_kill_queue.append(pb.id)
 		return
 	# a 4-tonne boulder must not turn splinters into bullets
-	if pb.kind != "projectile" and pb.kind != "catapult" and state.linear_velocity.length_squared() > 3600.0:
-		state.linear_velocity = state.linear_velocity.normalized() * 60.0
+	if pb.kind != "projectile" and pb.kind != "catapult" and state.linear_velocity.length_squared() > 1600.0:
+		state.linear_velocity = state.linear_velocity.normalized() * 40.0          # nothing but a shot flies faster than 40 m/s
 	pb.xform = xf
 	if pb.visual != null:
 		pb.visual.transform = xf

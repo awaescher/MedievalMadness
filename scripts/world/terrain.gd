@@ -368,7 +368,7 @@ func paint_path(a: Vector3, b: Vector3, width: float, amount: float = 0.85) -> v
 		paint(p, width, amount, 0.0)
 
 func _process(delta: float) -> void:
-	_flush_timer += delta
+	_flush_timer += delta * maxf(Engine.time_scale, 1.0)          # game time, not real time: with fast-forward the soil moves 3x faster too
 	if _flush_timer < 0.5:
 		return
 	_flush_timer = 0.0

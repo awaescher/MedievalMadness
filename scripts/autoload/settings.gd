@@ -24,6 +24,8 @@ var crates_on: bool = true               # supply crates (meteor crate + small b
 var auto_quality: bool = true
 var fullscreen: bool = false
 var vsync: bool = false
+var cinema: bool = false                # cinema mode: the camera follows the action of the others like a film
+var glass: bool = true                   # frosted-glass look of menus and HUD (off: plain translucent panels)
 var cpu_particles: bool = false
 var win_size: Vector2i = Vector2i(1600, 900)
 var players: Array = []      # last used player list: [{name, color, type}]
@@ -94,6 +96,8 @@ func load_settings() -> void:
 	auto_quality = bool(cf.get_value("main", "auto_quality", auto_quality))
 	fullscreen = bool(cf.get_value("main", "fullscreen", fullscreen))
 	vsync = bool(cf.get_value("main", "vsync", vsync))
+	glass = bool(cf.get_value("main", "glass", glass))
+	cinema = bool(cf.get_value("main", "cinema", cinema))
 	cpu_particles = bool(cf.get_value("main", "cpu_particles", cpu_particles))
 	player_count = clampi(int(cf.get_value("main", "player_count", player_count)), Cfg.MIN_PLAYERS, Cfg.MAX_PLAYERS)
 	seed_text = str(cf.get_value("main", "seed_text", seed_text))
@@ -173,6 +177,11 @@ static func _is_test_run() -> bool:
 ## "Reset options": everything of the options panel back to the first-start defaults (language, names, players, seed and
 ## the saved custom arsenal are kept). `local_only`: a guest in an online lobby only resets its own display / sound options.
 func reset_options(local_only: bool = false) -> void:
+	reset_display_options()
+	reset_match_options(local_only)
+
+## The technical settings (graphics, display, sound) back to the first-start defaults (language is kept)
+func reset_display_options() -> void:
 	volume = 0.8
 	quality = "medium"
 	lighting = "enhanced"
@@ -180,7 +189,14 @@ func reset_options(local_only: bool = false) -> void:
 	shake = true
 	auto_quality = true
 	vsync = false
+	glass = true
 	fullscreen = false
+	apply_display()
+	apply_volume()
+	save_settings()
+
+## The match rules back to the defaults (`local_only`: a guest in an online lobby only resets what it shows itself)
+func reset_match_options(local_only: bool = false) -> void:
 	weather_on = true
 	wind_level = 1
 	events_on = true
@@ -195,8 +211,6 @@ func reset_options(local_only: bool = false) -> void:
 		rules_level = 0
 		arsenal_edit.clear()
 		arsenal_edit_preset = ""
-	apply_display()
-	apply_volume()
 	save_settings()
 
 func _save_now() -> void:
@@ -220,6 +234,8 @@ func _save_now() -> void:
 	cf.set_value("main", "auto_quality", auto_quality)
 	cf.set_value("main", "fullscreen", fullscreen)
 	cf.set_value("main", "vsync", vsync)
+	cf.set_value("main", "glass", glass)
+	cf.set_value("main", "cinema", cinema)
 	cf.set_value("main", "cpu_particles", cpu_particles)
 	cf.set_value("main", "player_count", player_count)
 	cf.set_value("main", "seed_text", seed_text)
@@ -250,7 +266,22 @@ func apply_display() -> void:
 func set_fullscreen(on: bool) -> void:
 	fullscreen = on
 	apply_display()
+	_relayout_window()
 	save_settings()
+
+## After a window mode change the rendering area sometimes stays at the old size (only the top left corner is drawn, macOS):
+## wait two frames, then make the root window take the real size of the screen / window again.
+func _relayout_window() -> void:
+	if not is_inside_tree():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var w: Window = get_window()
+	if w == null:
+		return
+	var real: Vector2i = DisplayServer.window_get_size(w.get_window_id())
+	w.size = real
+	w.content_scale_size = Vector2i(1600, 900)
 
 func toggle_fullscreen() -> void:
 	set_fullscreen(not fullscreen)

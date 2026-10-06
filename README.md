@@ -73,11 +73,11 @@ Linux x86_64 single file). They need the matching Godot **export templates** (Ed
 | Face the next enemy village / your marker | `R` / `X` |
 | Map (overview camera) | `M` - shows the whole map (drag to orbit, middle mouse or `Shift`+right drag to pan, `WASD` pans, `Home` recenters) |
 | Map marker | On the map **left-click the ground or press `X`** to set your one marker (new click moves it, click on it or `Shift`+click removes it). It stays for the whole match; while aiming a dashed line, a compass label and the range readout point to it |
-| Skip turn | hold `Tab` for 2 s (or hold the button); a short `Tab` picks the next catapult |
 | Pause / options | `Esc` |
-| Fullscreen | `F11` |
+| Sound on-off / fullscreen | `F12` / `F11` |
 | Placement | click ground = place, `Q`/`E` rotate, right click / `Z` removes the last one |
-| Fast-forward (3x) | `F`, the `Fast-forward` button, or `Space` outside your own aiming phase - handy during CPU turns; it switches itself off when it is your turn to aim |
+| Cinematic camera (follows the action of the others) | `C` |
+| Fast-forward (3x) | `F`, the `Fast-forward` button or `Space` - while a CPU is on turn and in your own turn once your shot is fired (never online); it is switched off again when you have to aim |
 
 **Aiming in detail** - the pull direction is opposite to the launch direction: drag *left* to aim *right*, drag
 *down* to lob higher. Power = pull length (up to 220 px), azimuth = 0.25 deg per pixel, elevation = 15 deg + 0.3 deg per pixel

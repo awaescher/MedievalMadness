@@ -15,6 +15,7 @@ class FlagButton extends Control:
 	signal pressed
 	var kind: String = "de"
 	var selected: bool = false
+	var tile: bool = false          # drawn as a glass button tile with the flag inside (top right of the menu)
 	var _hover: bool = false
 	func _init(k: String = "de") -> void:
 		kind = k
@@ -34,6 +35,19 @@ class FlagButton extends Control:
 			queue_redraw()
 	func _draw() -> void:
 		var r := Rect2(Vector2(3, 3), size - Vector2(6, 6))
+		if tile:
+			material = Glass.tinted(Color.WHITE, 0.24) if Glass.supported() else null
+			if selected:
+				# the chosen language looks pressed: flat (no shadow), a bit darker, the flag one pixel lower
+				draw_style_box(Glass.fit(Glass.tile(12, 0.0, 1.0, 0), self), Rect2(Vector2.ZERO, size))
+				var dark := StyleBoxFlat.new()
+				dark.bg_color = Color(0.2, 0.12, 0.05, 0.16)
+				dark.set_corner_radius_all(12)
+				draw_style_box(dark, Rect2(Vector2.ZERO, size))
+				r = Rect2(Vector2(10, 9), size - Vector2(20, 16))
+			else:
+				draw_style_box(Glass.fit(Glass.tile(12), self), Rect2(Vector2.ZERO, size))
+				r = Rect2(Vector2(10, 8), size - Vector2(20, 16))
 		if kind == "de":
 			var h: float = r.size.y / 3.0
 			draw_rect(Rect2(r.position, Vector2(r.size.x, h)), Color("#1a1a1a"))
@@ -56,6 +70,9 @@ class FlagButton extends Control:
 			draw_rect(Rect2(Vector2(c.x - 4.5, r.position.y), Vector2(9.0, r.size.y)), Color.WHITE)
 			draw_rect(Rect2(Vector2(r.position.x, c.y - 2.5), Vector2(r.size.x, 5.0)), red)
 			draw_rect(Rect2(Vector2(c.x - 2.5, r.position.y), Vector2(5.0, r.size.y)), red)
+		if tile:
+			draw_rect(r, Color(0.23, 0.16, 0.10, 0.55), false, 1.0)
+			return
 		var border: Color = Color("#ffd400") if selected else (Color("#8a6a3a") if _hover else Color("#3b2a1a"))
 		draw_rect(r, border, false, 3.0 if selected else 2.0)
 		if not selected:
@@ -77,7 +94,8 @@ var title: Label
 var _content: Control
 var _sound_ready: bool = false
 var _rng := Rng.new(int(Time.get_ticks_msec()))
-var _volume_slider: HSlider
+var _rules_label: Label
+var _settings_dlg: SettingsDialog
 var _host_ctrls: Array[Control] = []     # controls only the host may change while a lobby is open
 var _lobby_timer: float = 0.0
 var _lobby_sent: String = ""
@@ -87,6 +105,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = UITheme.build()
+	Glass.watch(self)
 	_load_state()
 	_build()
 	Events.language_changed.connect(_on_lang_changed)
@@ -206,12 +225,14 @@ func _load_state() -> void:
 		Settings.seed_text = _random_seed()
 	var saved: Array = Settings.players
 	rows.clear()
-	var defaults: Array = Game.default_players(Cfg.MAX_PLAYERS, Settings.seed_text)
+	var defaults: Array = Game.default_players(Cfg.MAX_PLAYERS, "")      # a new order at every program start
 	for i in Cfg.MAX_PLAYERS:
 		var d: Dictionary = (defaults[i] as Dictionary).duplicate()
 		if i < saved.size() and saved[i] is Dictionary:
 			var sd: Dictionary = saved[i] as Dictionary
-			d["name"] = str(sd.get("name", d["name"]))
+			var sname: String = str(sd.get("name", d["name"]))
+			if not Game.HUMAN_NAMES.has(sname):
+				d["name"] = sname               # a name the player typed stays; the drawn ones are drawn anew
 			d["color"] = int(sd.get("color", d["color"]))
 			d["type"] = str(sd.get("type", d["type"]))
 		rows.append(d)
@@ -267,6 +288,8 @@ func _team_count() -> int:
 # ------------------------------------------------------------------ layout
 func _build() -> void:
 	_host_ctrls.clear()
+	if is_instance_valid(_settings_dlg):
+		move_child.call_deferred(_settings_dlg, get_child_count() - 1)
 	if _content != null:
 		_content.queue_free()
 	_content = Control.new()
@@ -282,6 +305,41 @@ func _build() -> void:
 	root.offset_bottom = -16
 	root.add_theme_constant_override("separation", 12)
 	_content.add_child(root)
+	# top right: language and the settings dialog as three glass buttons (graphics, display, sound: things of this computer)
+	var tools := HBoxContainer.new()
+	tools.add_theme_constant_override("separation", 10)
+	tools.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	tools.anchor_left = 1.0
+	tools.anchor_right = 1.0
+	tools.offset_right = -24
+	tools.offset_top = 18
+	tools.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	for lg in ["de", "en"]:
+		var fb := FlagButton.new(lg)
+		fb.tile = true
+		fb.custom_minimum_size = Vector2(60, 42)
+		fb.selected = I18n.get_lang() == lg
+		fb.tooltip_text = "Deutsch" if lg == "de" else "English"
+		var code: String = lg
+		fb.pressed.connect(func() -> void:
+			I18n.set_lang(code)
+			Settings.save_settings())
+		tools.add_child(fb)
+	var gear := GearButton.new()
+	gear.toggle_mode = false
+	gear.custom_minimum_size = Vector2(60, 42)
+	gear.tooltip_text = I18n.t("settings.title")
+	Glass.button(gear)
+	gear.pressed.connect(_open_settings)
+	tools.add_child(gear)
+	var quit_b := CloseButton.new()
+	quit_b.quit_style = true
+	quit_b.theme_type_variation = "RedButton"
+	quit_b.tooltip_text = I18n.t("menu.quit")
+	quit_b.custom_minimum_size = Vector2(60, 42)
+	quit_b.pressed.connect(func() -> void: get_tree().quit())
+	tools.add_child(quit_b)
+	_content.add_child(tools)
 	# title
 	title = UITheme.label(I18n.t("menu.title"), 68, Color("#ffd400"), true, 22)
 	title.add_theme_font_override("font", ComicText.comic_font())
@@ -301,6 +359,7 @@ func _build() -> void:
 	cols.add_child(_options_panel())
 	# room banner (only while in an online room): the code, big, above the buttons
 	room_banner = PanelContainer.new()
+	Glass.panel(room_banner)
 	room_banner.visible = false
 	var rb_box := HBoxContainer.new()
 	rb_box.add_theme_constant_override("separation", 14)
@@ -350,6 +409,7 @@ func _build() -> void:
 
 func _panel() -> PanelContainer:
 	var p := PanelContainer.new()
+	Glass.dialog(p, 18, Vector2(18, 14))
 	return p
 
 func _players_panel() -> Control:
@@ -393,7 +453,12 @@ func _players_panel() -> Control:
 	players_box = VBoxContainer.new()
 	players_box.add_theme_constant_override("separation", 6)
 	players_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(players_box)
+	var pp := MarginContainer.new()              # room for the shadows of the fields
+	pp.add_theme_constant_override("margin_right", 6)
+	pp.add_theme_constant_override("margin_bottom", 6)
+	pp.add_theme_constant_override("margin_top", 2)
+	scroll.add_child(pp)
+	pp.add_child(players_box)
 	for i in Cfg.MAX_PLAYERS:
 		players_box.add_child(_player_row(i))
 	# match setup as one aligned grid: label | field | button (same columns in every row)
@@ -513,32 +578,20 @@ func _arsenal_cells(grid: GridContainer) -> void:
 	var edit: Button = UITheme.option_button(I18n.t("menu.ars_edit"), "GoldButton", 100.0)
 	edit.pressed.connect(_open_arsenal)
 	grid.add_child(edit)
-	# unlock rules: set by the mode (Custom: choose the tier), the ? explains what is active
+	# unlock rules: given by the mode (the tier of a Custom arsenal is chosen in the Edit dialog); always readable right here
 	grid.add_child(UITheme.label(I18n.t("menu.rules"), 18, UITheme.INK, true))
-	var rd := OptionButton.new()
-	rd.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rd.custom_minimum_size = Vector2(0, 36)
-	rd.focus_mode = Control.FOCUS_NONE
-	for lv in 3:
-		rd.add_item(I18n.t("menu.rules_%d" % lv))
-	rd.select(Settings.effective_rule_level())
-	rd.disabled = Settings.arsenal_preset != "custom"
-	rd.tooltip_text = I18n.t("menu.rules_tip")
-	grid.add_child(rd)
-	_host_only(rd)
-	var rq: Button = UITheme.option_button("?", "GoldButton", 100.0)
+	_rules_label = UITheme.label(_rules_text(), 17, UITheme.INK)
+	_rules_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_rules_label.clip_text = true
+	grid.add_child(_rules_label)
+	var rq: Button = UITheme.option_button(I18n.t("menu.show_rules"), "ParchButton", 100.0)
 	rq.pressed.connect(_open_rules)
 	grid.add_child(rq)
-	rd.item_selected.connect(func(idx: int) -> void:
-		Settings.rules_level = idx
-		Settings.save_settings()
-		Sfx.play("ui_click", Vector3.INF, 0.6, 0))
 	dd.item_selected.connect(func(idx: int) -> void:
 		Settings.arsenal_preset = Arsenal.PRESETS[idx]
 		Settings.arsenal_edit_preset = ""
 		Settings.arsenal_edit.clear()
-		rd.select(Settings.effective_rule_level())
-		rd.disabled = Settings.arsenal_preset != "custom"
+		_rules_label.text = _rules_text()
 		Settings.save_settings()
 		Sfx.play("ui_click", Vector3.INF, 0.6, 0))
 
@@ -570,24 +623,22 @@ func _options_panel() -> Control:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.custom_minimum_size = Vector2(0, 160)
 	panel.add_child(scroll)
+	var pad := MarginContainer.new()               # room around the controls so that their shadows are not clipped by the scroll area
+	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pad.add_theme_constant_override("margin_left", 4)
+	pad.add_theme_constant_override("margin_right", 6)
+	pad.add_theme_constant_override("margin_top", 3)
+	pad.add_theme_constant_override("margin_bottom", 6)
+	scroll.add_child(pad)
 	var vb := VBoxContainer.new()
 	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vb.add_theme_constant_override("separation", 9)
-	scroll.add_child(vb)
+	pad.add_child(vb)
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
-	var ot: Label = UITheme.label(I18n.t("menu.options"), 22, UITheme.RED, true)
+	var ot: Label = UITheme.label(I18n.t("menu.match_rules"), 22, UITheme.INK, true)
 	ot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(ot)
-	for lg in ["de", "en"]:
-		var fb := FlagButton.new(lg)
-		fb.selected = I18n.get_lang() == lg
-		fb.tooltip_text = "Deutsch" if lg == "de" else "English"
-		var code: String = lg
-		fb.pressed.connect(func() -> void:
-			I18n.set_lang(code)
-			Settings.save_settings())
-		head.add_child(fb)
 	vb.add_child(head)
 	# timer
 	var timers: Array[int] = [0, 20, 30, 45, 60]
@@ -611,24 +662,6 @@ func _options_panel() -> Control:
 	hills.item_selected.connect(func(idx: int) -> void: Settings.terrain_hills = idx)
 	vb.add_child(_opt_row(I18n.t("menu.terrain"), hills))
 	_host_only(hills)
-	var ql := OptionButton.new()
-	for q in Settings.QUALITY_TIERS:
-		ql.add_item(I18n.t("menu.q_" + q))
-	ql.select(Settings.QUALITY_TIERS.find(Settings.quality))
-	ql.item_selected.connect(func(idx: int) -> void:
-		Settings.quality = Settings.QUALITY_TIERS[idx]
-		Events.quality_changed.emit(Settings.quality))
-	vb.add_child(_opt_row(I18n.t("menu.quality"), ql))
-	var lt := OptionButton.new()
-	for lm in Settings.LIGHTING_MODES:
-		lt.add_item(I18n.t("menu.l_" + lm))
-	lt.select(Settings.LIGHTING_MODES.find(Settings.lighting))
-	lt.item_selected.connect(func(idx: int) -> void:
-		Settings.lighting = Settings.LIGHTING_MODES[idx]
-		Events.quality_changed.emit(Settings.quality))
-	vb.add_child(_opt_row(I18n.t("menu.lighting"), lt))
-	var gst: OptionButton = GfxStyle.make_style_button()
-	vb.add_child(_opt_row(I18n.t("menu.gfx_style"), gst))
 	var wind_opt := OptionButton.new()
 	for wl in 3:
 		wind_opt.add_item(I18n.t("menu.wind_" + str(wl)))
@@ -648,33 +681,14 @@ func _options_panel() -> Control:
 	var chk_auto: Control = _check(I18n.t("menu.autoplace"), Settings.auto_place, func(v: bool) -> void: Settings.auto_place = v)
 	_host_only(chk_auto)          # match rule: online only the host decides
 	vb.add_child(chk_auto)
-	vb.add_child(_check(I18n.t("menu.shake"), Settings.shake, func(v: bool) -> void: Settings.shake = v))
-	vb.add_child(_check(I18n.t("menu.autoquality"), Settings.auto_quality, func(v: bool) -> void: Settings.auto_quality = v))
-	vb.add_child(_check(I18n.t("menu.vsync"), Settings.vsync, func(v: bool) -> void:
-		Settings.vsync = v
-		Settings.apply_display()))
-	vb.add_child(_check(I18n.t("menu.fullscreen"), Settings.fullscreen, func(v: bool) -> void: Settings.set_fullscreen(v)))
-	var vs := HSlider.new()
-	vs.min_value = 0.0
-	vs.max_value = 1.0
-	vs.step = 0.05
-	vs.value = Settings.volume
-	vs.custom_minimum_size = Vector2(OPT_W, 26)
-	vs.value_changed.connect(func(v: float) -> void:
-		Settings.volume = v
-		Settings.apply_volume())
-	vs.drag_ended.connect(func(_ch: bool) -> void: Sfx.play("ui_click", Vector3.INF, 0.7, 0))
-	_volume_slider = vs
-	vb.add_child(_opt_row(I18n.t("menu.volume"), vs))
-	# back to the first-start state of every option on this panel
-	var reset: Button = UITheme.option_button(I18n.t("menu.reset_options"), "ParchButton", 0.0)
+	# back to the first-start state of the match rules
+	var reset: Button = UITheme.option_button(I18n.t("menu.reset_rules"), "ParchButton", 0.0)
 	reset.size_flags_horizontal = Control.SIZE_SHRINK_END
 	reset.pressed.connect(func() -> void:
-		Settings.reset_options(Net.is_client())
-		Events.quality_changed.emit(Settings.quality)
+		Settings.reset_match_options(Net.is_client())
 		Sfx.play("ui_click", Vector3.INF, 0.7, 0)
 		_build()
-		status.text = I18n.t("menu.options_reset")
+		status.text = I18n.t("menu.rules_reset")
 		status.visible = true)
 	vb.add_child(reset)
 	return panel
@@ -701,15 +715,27 @@ func _slider_row(key: String, lo: int, hi: int, value: int, cb: Callable) -> Con
 	return hb
 
 ## The unlock rules that are active in the chosen mode, per weapon
+func _open_settings() -> void:
+	Sfx.play("ui_click", Vector3.INF, 0.6, 0)
+	if is_instance_valid(_settings_dlg):
+		return
+	_settings_dlg = SettingsDialog.new()          # a child of the menu itself (not of the content): a language change rebuilds the content
+	add_child(_settings_dlg)
+
+func _rules_text() -> String:
+	var lvl: int = Settings.effective_rule_level()
+	return I18n.t("menu.rules_%d" % lvl) + ("  +  " + I18n.t("menu.rules_quarry") if Settings.arsenal_preset == "quarry" else "")
+
 func _open_rules() -> void:
 	var overlay := Control.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	var dim := ColorRect.new()
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0, 0, 0, 0.55)
+	dim.color = Color(0, 0, 0, 0.30)
 	overlay.add_child(dim)
 	var panel := PanelContainer.new()
+	Glass.dialog(panel)
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
 	panel.anchor_top = 0.5
@@ -727,7 +753,7 @@ func _open_rules() -> void:
 	var head := HBoxContainer.new()
 	vb.add_child(head)
 	var lvl: int = Settings.effective_rule_level()
-	var title: Label = UITheme.label(I18n.t("menu.rules") + ": " + I18n.t("menu.rules_%d" % lvl), 22, UITheme.RED, true)
+	var title: Label = UITheme.label(I18n.t("menu.rules") + ": " + I18n.t("menu.rules_%d" % lvl), 22, UITheme.INK, true)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title)
 	var close := CloseButton.new()
@@ -765,9 +791,10 @@ func _open_arsenal() -> void:
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	var dim := ColorRect.new()
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0, 0, 0, 0.55)
+	dim.color = Color(0, 0, 0, 0.30)
 	overlay.add_child(dim)
 	var panel := PanelContainer.new()
+	Glass.dialog(panel)
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
@@ -786,11 +813,23 @@ func _open_arsenal() -> void:
 	var work: Dictionary = Settings.arsenal.duplicate()
 	var ahead := HBoxContainer.new()
 	vb.add_child(ahead)
-	var at: Label = UITheme.label(I18n.t("menu.arsenal") + ": " + I18n.t("menu.ars_" + Settings.arsenal_preset), 22, UITheme.RED, true)
+	var at: Label = UITheme.label(I18n.t("menu.arsenal") + ": " + I18n.t("menu.ars_" + Settings.arsenal_preset), 22, UITheme.INK, true)
 	at.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ahead.add_child(at)
 	var aclose := CloseButton.new()
 	ahead.add_child(aclose)
+	if Settings.arsenal_preset == "custom":
+		# the tier of the unlock rules of a Custom arsenal is chosen here (the other modes bring their own)
+		var rd := OptionButton.new()
+		rd.focus_mode = Control.FOCUS_NONE
+		for lv in 3:
+			rd.add_item(I18n.t("menu.rules_%d" % lv))
+		rd.select(Settings.rules_level)
+		rd.disabled = Net.is_client()
+		rd.item_selected.connect(func(idx: int) -> void:
+			Settings.rules_level = idx
+			Sfx.play("ui_click", Vector3.INF, 0.6, 0))
+		vb.add_child(_opt_row(I18n.t("menu.rules"), rd))
 	var hint: Label = UITheme.label(I18n.t("menu.arsenal_hint"), 15, Color("#6b4a2a"))
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.custom_minimum_size = Vector2(540, 0)
@@ -803,7 +842,11 @@ func _open_arsenal() -> void:
 	var rows := VBoxContainer.new()
 	rows.add_theme_constant_override("separation", 8)
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(rows)
+	var rp := MarginContainer.new()
+	rp.add_theme_constant_override("margin_right", 8)
+	rp.add_theme_constant_override("margin_bottom", 6)
+	scroll.add_child(rp)
+	rp.add_child(rows)
 	for a in AmmoDef.all():
 		var ammo: AmmoDef = a
 		if ammo.is_action():
@@ -862,6 +905,8 @@ func _open_arsenal() -> void:
 			Settings.arsenal_edit = work
 			Settings.arsenal_edit_preset = Settings.arsenal_preset
 		Settings.save_settings()
+		if _rules_label != null:
+			_rules_label.text = _rules_text()
 		overlay.queue_free()
 	ok.pressed.connect(commit)
 	aclose.pressed.connect(commit)

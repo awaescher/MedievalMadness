@@ -9,7 +9,24 @@ const HUMAN_NAMES: Array[String] = [
 	"Sir Reginald von Bumblebutt", "Lady Guinevere Flatulence", "Baron Von Kaboom", "Duke Dudley Doomsday",
 	"Lord Fluffington", "Countess Cheesewheel", "Prince Pumpernickel", "Dame Doreen Dungpile",
 	"Sir Loin of Beef", "Lord Percival Pickle", "Earl of Hamburg", "Baroness Butterfingers",
-	"Sir Cumference", "Squire Squishy", "Queen Mildred the Moist", "King Kevin the Kinda Okay"]
+	"Sir Cumference", "Squire Squishy", "Queen Mildred the Moist", "King Kevin the Kinda Okay",
+	"Sir Render", "Lord Humphrey Hamstring", "Dame Agatha Anvil", "Duke Dunderhead", "Countess Crumpet",
+	"Baron Bartholomew Bellyflop", "Lady Penelope Pigsnout", "Earl Grey the Elder", "Sir Vival of the Fittest",
+	"Lord Wobblebottom", "Dame Dorothy Dumpling", "Prince Pistachio", "Sir Reginald Rumblegut", "Baroness Biscuit",
+	"Lord Snuffleton", "King Cuthbert the Put-Upon", "Lady Gwendolyn Gravy", "Count Cornelius Cabbage",
+	"Dame Edith Eggwhisk", "Lord Bertrand Bucket", "Queen Bea the Barely Awake", "Baron Hugo Hiccup",
+	"Lady Marmalade", "Squire Squeakington", "Prince Percy Pudding", "Dame Winifred Wobblewick", "Lord Tobias Toenail",
+	"Duchess Dolly Doughnut", "Sir Gawain the Gassy", "Baron Barnaby Bumblefoot", "Countess Clatterbucket",
+	"Lord Cornelius Crumbs", "Dame Mabel Mudpuddle", "King Ferdinand the Fine-ish", "Sir Humphrey Hairnet",
+	"Earl of Sandwich Spread", "Lady Ethel Eyebrow", "Baron Wilfred Wetsock", "Sir Lancelot-ish", "Queen Agnes the Forgetful",
+	"Lord Fitzwilliam Fumble", "Dame Hilda Hotpot", "Prince Pascal Pickleback", "Sir Cecil Soggybottom"]
+
+## The player names in a fresh random order, drawn anew at every program start (the menu hands them out top down)
+var name_deck: Array = []
+
+func _shuffle_names() -> void:
+	name_deck = HUMAN_NAMES.duplicate()
+	name_deck.shuffle()
 const CPU_NAMES: Dictionary = {
 	"peasant": ["Gary the Peasant", "Old Man Hobbs", "Bertha the Baffled", "Dim Dave", "Wobbly Wilf", "Turnip Tom", "Clumsy Clara", "Peasant Pete"],
 	"squire": ["Squire Steve", "Squire Sheila", "Junior Knight Jim", "Apprentice Alfred", "Shieldbearer Sally", "Trainee Trevor", "Bucket-Head Bob", "Squire Sue"],
@@ -50,6 +67,7 @@ var time_scale_user: float = 1.0     # spectator fast-forward toggle (x3)
 var world: Node = null                # GameWorld (set by main)
 
 func _ready() -> void:
+	_shuffle_names()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 func set_state(s: int) -> void:
@@ -128,9 +146,11 @@ func color_of(i: int) -> Color:
 
 ## Build the default player list for the menu (pool order shuffled by the seed)
 func default_players(count: int, seed_text: String) -> Array:
-	var rng := Rng.from_string(seed_text + "-names")
 	var pool: Array = HUMAN_NAMES.duplicate()
-	rng.shuffle(pool)
+	if seed_text == "":
+		pool = name_deck.duplicate()          # the order of this program start
+	else:
+		Rng.from_string(seed_text + "-names").shuffle(pool)
 	var out: Array = []
 	for i in count:
 		out.append({"name": str(pool[i % pool.size()]), "color": i, "type": "human" if i == 0 else "peasant"})

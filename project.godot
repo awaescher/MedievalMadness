@@ -7,6 +7,8 @@ config/name="Medieval Madness"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
+boot_splash/show_image=false
+boot_splash/bg_color=Color(0.29, 0.66, 1, 1)
 
 [autoload]
 

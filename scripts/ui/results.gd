@@ -16,6 +16,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = UITheme.build()
+	Glass.watch(self)
 	visible = false
 
 func show_results(winner: int, replay_available: bool) -> void:
@@ -27,12 +28,12 @@ func show_results(winner: int, replay_available: bool) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var dim := ColorRect.new()
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0.05, 0.03, 0.08, 0.55)
+	dim.color = Color(0.05, 0.03, 0.08, 0.34)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
 	var vp_w: float = get_viewport_rect().size.x
 	panel = PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _panel_style())
+	Glass.dialog(panel, 22, Vector2(22, 18))
 	panel.custom_minimum_size = Vector2(minf(1480.0, vp_w - 40.0), 0)
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
@@ -46,7 +47,7 @@ func show_results(winner: int, replay_available: bool) -> void:
 	panel.add_child(v)
 	# header: dark banner with winner + crowns, crown title below
 	var banner := PanelContainer.new()
-	banner.add_theme_stylebox_override("panel", _row_style(Color("#2a1b33"), Color("#ffd400") if winner >= 0 else Color("#e74c3c"), 3, 14, 12))
+	banner.add_theme_stylebox_override("panel", _row_style(Color(0.16, 0.10, 0.20, 0.72), Color("#ffd400") if winner >= 0 else Color("#e74c3c"), 2, 16, 12))
 	v.add_child(banner)
 	var head := HBoxContainer.new()
 	head.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -107,13 +108,13 @@ func show_results(winner: int, replay_available: bool) -> void:
 	hm.add_theme_constant_override("margin_right", 12)
 	hm.add_child(hdr)
 	v.add_child(hm)
-	hdr.add_child(_cell(I18n.t("stats.rank"), 44, 14, UITheme.RED, true, HORIZONTAL_ALIGNMENT_CENTER))
-	var hn: Label = _cell(I18n.t("stats.player"), 0, 14, UITheme.RED, true, HORIZONTAL_ALIGNMENT_LEFT)
+	hdr.add_child(_cell(I18n.t("stats.rank"), 44, 14, Color("#7a5a36"), true, HORIZONTAL_ALIGNMENT_CENTER))
+	var hn: Label = _cell(I18n.t("stats.player"), 0, 14, Color("#7a5a36"), true, HORIZONTAL_ALIGNMENT_LEFT)
 	hn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hn.custom_minimum_size = Vector2(150, 0)
 	hdr.add_child(hn)
 	for c in cols:
-		hdr.add_child(_cell(I18n.t("stats." + str(c["k"])), int(c["w"]), 13, UITheme.RED, true, HORIZONTAL_ALIGNMENT_RIGHT))
+		hdr.add_child(_cell(I18n.t("stats." + str(c["k"])), int(c["w"]), 13, Color("#7a5a36"), true, HORIZONTAL_ALIGNMENT_RIGHT))
 	var wteam: int = Game.player(winner).team if Game.player(winner) != null else -1
 	var count_labels: Array = []
 	var row_nodes: Array[Control] = []
@@ -121,8 +122,8 @@ func show_results(winner: int, replay_available: bool) -> void:
 		var p: PlayerData = ranking[i]
 		var is_win: bool = winner >= 0 and p.team == wteam
 		var card := PanelContainer.new()
-		var bg: Color = Color("#ffe58a") if is_win else (Color("#ecd9ab") if i % 2 == 0 else Color("#f0dfb6"))
-		card.add_theme_stylebox_override("panel", _row_style(bg, Color("#d4a017") if is_win else Color(0, 0, 0, 0), 3 if is_win else 0, 12, 7))
+		var bg: Color = Color(1.0, 0.86, 0.45, 0.55) if is_win else Color(1, 1, 1, 0.30 if i % 2 == 0 else 0.20)
+		card.add_theme_stylebox_override("panel", _row_style(bg, Color(1, 1, 1, 0.55) if is_win else Color(0, 0, 0, 0), 1 if is_win else 0, 12, 7))
 		v.add_child(card)
 		row_nodes.append(card)
 		var cv := VBoxContainer.new()

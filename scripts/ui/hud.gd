@@ -6,8 +6,7 @@ extends Control
 
 signal overview_pressed
 signal fast_pressed
-signal pause_pressed
-signal skip_requested
+signal cinema_pressed
 signal ammo_clicked(id: String)
 signal offer_toggled(id: String, on: bool)
 
@@ -27,10 +26,10 @@ class TimerRing extends Control:
 		var c := size * 0.5
 		var r: float = minf(size.x, size.y) * 0.5 - 4.0
 		var flash: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.018) if urgent else 0.0
-		draw_circle(c, r + 3.0 + flash * 2.0, Color("#e74c3c") if urgent else Color(0.15, 0.1, 0.06))
-		draw_circle(c, r, Color("#fff6da").lerp(Color("#ff8a7a"), flash))
+		draw_circle(c, r + 3.0 + flash * 2.0, Color("#e74c3c") if urgent else Color(0.15, 0.1, 0.06), true, -1.0, true)
+		draw_circle(c, r, Color("#fff6da").lerp(Color("#ff8a7a"), flash), true, -1.0, true)
 		var a: Color = col if frac > 0.33 else Color("#e74c3c")
-		draw_arc(c, r - 3.0, -PI * 0.5, -PI * 0.5 + TAU * frac, 32, a, 6.0, true)
+		draw_arc(c, r - 3.0, -PI * 0.5, -PI * 0.5 + TAU * frac, 64, a, 6.0, true)
 		var f: Font = UITheme.font_bold()
 		var s: String = str(seconds)
 		var w: float = f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
@@ -45,8 +44,8 @@ class WindWidget extends Control:
 	func _draw() -> void:
 		var c := size * 0.5
 		var r: float = minf(size.x, size.y) * 0.5 - 3.0
-		draw_circle(c, r + 2.0, Color(0.15, 0.1, 0.06))
-		draw_circle(c, r, Color("#fff6da"))
+		draw_circle(c, r + 2.0, Color(0.15, 0.1, 0.06), true, -1.0, true)          # anti-aliased circles / arrow
+		draw_circle(c, r, Color("#fff6da"), true, -1.0, true)
 		var sp: float = wind.length()
 		# world wind (x, z) -> screen: rotate by camera yaw so "up" on screen is the view direction
 		var ang: float = atan2(wind.x, -wind.y) - cam_yaw
@@ -60,8 +59,28 @@ class WindWidget extends Control:
 			draw_line(tail, tip, col, 6.0, true)
 			var poly := PackedVector2Array([tip + dir * 4.0, tip - dir * 10.0 + side * 8.0, tip - dir * 10.0 - side * 8.0])
 			draw_colored_polygon(poly, col)
+			var closed := poly.duplicate()
+			closed.append(poly[0])
+			draw_polyline(closed, col, 1.6, true)          # a smooth, anti-aliased edge for the arrow head
 		else:
-			draw_circle(c, 5.0, Color("#3498db"))
+			draw_circle(c, 5.0, Color("#3498db"), true, -1.0, true)
+
+## The "it is your turn" marker of the player list: a solid dark arrow with a light rim (visible on any glass)
+class TurnArrow extends Control:
+	var on: bool = false
+	func _init() -> void:
+		custom_minimum_size = Vector2(16, 20)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func _draw() -> void:
+		if not on:
+			return
+		var c := size * 0.5
+		var tri := PackedVector2Array([c + Vector2(-5.5, -7.5), c + Vector2(6.5, 0), c + Vector2(-5.5, 7.5)])
+		var closed := tri.duplicate()
+		closed.append(tri[0])
+		draw_polyline(closed, Color(1, 1, 1, 0.85), 4.0, true)
+		draw_colored_polygon(tri, Color("#3b2a1a"))
+		draw_polyline(closed, Color("#3b2a1a"), 1.6, true)
 
 class AmmoSlot extends Control:
 	var ammo: AmmoDef
@@ -131,21 +150,16 @@ class AmmoSlot extends Control:
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			return
 		var action: bool = ammo.is_action()
-		var bg: Color = Color("#f4e4bc") if enabled else Color("#b9a98a")
-		# weapons: slightly reddish rim, turn actions (relocate / build): grey rim
-		var border: Color = Color("#9a4535") if not action else Color("#8a8a94")
-		if selected:
-			border = Color("#e74c3c") if not action else Color("#4a4a58")
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = bg
-		sb.border_color = border
-		sb.set_border_width_all(3 if selected else 2)
-		sb.set_corner_radius_all(10)
-		sb.shadow_color = Color(0, 0, 0, 0.3)
-		sb.shadow_size = 3
+		# glass tile without a frame; only the selected weapon gets a thin red (turn action: dark) frame
+		var sb: StyleBoxFlat = Glass.fit(Glass.tile(10), self)          # same tile as every button; the selected one is lit up like an active button (and lifted)
 		sb.shadow_offset = Vector2(0, 2)
 		var off: float = -5.0 if selected else (-2.0 if hovered else 0.0)
 		draw_style_box(sb, Rect2(Vector2(0, off), size))
+		if selected:
+			var lit := StyleBoxFlat.new()
+			lit.bg_color = Color(1, 1, 1, 0.38)
+			lit.set_corner_radius_all(10)
+			draw_style_box(lit, Rect2(Vector2(0, off), size))
 		var c := Vector2(size.x * 0.5 + 1.0, 21.0 + off) if not action else Vector2(size.x * 0.5 + 1.0, 25.0 + off)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(ICON_SCALE, ICON_SCALE))
 		_draw_icon(c / ICON_SCALE, enabled)
@@ -156,9 +170,11 @@ class AmmoSlot extends Control:
 			var w: float = f.get_string_size(cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 			draw_string(f, Vector2(size.x * 0.5 - w * 0.5, 47.0 + off), cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3b2a1a"))
 		var key: String = ammo.key_label()
-		draw_circle(Vector2(9, 9 + off), 7.0, Color("#3b2a1a"))
-		var kw: float = f.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-		draw_string(f, Vector2(9 - kw * 0.5, 13.0 + off), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#f4e4bc"))
+		var bc := Vector2(9.5, 9.5 + off)
+		draw_circle(bc, 7.5, Color("#3b2a1a"), true, -1.0, true)               # round (anti-aliased) key badge
+		var kw: float = f.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		var base_y: float = bc.y + (f.get_ascent(11) - f.get_descent(11)) * 0.5     # the letter is centred on the badge
+		draw_string(f, Vector2(bc.x - kw * 0.5, base_y), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#f4e4bc"))
 		if gift_from != "":
 			# a gift ribbon: small green box with a red bow
 			var gc := Vector2(size.x - 12.0, 11.0 + off)
@@ -167,12 +183,6 @@ class AmmoSlot extends Control:
 			draw_rect(Rect2(gc + Vector2(-1.5, -5), Vector2(3, 12)), Color("#ffd400"))
 			draw_circle(gc + Vector2(-2.5, -7), 2.5, Color("#e74c3c"))
 			draw_circle(gc + Vector2(2.5, -7), 2.5, Color("#e74c3c"))
-		elif count == 0 and not action:
-			# locked: a padlock until the weapon has been earned
-			var lc := Vector2(size.x - 11.0, 11.0 + off)
-			draw_arc(lc + Vector2(0, -1), 5.0, PI, TAU, 10, Color("#3b2a1a"), 2.5, true)
-			draw_rect(Rect2(lc + Vector2(-6.5, 0), Vector2(13, 10)), Color("#3b2a1a"))
-			draw_circle(lc + Vector2(0, 5), 1.7, Color("#f4e4bc"))
 	# ---- icon helpers (all drawn with primitives; `_on` dims everything of a locked weapon)
 	var _on: bool = true
 	func _k(col: Color) -> Color:
@@ -301,15 +311,14 @@ class AmmoSlot extends Control:
 				draw_arc(c + Vector2(5, -14), 6.0, PI * 0.5, PI * 1.5, 8, _k(Color("#d8b25a")), 2.0, true)
 				_spark(c + Vector2(5, -22), 5.5, Color("#ffcf3a"))
 			"scatter":
-				# a cloth sack tied at the neck, pellets bursting out of it
-				var sack := PackedVector2Array([c + Vector2(-17, 18), c + Vector2(-21, 6), c + Vector2(-15, -4), c + Vector2(-9, -8), c + Vector2(-3, -4), c + Vector2(3, 6), c + Vector2(0, 18)])
-				_poly(sack, Color("#cdaa68"), dark, 2.2)
-				draw_line(c + Vector2(-17, 12), c + Vector2(-9, 4), _k(Color("#a8864a")), 1.5)
-				draw_rect(Rect2(c + Vector2(-13, -8), Vector2(8, 4)), dark)
-				draw_rect(Rect2(c + Vector2(-12, -7), Vector2(6, 2)), _k(Color("#8a5a2a")))
-				for pe in [Vector2(6, -14), Vector2(14, -6), Vector2(19, -17), Vector2(12, -21), Vector2(22, 0), Vector2(8, -2)]:
-					_ball(c + (pe as Vector2), 3.6, Color("#8d8d98"))
-				draw_line(c + Vector2(4, -10), c + Vector2(0, -6), _k(Color("#6a5a48")), 1.4)
+				# like the stone hail, but the balls burn: four dark flints in a loose fan, each trailing a flame, fiery speed streaks
+				for q in [Vector2(-10, -7), Vector2(10, -9), Vector2(-12, 12), Vector2(9, 11)]:
+					var bp: Vector2 = c + (q as Vector2)
+					_poly(PackedVector2Array([bp + Vector2(-6, -3), bp + Vector2(-8, -11), bp + Vector2(-3, -8), bp + Vector2(0, -16), bp + Vector2(3, -8), bp + Vector2(8, -11), bp + Vector2(6, -3)]), Color("#e8401c"), dark, 1.6)
+					draw_colored_polygon(PackedVector2Array([bp + Vector2(-3, -4), bp + Vector2(-2, -9), bp + Vector2(0, -7), bp + Vector2(1, -12), bp + Vector2(3, -4)]), _k(Color("#ffb02e")))
+					_ball(bp, 8.5, Color("#5d5963"))
+				for sy in [-12, 0, 10]:
+					draw_line(c + Vector2(-27, float(sy)), c + Vector2(-21, float(sy)), _k(Color("#e8791c")), 1.6)
 			"cow":
 				# the cow's head, front view: curved horns, leaf ears with pink insides, a dark patch around one eye,
 				# a big pink muzzle with nostrils and a straight mouth
@@ -318,9 +327,9 @@ class AmmoSlot extends Control:
 				var ck := Color("#2b2b33")
 				for sx in [-1.0, 1.0]:
 					var sgn: float = sx as float
-					var horn := PackedVector2Array([c + Vector2(10.0 * sgn, -16), c + Vector2(17.0 * sgn, -21), c + Vector2(23.0 * sgn, -23), c + Vector2(27.0 * sgn, -29)])
-					draw_polyline(horn, dark, 7.5, true)
-					draw_polyline(horn, _k(Color("#efe3bd")), 4.2, true)
+					# a short, tapering horn that ends in a point (base on the head, curving outwards and up)
+					var horn := PackedVector2Array([c + Vector2(8.0 * sgn, -15), c + Vector2(11.0 * sgn, -22), c + Vector2(17.0 * sgn, -26), c + Vector2(21.0 * sgn, -30), c + Vector2(20.0 * sgn, -23), c + Vector2(17.0 * sgn, -17), c + Vector2(15.0 * sgn, -12)])
+					_poly(horn, Color("#efe3bd"), dark, 2.2)
 					var ear: Vector2 = c + Vector2(23.0 * sgn, -7)
 					_ellipse(ear, 12.0, 6.8, dark, 0.5 * sgn)
 					_ellipse(ear, 10.0, 5.0, _k(ck if sgn < 0.0 else cw), 0.5 * sgn)
@@ -395,11 +404,12 @@ class AmmoSlot extends Control:
 				_ellipse(c + Vector2(0, 14), 12.0, 3.4, _k(Color(0.3, 1.0, 0.6, 0.45)))
 				draw_circle(c + Vector2(0, 8), 12.0, _k(Color(0.2, 1.0, 0.5, 0.28)))
 				_ball(c + Vector2(0, 8), 7.5, Color("#35ff86"))
-				# the falling meteor
-				draw_polyline(PackedVector2Array([c + Vector2(20, -22), c + Vector2(15, -15), c + Vector2(11, -9)]), _k(Color(1.0, 0.7, 0.25, 0.6)), 7.0, true)
-				draw_circle(c + Vector2(21, -23), 5.0, dark)
-				draw_circle(c + Vector2(21, -23), 3.6, _k(Color("#ff7a1a")))
-				draw_circle(c + Vector2(20, -24), 1.5, _k(Color("#ffe27a")))
+				# the falling meteor: it comes from the top right, its flaming tail trails BEHIND it (up and right), it heads for the orb
+				draw_polyline(PackedVector2Array([c + Vector2(26, -29), c + Vector2(20, -21), c + Vector2(15, -14)]), _k(Color(1.0, 0.55, 0.15, 0.55)), 7.0, true)
+				draw_polyline(PackedVector2Array([c + Vector2(22, -24), c + Vector2(16, -16)]), _k(Color(1.0, 0.82, 0.35, 0.8)), 3.4, true)
+				draw_circle(c + Vector2(13, -12), 6.2, dark)
+				draw_circle(c + Vector2(13, -12), 4.7, _k(Color("#ff7a1a")))
+				draw_circle(c + Vector2(11.8, -13.4), 1.8, _k(Color("#ffe27a")))
 
 ## One compact line of "what can I do now": [key cap] label  [key cap] label ... on a parchment strip
 class KeyHints extends Control:
@@ -409,6 +419,7 @@ class KeyHints extends Control:
 	var _hits: Array = []          # [[Rect2, id]] of the clickable chips (only those catch the mouse)
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
+		Glass.apply(self)
 	func _has_point(point: Vector2) -> bool:
 		for h in _hits:
 			if ((h as Array)[0] as Rect2).has_point(point):
@@ -441,13 +452,7 @@ class KeyHints extends Control:
 			var kw: float = (maxf(f.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 14.0, 22.0)) if key != "" else 0.0
 			total += kw + (6.0 if key != "" else 0.0) + f.get_string_size(lab, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 16.0
 		var x0: float = (size.x - total) * 0.5
-		var strip := StyleBoxFlat.new()
-		strip.bg_color = Color("#f4e4bc")
-		strip.border_color = Color("#3b2a1a")
-		strip.set_border_width_all(2)
-		strip.set_corner_radius_all(10)
-		strip.shadow_color = Color(0, 0, 0, 0.3)
-		strip.shadow_size = 3
+		var strip: StyleBoxFlat = Glass.fit(Glass.box(10, 3), self)
 		draw_style_box(strip, Rect2(Vector2(x0, 2), Vector2(total, size.y - 6)))
 		var x: float = x0 + 12.0
 		var cy: float = 2.0 + (size.y - 6.0) * 0.5
@@ -512,12 +517,12 @@ class CatSelect extends Control:
 		mouse_filter = Control.MOUSE_FILTER_STOP
 	## right-aligned with the buttons below
 	func _x0() -> float:
-		return size.x - float(cats.size()) * 50.0 + 2.0
+		return size.x - float(cats.size()) * 44.0 + 2.0
 	func _gui_input(ev: InputEvent) -> void:
 		if ev is InputEventMouseButton:
 			var mb: InputEventMouseButton = ev
 			if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-				var i: int = int(floor((mb.position.x - _x0()) / 50.0))
+				var i: int = int(floor((mb.position.x - _x0()) / 44.0))
 				if i >= 0 and i < cats.size() and is_instance_valid(cats[i]) and not (cats[i] as Catapult).destroyed:
 					picked.emit(cats[i] as Catapult)
 					accept_event()
@@ -527,18 +532,17 @@ class CatSelect extends Control:
 			var valid: bool = is_instance_valid(cats[i])
 			var c: Catapult = (cats[i] as Catapult) if valid else null
 			var alive: bool = valid and not c.destroyed
-			var x: float = _x0() + float(i) * 50.0
-			var r := Rect2(x, 2, 44, 38)
+			var x: float = _x0() + float(i) * 44.0
+			var r := Rect2(x, 2, 40, 33)
 			var chosen: bool = alive and c == sel
-			var sb := StyleBoxFlat.new()
-			sb.bg_color = Color("#f4e4bc") if alive else Color("#7a6a55")
-			sb.border_color = Color("#e74c3c") if chosen else Color("#3b2a1a")
-			sb.set_border_width_all(4 if chosen else 2)
-			sb.set_corner_radius_all(8)
+			var sb: StyleBoxFlat = Glass.tile(8, 0.38) if not chosen else Glass.box(8, 4, Color("#e74c3c"), 3)
+			if not alive:
+				sb.bg_color.a *= 0.5                # destroyed catapult: fainter glass
+			Glass.fit(sb, self)
 			draw_style_box(sb, r)
 			var col: Color = Color("#3fb86a") if alive else Color("#c0392b")
-			CatGlyph.draw(self, Vector2(x + 24, 25.0), 1.25, col)
-			draw_string(f, Vector2(x + 6, 17), str(i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3b2a1a"))
+			CatGlyph.draw(self, Vector2(x + 21.5, 22.0), 1.1, col)
+			draw_string(f, Vector2(x + 5, 15), str(i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#3b2a1a"))
 
 class CatIcons extends Control:
 	var alive: int = 0
@@ -547,10 +551,13 @@ class CatIcons extends Control:
 		custom_minimum_size = Vector2(88, 16)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 	func _draw() -> void:
+		# one dot per catapult: green = alive, red = destroyed (readable at any size; the little catapults were too small here)
 		for i in total:
-			var x: float = 2.0 + float(i) * 17.0
-			var col: Color = Color("#3fb86a") if i < alive else Color("#e74c3c")
-			CatGlyph.draw(self, Vector2(x + 7.5, 10.2), 0.6, col)
+			var c := Vector2(8.0 + float(i) * 17.0, 8.0)
+			var col: Color = Color("#3fb86a") if i < alive else Color("#e0574f")
+			draw_circle(c, 6.2, Color("#1a1220"), true, -1.0, true)
+			draw_circle(c, 4.8, col, true, -1.0, true)
+			draw_circle(c + Vector2(-1.5, -1.7), 1.5, Color(1, 1, 1, 0.55), true, -1.0, true)
 
 # ------------------------------------------------------------------ state
 var turn_panel: PanelContainer
@@ -575,14 +582,15 @@ var banner_panel: PanelContainer
 var feed_box: VBoxContainer
 var toast_label: RichTextLabel
 var btn_overview: Button
-var btn_skip: KeyButton
-var btn_sound: Button
-var skip_bar: ProgressBar
+var btn_map: KeyButton
+var btn_cinema: KeyButton
+var fast_available: bool = true
+var fast_enabled: bool = true
+var cinema_on: bool = false
+var btn_sound: KeyButton
 var _banner_tween: Tween
 var _feed_items: Array[Dictionary] = []
-var _skip_hold: float = 0.0
-var _tab_held: float = 0.0
-const TAB_GRACE := 0.4          # a Tab shorter than this switches the catapult, longer starts the skip bar
+
 var _toast_t: float = 0.0
 var _dirty_players: bool = true
 var _players_sig: String = ""
@@ -616,11 +624,12 @@ func _ready() -> void:
 func _build() -> void:
 	# ---- top center: turn panel
 	turn_panel = PanelContainer.new()
+	Glass.panel(turn_panel)
 	turn_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	turn_panel.anchor_left = 0.5
 	turn_panel.anchor_right = 0.5
-	turn_panel.offset_left = -270
-	turn_panel.offset_right = 270
+	turn_panel.offset_left = -40
+	turn_panel.offset_right = 40
 	turn_panel.offset_top = 10
 	turn_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	add_child(turn_panel)
@@ -630,15 +639,18 @@ func _build() -> void:
 	turn_panel.add_child(th)
 	turn_chip = ColorRect.new()
 	turn_chip.custom_minimum_size = Vector2(22, 34)
+	turn_chip.visible = false          # the "X is on turn" panel is gone: the player list marks who is on turn; only the timer ring stays
 	th.add_child(turn_chip)
 	turn_name = UITheme.label("", 26, UITheme.INK, true)
-	turn_name.custom_minimum_size = Vector2(420, 0)
+	turn_name.custom_minimum_size = Vector2(0, 0)
+	turn_name.visible = false
 	turn_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	th.add_child(turn_name)
 	timer_ring = TimerRing.new()
 	th.add_child(timer_ring)
 	# ---- top left: players
 	players_panel = PanelContainer.new()
+	Glass.panel(players_panel)
 	players_panel.position = Vector2(12, 10)
 	add_child(players_panel)
 	players_box = VBoxContainer.new()
@@ -646,10 +658,11 @@ func _build() -> void:
 	players_panel.add_child(players_box)
 	# ---- top right: wind + weather + pause
 	var right := PanelContainer.new()
+	Glass.panel(right)
 	right.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	right.anchor_left = 1.0
 	right.anchor_right = 1.0
-	right.offset_left = -238
+	right.offset_left = -190
 	right.offset_right = -12
 	right.offset_top = 10
 	right.grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -666,9 +679,6 @@ func _build() -> void:
 	rv.add_child(wind_label)
 	weather_label = UITheme.label("", 15, Color("#6b4a2a"))
 	rv.add_child(weather_label)
-	var pb: Button = UITheme.button("II", "ParchButton", Vector2(40, 32), 16)
-	pb.pressed.connect(func() -> void: pause_pressed.emit())
-	rh.add_child(pb)
 	# ---- bottom center: ammo bar
 	var ab := PanelContainer.new()
 	ab.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -682,6 +692,7 @@ func _build() -> void:
 	ab.offset_right = 330
 	ab.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	ab.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	ab.add_theme_stylebox_override("panel", StyleBoxEmpty.new())          # the weapons float, no plate behind them
 	add_child(ab)
 	ammo_box = HBoxContainer.new()
 	ammo_box.add_theme_constant_override("separation", 4)
@@ -693,6 +704,8 @@ func _build() -> void:
 		var aid: String = a.id
 		slot.clicked.connect(func() -> void: ammo_clicked.emit(aid))
 		slot.tooltip_text = a.id          # the real text is built in AmmoSlot._make_custom_tooltip
+		Glass.apply(slot)
+		slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER          # a 52 px tile, not stretched to the height of the bar
 		ammo_box.add_child(slot)
 		ammo_slots.append(slot)
 	# ---- bottom left: offer weapons to a team mate who is on turn
@@ -722,10 +735,12 @@ func _build() -> void:
 		var oid: String = oa.id
 		os.clicked.connect(func() -> void: offer_toggled.emit(oid, not (Turn.gifts.get(oid, -1) == (Game.viewer().id if Game.viewer() != null else -2))))
 		os.tooltip_text = oa.id
+		Glass.apply(os)
 		orow.add_child(os)
 		offer_slots.append(os)
 	# ---- bottom left: aim info
 	aim_panel = PanelContainer.new()
+	Glass.panel(aim_panel)
 	aim_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	aim_panel.anchor_top = 1.0
 	aim_panel.anchor_bottom = 1.0
@@ -752,20 +767,22 @@ func _build() -> void:
 	br.anchor_right = 1.0
 	br.anchor_top = 1.0
 	br.anchor_bottom = 1.0
-	br.offset_left = -188
+	br.offset_left = -158
 	br.offset_right = -10
-	br.offset_top = -230
+	br.offset_top = -280
 	br.offset_bottom = -8
 	br.alignment = BoxContainer.ALIGNMENT_END
 	br.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	br.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	br.add_theme_constant_override("separation", 6)
+	br.add_theme_constant_override("separation", 4)
 	add_child(br)
 	btn_fast = KeyButton.new()
+	Glass.button(btn_fast)
 	btn_fast.pressed.connect(func() -> void: fast_pressed.emit())
 	br.add_child(btn_fast)
 	cat_select = CatSelect.new()
-	cat_select.custom_minimum_size = Vector2(0, 44)
+	Glass.apply(cat_select)
+	cat_select.custom_minimum_size = Vector2(0, 38)
 	cat_select.picked.connect(func(c: Catapult) -> void:
 		if Turn.phase == Turn.Phase.AIMING and Game.cur() != null and Game.cur().is_human():
 			Turn.select_catapult(c)
@@ -775,21 +792,17 @@ func _build() -> void:
 	btn_overview = UITheme.button("", "ParchButton", Vector2(0, 32), 14)
 	btn_overview.pressed.connect(func() -> void: overview_pressed.emit())
 	# (the overview lives as a clickable chip in the hint strip; this button only keeps the text helper alive)
-	btn_skip = KeyButton.new()
-	btn_skip.button_down.connect(func() -> void: _skip_hold = 0.001)
-	btn_skip.button_up.connect(func() -> void: _skip_hold = 0.0)
-	br.add_child(btn_skip)
-	skip_bar = ProgressBar.new()
-	skip_bar.custom_minimum_size = Vector2(0, 8)
-	skip_bar.show_percentage = false
-	skip_bar.max_value = 1.0
-	skip_bar.visible = false
-	br.add_child(skip_bar)
-	btn_sound = UITheme.button("", "ParchButton", Vector2(0, 32), 14)
-	btn_sound.pressed.connect(func() -> void:
-		Settings.volume = 0.0 if Settings.volume > 0.01 else 0.8
-		Settings.apply_volume()
-		_rebuild_texts())
+	btn_map = KeyButton.new()
+	Glass.button(btn_map)
+	btn_map.pressed.connect(func() -> void: overview_pressed.emit())
+	br.add_child(btn_map)
+	btn_cinema = KeyButton.new()
+	Glass.button(btn_cinema)
+	btn_cinema.pressed.connect(func() -> void: cinema_pressed.emit())
+	br.add_child(btn_cinema)
+	btn_sound = KeyButton.new()
+	Glass.button(btn_sound)
+	btn_sound.pressed.connect(toggle_sound)
 	br.add_child(btn_sound)
 	# ---- announcer banner (center)
 	banner_panel = PanelContainer.new()
@@ -800,7 +813,15 @@ func _build() -> void:
 	banner_panel.z_index = 20
 	banner_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	banner_panel.visible = false
-	banner_panel.add_theme_stylebox_override("panel", UITheme.box(Color("#3b2a1a"), Color("#ffd400"), 3, 16, 8))
+	# announcer banner: smoked glass (dark brown tint over the blurred scene), hair-line light edge, gold lettering
+	var bsb: StyleBoxFlat = Glass.box(18, 10, Color(1, 1, 1, 0.35), 1)
+	bsb.content_margin_top = 11            # the lettering sits slightly lower: capitals have no descenders
+	bsb.content_margin_bottom = 5
+	if Glass.supported():
+		banner_panel.material = Glass.tinted(Color("#20130b"), 0.62)
+	else:
+		bsb.bg_color = Color(0.13, 0.08, 0.05, 0.80)
+	banner_panel.add_theme_stylebox_override("panel", bsb)
 	add_child(banner_panel)
 	banner = UITheme.rich_label("", 44, Color("#ffd400"), true, 10, true)
 	banner.fit_content = false
@@ -884,8 +905,9 @@ func _rebuild_texts() -> void:
 		return
 	btn_overview.text = I18n.t("hud.overview")
 	btn_fast.set_content(I18n.t("hud.key_fast"), I18n.t("hud.fast_btn"))
-	btn_skip.set_content(I18n.t("hud.key_skip"), I18n.t("hud.skip"))
-	btn_sound.text = I18n.t("hud.sound_off") if Settings.volume <= 0.01 else I18n.t("hud.sound_on")
+	btn_map.set_content("M", I18n.t("hint.overview"))
+	btn_cinema.set_content("C", I18n.t("hud.cinema"))
+	btn_sound.set_content("F12", I18n.t("hud.sound_off") if Settings.volume <= 0.01 else I18n.t("hud.sound_on"))
 	_dirty_players = true
 
 # ------------------------------------------------------------------ events
@@ -917,6 +939,14 @@ func _scale_aim() -> void:
 	_distance_label.add_theme_font_size_override("font_size", int(clampf(13.0 * k, 10.0, 13.0)))
 	aim_panel.reset_size()
 
+func toggle_sound() -> void:
+	Settings.volume = 0.0 if Settings.volume > 0.01 else 0.8
+	Settings.apply_volume()
+	Settings.save_settings()
+	_rebuild_texts()
+
+var _snd_on: bool = true
+
 func _banner_top() -> float:
 	return clampf(get_viewport_rect().size.y * 0.16, 64.0, BANNER_TOP)
 
@@ -936,8 +966,9 @@ func _fit_banner(text: String) -> void:
 	banner.add_theme_font_size_override("bold_font_size", size)
 	# the label gets a fixed size computed here (no fit_content: that sized the panel from a not yet wrapped text)
 	var width: float = minf(w, avail)
-	var lines_h: float = font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, width - 24.0, size).y
-	banner.custom_minimum_size = Vector2(width, lines_h + 16.0)
+	# one line: exactly one line high (measuring with a wrap width equal to the text width can count a second line)
+	var lines_h: float = font.get_height(size) if w <= avail else font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, width - 24.0, size).y
+	banner.custom_minimum_size = Vector2(width, lines_h + 6.0)
 	banner.size = banner.custom_minimum_size
 	banner_panel.reset_size()
 	var pw: float = banner_panel.get_combined_minimum_size().x
@@ -1003,11 +1034,8 @@ func _update_players() -> void:
 	for p in Game.players:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
-		var cur := Label.new()
-		cur.custom_minimum_size = Vector2(14, 0)
-		cur.text = ">" if p.id == Game.current_player and not p.eliminated else ""
-		cur.add_theme_color_override("font_color", UITheme.RED)
-		cur.add_theme_font_override("font", UITheme.font_bold())
+		var cur := TurnArrow.new()
+		cur.on = p.id == Game.current_player and not p.eliminated
 		row.add_child(cur)
 		var chip := ColorRect.new()
 		chip.custom_minimum_size = Vector2(14, 20)
@@ -1026,6 +1054,7 @@ func _update_players() -> void:
 		var ic := CatIcons.new()
 		ic.alive = p.catapults_left()
 		ic.total = Game.catapults_per_player
+		ic.custom_minimum_size = Vector2(float(ic.total) * 17.0 + 2.0, 16.0)          # exactly as wide as its dots
 		row.add_child(ic)
 		players_box.add_child(row)
 
@@ -1045,9 +1074,9 @@ func _process(delta: float) -> void:
 	var p: PlayerData = Game.cur()
 	if p != null:
 		turn_chip.color = p.color
-		turn_name.text = I18n.t("hud.turn", {"name": p.name})
 		# timer
 		var show_timer: bool = Turn.timer_on and Turn.phase == Turn.Phase.AIMING
+		turn_panel.visible = show_timer          # the panel only exists for the turn timer
 		timer_ring.visible_ring = show_timer
 		timer_ring.modulate.a = 1.0 if show_timer else 0.0
 		if show_timer:
@@ -1079,7 +1108,7 @@ func _process(delta: float) -> void:
 			s.count = c
 			s.enabled = c != 0 and human_turn
 			s.selected = s.ammo.id == Turn.aim_ammo and Turn.phase != Turn.Phase.TURN_START
-			s.modulate.a = 1.0 if c != 0 else 0.6
+			s.modulate.a = 1.0 if c != 0 else 0.5
 			s.queue_redraw()
 		_update_gifts(p)
 		# aim info
@@ -1106,7 +1135,10 @@ func _process(delta: float) -> void:
 		var list: Array = _hint_items(aiming_human, aftermath)
 		hints.visible = not list.is_empty()
 		hints.set_items(list)
-	btn_fast.modulate = Color(1, 0.85, 0.3) if fast_on else Color.WHITE
+	btn_fast.active = fast_on
+	btn_fast.visible = fast_available
+	btn_fast.disabled = not fast_enabled and not fast_on          # online play has no fast-forward at all
+	btn_cinema.active = cinema_on
 	var cs_p: PlayerData = Game.cur()
 	cat_select.visible = cs_p != null and cs_p.is_human() and Turn.phase == Turn.Phase.AIMING and cs_p.catapults.size() > 1
 	if cat_select.visible:
@@ -1119,19 +1151,9 @@ func _process(delta: float) -> void:
 	wind_widget.queue_redraw()
 	wind_label.text = "%s %.1f m/s" % [I18n.t("hud.wind"), Game.wind.length()]
 	weather_label.text = I18n.t("hud.weather_" + Game.weather)
-	# skip button (hold Tab: a short tap only switches the catapult, so the bar starts after a grace period)
-	if Input.is_key_pressed(KEY_TAB) and Turn.phase == Turn.Phase.AIMING and p != null and p.is_human():
-		_tab_held += delta
-		_skip_hold = maxf(_tab_held - TAB_GRACE, 0.0) + (0.001 if _tab_held > TAB_GRACE else 0.0)
-	else:
-		_tab_held = 0.0
-		if not btn_skip.button_pressed:
-			_skip_hold = 0.0
-	skip_bar.visible = _skip_hold > 0.0
-	skip_bar.value = clampf(_skip_hold / 2.0, 0.0, 1.0)
-	if _skip_hold >= 2.0:
-		_skip_hold = 0.0
-		skip_requested.emit()
+	if (Settings.volume > 0.01) != _snd_on:          # the sound button follows every change (key, slider)
+		_snd_on = Settings.volume > 0.01
+		_rebuild_texts()
 	# toast / feed timers
 	if _toast_t > 0.0:
 		_toast_t -= delta
@@ -1153,17 +1175,17 @@ func _process(delta: float) -> void:
 ## What the player can do right now (short, same key-cap style everywhere)
 func _hint_items(aiming_human: bool, aftermath: bool) -> Array:
 	if aftermath:
-		return [[I18n.t("hint.k_click_space"), I18n.t("hint.next_turn"), "skip"], ["M", I18n.t("hint.overview"), "overview"]]
+		return [[I18n.t("hint.k_click_space"), I18n.t("hint.next_turn"), "skip"]]
 	if overview_on:
-		return [[I18n.t("hint.k_click"), I18n.t("hint.marker")], [I18n.t("hint.k_rmb"), I18n.t("hint.camera")], ["M", I18n.t("hint.back"), "overview"]]
+		return [[I18n.t("hint.k_click"), I18n.t("hint.marker")], [I18n.t("hint.k_rmb"), I18n.t("hint.camera")]]
 	if not aiming_human:
-		return [["M", I18n.t("hint.overview"), "overview"]] if Game.state == Game.State.BATTLE else []
+		return []
 	match Turn.action_mode():
 		"relocate":
-			return [["W/S", I18n.t("hint.drive")], ["A/D", I18n.t("hint.steer")], [I18n.t("hint.k_space"), I18n.t("hint.done")], ["", I18n.t("hint.driven", {"u": int(round(Turn.move_used))})], ["1-9", I18n.t("hint.weapon")], ["M", I18n.t("hint.overview"), "overview"]]
+			return [["W/S", I18n.t("hint.drive")], ["A/D", I18n.t("hint.steer")], [I18n.t("hint.k_space"), I18n.t("hint.done")], ["", I18n.t("hint.driven", {"u": int(round(Turn.move_used))})], ["1-9", I18n.t("hint.weapon")]]
 		"wall":
-			return [[I18n.t("hint.k_click"), I18n.t("hint.build")], ["Q/E", I18n.t("hint.turn")], [I18n.t("hint.k_on_wall"), I18n.t("hint.stack")], ["1-9", I18n.t("hint.weapon")], ["M", I18n.t("hint.overview"), "overview"]]
-	return [[I18n.t("hint.k_drag"), I18n.t("hint.fire")], ["Q/E", I18n.t("hint.turn")], ["↑↓", I18n.t("hint.elevation")], ["Tab", I18n.t("hint.catapult")], ["R", I18n.t("hint.enemy")], ["X", I18n.t("hint.marker_key")], ["M", I18n.t("hint.overview"), "overview"]]
+			return [[I18n.t("hint.k_click"), I18n.t("hint.build")], ["Q/E", I18n.t("hint.turn")], [I18n.t("hint.k_on_wall"), I18n.t("hint.stack")], ["1-9", I18n.t("hint.weapon")]]
+	return [[I18n.t("hint.k_drag"), I18n.t("hint.fire")], ["Q/E", I18n.t("hint.turn")], ["↑↓", I18n.t("hint.elevation")], ["Tab", I18n.t("hint.catapult")], ["R", I18n.t("hint.enemy")], ["X", I18n.t("hint.marker_key")]]
 
 func _cam_yaw() -> float:
 	var cam: Camera3D = get_viewport().get_camera_3d()
