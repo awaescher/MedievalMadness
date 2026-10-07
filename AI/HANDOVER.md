@@ -373,7 +373,7 @@ by `save_settings()`. Autotests do not save. "Reset options" (`reset_options`) r
   artifact, and (for `main` and tags) creates a GitHub release `v<major.minor.patch>`. **CI does not run the tests**; you must.
 - **Patch number in CI** = GitHub run number minus the number in the file `BUILD_BASE`. When the minor (or major) version is raised, set `VERSION`
   and set `BUILD_BASE` to the run number of the last run, so the new series starts at `.1`.
-- **Release text** = the commit messages between the previous release tag and this build (`git log PREV..HEAD`, merge and "Bump build number"
+- **Release text** = the commit messages between the previous release tag and this build (`git log PREV..HEAD`, PREV = the nearest `v*` tag in the build's history via `git describe`, not the highest version number; merge and "Bump build number"
   commits skipped): subject as a bold line, body lines below it. There is no changelog file. v1.11.12 therefore contains only what came in since
   v1.11.11. Write commit messages **for players**: what changed, short, no code or file names; technical details belong in SPEC.md.
 - **macOS builds are ad-hoc signed** (`codesign/codesign=1`, Godot's built-in signer, works in the Linux CI). Without a paid Apple developer account

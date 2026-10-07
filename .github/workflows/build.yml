@@ -67,7 +67,9 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VER="${GITHUB_REF_NAME#v}"; else VER="$(tr -d '[:space:]' < VERSION)"; fi
           echo "VER=$VER" >> "$GITHUB_ENV"
           # v1.11.12 lists ONLY what came in since v1.11.11: the commit messages between the previous release tag and this build
-          PREV="$(git tag --list 'v*' --sort=-v:refname | grep -vx "v$VER" | head -1 || true)"
+          # previous release = the nearest v* tag in this build's history (not the highest version number: a stray old tag
+          # like v1.11.30 from before BUILD_BASE would otherwise win the version sort and pull in far too many commits)
+          PREV="$(git describe --tags --abbrev=0 --match 'v*' --exclude "v$VER" HEAD 2>/dev/null || true)"
           echo "previous release tag: ${PREV:-none}"
           RANGE="HEAD"
           if [ -n "$PREV" ]; then RANGE="$PREV..HEAD"; else RANGE="-n 30"; fi
