@@ -169,12 +169,13 @@ class AmmoSlot extends Control:
 			var cnt: String = "∞" if count < 0 else "x" + str(count)
 			var w: float = f.get_string_size(cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 			draw_string(f, Vector2(size.x * 0.5 - w * 0.5, 47.0 + off), cnt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#3b2a1a"))
-		var key: String = ammo.key_label()
-		var bc := Vector2(9.5, 9.5 + off)
-		draw_circle(bc, 7.5, Color("#3b2a1a"), true, -1.0, true)               # round (anti-aliased) key badge
-		var kw: float = f.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-		var base_y: float = bc.y + (f.get_ascent(11) - f.get_descent(11)) * 0.5     # the letter is centred on the badge
-		draw_string(f, Vector2(bc.x - kw * 0.5, base_y), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#f4e4bc"))
+		if not TouchMode.on:                                                     # no keyboard: no key badge
+			var key: String = ammo.key_label()
+			var bc := Vector2(9.5, 9.5 + off)
+			draw_circle(bc, 7.5, Color("#3b2a1a"), true, -1.0, true)               # round (anti-aliased) key badge
+			var kw: float = f.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+			var base_y: float = bc.y + (f.get_ascent(11) - f.get_descent(11)) * 0.5     # the letter is centred on the badge
+			draw_string(f, Vector2(bc.x - kw * 0.5, base_y), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#f4e4bc"))
 		if gift_from != "":
 			# a gift ribbon: small green box with a red bow
 			var gc := Vector2(size.x - 12.0, 11.0 + off)
@@ -1150,6 +1151,8 @@ func _process(delta: float) -> void:
 			_rebuild_texts()
 			for kb2 in [btn_fast, btn_map, btn_cinema, btn_sound]:
 				(kb2 as KeyButton).queue_redraw()
+			for sl in ammo_box.get_children():
+				(sl as Control).queue_redraw()          # weapon tiles: key badges come and go
 		var pad_mode: String = ""
 		if TouchMode.on and aiming_human and not overview_on:
 			pad_mode = Turn.action_mode() if Turn.action_mode() != "" else "aim"
