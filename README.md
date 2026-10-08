@@ -5,6 +5,13 @@ Everybody owns a medieval village and 5 catapults. Take turns firing one shot at
 Everything is a physics object and destructible, fire spreads, water puts it out, settlers become ragdolls and
 shout jokes. Lose all 5 catapults and you are out - the last player standing wins.
 
+[![Play in your browser](https://img.shields.io/badge/%E2%96%B6%20Play%20in%20your%20browser-no%20install-ffd400?style=for-the-badge&labelColor=3b2a1a)](https://awaescher.github.io/MedievalMadness/)
+[![Download the app](https://img.shields.io/github/v/release/awaescher/MedievalMadness?style=for-the-badge&label=Download%20the%20app&labelColor=3b2a1a&color=4fa65f)](https://github.com/awaescher/MedievalMadness/releases/latest)
+
+**Try it right in your browser, no install needed. For the best experience get the app:** it runs faster and smoother, has the full
+graphics (graphics styles, lighting modes), music, and is simply the way the game is meant to be played. The browser version is the quick
+taste: a reduced look, no music and a lower frame rate.
+
 ![Medieval Madness](docs/game.jpg)
 
 ## Physics is the game
@@ -28,7 +35,7 @@ Meshes, shaders and sounds are generated in code at startup. The only image file
 
 ## Run
 
-**In the browser**: <https://awaescher.github.io/MedievalMadness/> (needs a current desktop browser with WebGL 2; reduced build: one plain look, no music; the first start prepares the sounds for a while; the Releases page also has a `Web` ZIP for your own web server).
+**In the browser**: <https://awaescher.github.io/MedievalMadness/> (needs a current browser with WebGL 2; a reduced build compared to the app: one plain look, no music, lower performance; the first start prepares the sounds for a while; the Releases page also has a `Web` ZIP for your own web server). **The app is the better experience** (performance, graphics, sound).
 
 **Download** (Releases page, one ZIP per platform), unzip, start:
 
