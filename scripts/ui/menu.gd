@@ -658,7 +658,7 @@ func _options_panel() -> Control:
 	var cat_row: Control = _slider_row("menu.catapults", 1, Cfg.CATAPULTS_PER_PLAYER, Settings.catapult_count, func(v: int) -> void: Settings.catapult_count = v)
 	vb.add_child(cat_row)
 	_host_only(cat_row.get_child(1) as Control)
-	var pal_row: Control = _slider_row("menu.palisades", 1, 10, Settings.palisade_count, func(v: int) -> void: Settings.palisade_count = v)
+	var pal_row: Control = _slider_row("menu.palisades", 0, 10, Settings.palisade_count, func(v: int) -> void: Settings.palisade_count = v)
 	vb.add_child(pal_row)
 	_host_only(pal_row.get_child(1) as Control)
 	var hills := OptionButton.new()

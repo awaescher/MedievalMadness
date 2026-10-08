@@ -16,9 +16,9 @@ var lighting: String = "enhanced"      # basic | enhanced | rt (needs the Forwar
 var gfx_style: String = "toon"         # see GfxStyle: toon | photo | retro | noir | neon | watercolor | comic
 var shake: bool = true
 var timer: int = 0
-var weather_on: bool = true
+var weather_on: bool = false
 var wind_level: int = 1                  # 0 none | 1 light (default) | 2 strong; online only the host decides
-var events_on: bool = true
+var events_on: bool = false
 var auto_place: bool = false             # catapults and palisades are placed automatically (placement phase skipped)
 var crates_on: bool = true               # supply crates (meteor crate + small boulder / log crates)
 var auto_quality: bool = true
@@ -33,7 +33,7 @@ var players: Array = []      # last used player list: [{name, color, type}]
 var player_count: int = 4
 var seed_text: String = ""
 var catapult_count: int = 3
-var palisade_count: int = 4
+var palisade_count: int = 0
 var terrain_hills: int = 2
 var arsenal_preset: String = "standard"   # standard | powerplay | chaos | quarry | custom (see Arsenal)
 var rules_level: int = 0                  # unlock rules of the Custom mode: 0 core, 1 power, 2 chaos (presets bring their own)
@@ -106,7 +106,7 @@ func load_settings() -> void:
 	player_count = clampi(int(cf.get_value("main", "player_count", player_count)), Cfg.MIN_PLAYERS, Cfg.MAX_PLAYERS)
 	seed_text = str(cf.get_value("main", "seed_text", seed_text))
 	catapult_count = clampi(int(cf.get_value("main", "catapult_count", catapult_count)), 1, Cfg.CATAPULTS_PER_PLAYER)
-	palisade_count = clampi(int(cf.get_value("main", "palisade_count", palisade_count)), 1, 10)
+	palisade_count = clampi(int(cf.get_value("main", "palisade_count", palisade_count)), 0, 10)
 	terrain_hills = clampi(int(cf.get_value("main", "terrain_hills", terrain_hills)), 0, 4)
 	arsenal_preset = str(cf.get_value("main", "arsenal_preset", arsenal_preset))
 	if not Arsenal.PRESETS.has(arsenal_preset):
@@ -202,15 +202,15 @@ func reset_display_options() -> void:
 
 ## The match rules back to the defaults (`local_only`: a guest in an online lobby only resets what it shows itself)
 func reset_match_options(local_only: bool = false) -> void:
-	weather_on = true
+	weather_on = false
 	wind_level = 1
-	events_on = true
+	events_on = false
 	crates_on = true
 	if not local_only:
 		auto_place = false
 		timer = 0
 		catapult_count = 3
-		palisade_count = 4
+		palisade_count = 0
 		terrain_hills = 2
 		arsenal_preset = "standard"
 		rules_level = 0
