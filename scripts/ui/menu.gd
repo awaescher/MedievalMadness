@@ -246,7 +246,7 @@ func _on_lang_changed() -> void:
 	_refresh_start()
 
 func _on_synth_progress(p: float) -> void:
-	if not _sound_ready and status != null:
+	if not _sound_ready and status != null and Time.get_ticks_msec() - Sfx.synth_started_msec() > 1500:        # a quick start shows no text at all
 		status.text = I18n.t("menu.loading_audio", {"p": int(p * 100.0)})
 		status.visible = true
 

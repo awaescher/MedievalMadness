@@ -151,6 +151,9 @@ func _process(_delta: float) -> void:
 	if is_ready:
 		_update_loops(_delta)
 
+func synth_started_msec() -> int:
+	return _t_start
+
 ## Share of the sounds that are made (0..1)
 func synth_fraction() -> float:
 	return float(_done_count) / float(maxi(_total, 1))
