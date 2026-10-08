@@ -941,7 +941,7 @@ const DATA := {
 		"graphics_note": "Higher quality and ray-marched lighting need a fast graphics card. Auto quality lowers the detail when the game gets slow.",
 		"reset": "Reset settings",
 		"music": "Music volume",
-		"glass": "Modern UI (transparency effects, after restart)",
+		"glass": "Modern UI (after restart)",
 	},
 	"pause": {
 		"title": "Paused",
