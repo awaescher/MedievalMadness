@@ -65,6 +65,7 @@ var _fade: Dictionary = {}              # Structure -> {a: current transparency,
 var _autotest_ammo: String = "firebarrel,boulder,powderkeg,scatter,cow,quad,chain,log,meteor"
 
 func _ready() -> void:
+	TouchMode.detect()
 	_args = OS.get_cmdline_user_args()
 	for a in _args:
 		if a.begins_with("--autotest"):
@@ -908,6 +909,9 @@ func _auto_quality(delta: float) -> void:
 			Events.toast.emit(I18n.t("hud.quality_dropped", {"q": I18n.t("menu.q_" + lower)}))
 
 # ------------------------------------------------------------------ input
+func _input(event: InputEvent) -> void:
+	TouchMode.note(event)
+
 func _unhandled_input(event: InputEvent) -> void:
 	if RandomEvents.camera_on() and ((event is InputEventKey and (event as InputEventKey).pressed and not (event as InputEventKey).echo) or (event is InputEventMouseButton and (event as InputEventMouseButton).pressed)):
 		RandomEvents.cam_cancelled = true          # any key / click: back to the normal camera

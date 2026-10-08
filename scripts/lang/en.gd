@@ -160,6 +160,13 @@ const DATA := {
 		"distance": "Distance: {d} m",
 	},
 	"hint": {
+		"t_aim": "Drag anywhere to fire - two fingers move the camera",
+		"t_relocate": "Drive the catapult with the buttons, then tap Done",
+		"t_wall": "Turn the wall, then tap the ground to build it",
+		"t_marker": "Tap the map to set the marker",
+		"t_next": "Tap for the next turn",
+		"t_done": "Done",
+		"pause": "Pause",
 		"k_drag": "Drag",
 		"k_click": "Click",
 		"k_rmb": "Right-click",
@@ -383,6 +390,8 @@ const DATA := {
 		"crate": "You hit the supply crate!",
 	},
 	"placement": {
+		"hint_t": "Tap inside your village zone to place a catapult ({n}/{max}). Use the Turn buttons to rotate it. Remove last undoes.",
+		"hint_posts_t": "Tap sets a fence of 3 posts ({n}/{max}). The Turn buttons rotate it, next to a fence it continues it, a tap on a fence stacks another row on top. Not close to enemy villages.",
 		"title": "{name}: place your catapults",
 		"hint": "Click inside your village zone to place a catapult ({n}/{max}). Q/E rotate. Right-click or Z removes the last one.",
 		"quick": "Quick start (auto-place all)",

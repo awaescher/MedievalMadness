@@ -357,7 +357,7 @@ func _build() -> void:
 	var sub: Label = UITheme.label(I18n.t("menu.subtitle"), 20, Color("#ffffff"), true, 8)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(sub)
-	if Cfg.is_web() and DisplayServer.is_touchscreen_available() and mini(DisplayServer.window_get_size().x, DisplayServer.window_get_size().y) < 700:
+	if Cfg.is_web() and TouchMode.on and int(JavaScriptBridge.eval("Math.min(window.innerWidth, window.innerHeight)", true)) < 600:
 		var hint: Label = UITheme.label(I18n.t("menu.small_screen_hint"), 16, Color("#ffd400"), true, 6)
 		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		root.add_child(hint)

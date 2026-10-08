@@ -24,6 +24,7 @@ var done_btn: Button
 var quick_btn: Button
 var _quick_mine: bool = false          # online: keep placing my own seat automatically
 var remove_btn: Button
+var rot_btns: Array[TouchPad.PadButton] = []          # touch screens: Q / E as buttons
 var bar: PanelContainer
 var _cur_valid: bool = false
 var _cur_pos: Vector3 = Vector3.INF
@@ -92,6 +93,14 @@ func _ready() -> void:
 	quick_btn = UITheme.dialog_button("", "RedButton", 190.0)
 	quick_btn.pressed.connect(_quick_start)
 	h.add_child(quick_btn)
+	for spec in [[KEY_Q, Vector2(-1, 0)], [KEY_E, Vector2(1, 0)]]:
+		var rb := TouchPad.PadButton.new()
+		rb.code = spec[0] as Key
+		rb.arrow = spec[1] as Vector2
+		rb.hold = true
+		rb.visible = false
+		h.add_child(rb)
+		rot_btns.append(rb)
 	Events.language_changed.connect(_refresh)
 
 func start(w: GameWorld, camera: CameraRig) -> void:
@@ -158,9 +167,14 @@ func _refresh() -> void:
 	auto_btn.text = I18n.t("placement.auto")
 	quick_btn.text = I18n.t("placement.quick")
 	quick_btn.disabled = false
+	for rb in rot_btns:
+		rb.caption = I18n.t("hint.turn")
+		rb.visible = TouchMode.on
+		rb.queue_redraw()
+	var sfx: String = "_t" if TouchMode.on else ""          # touch screens: the text without keys
 	if stage == 0:
 		title.text = I18n.t("placement.title", {"name": p.name})
-		hint.text = I18n.t("placement.hint", {"n": p.catapults.size(), "max": Game.catapults_per_player})
+		hint.text = I18n.t("placement.hint" + sfx, {"n": p.catapults.size(), "max": Game.catapults_per_player})
 		var last_player: bool = player_idx >= Game.players.size() - 1
 		if not last_player:
 			done_btn.text = I18n.t("placement.next_player")
@@ -170,7 +184,7 @@ func _refresh() -> void:
 		remove_btn.disabled = p.catapults.is_empty()
 	else:
 		title.text = I18n.t("placement.title_posts", {"name": p.name})
-		hint.text = I18n.t("placement.hint_posts", {"n": Posts.count(p), "max": Game.palisades_per_player})
+		hint.text = I18n.t("placement.hint_posts" + sfx, {"n": Posts.count(p), "max": Game.palisades_per_player})
 		done_btn.text = I18n.t("placement.done")
 		done_btn.disabled = false
 		remove_btn.disabled = p.post_log.is_empty()

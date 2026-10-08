@@ -109,6 +109,8 @@ of every new script together with the script.
   Phones would use Mobile; **phones are not an official target** (a rough, untested touch layer exists in `ui/aiming.gd`). **Web** works as a reduced build:
   browsers force Compatibility (the per-instance colour fallback of 6.9 handles that), the export has no threads, so `Cfg.is_web()` / `Cfg.single_threaded()`
   switch off the graphics styles, lighting modes and music and synthesise the sounds on the main thread in slices (`Sfx._synth_slice`).
+  Touch screens: `TouchMode.on` (see SPEC) turns key caps into plain texts and shows `TouchPad`, whose buttons inject key events with
+  `TouchMode.key`; new keyboard-only controls need a button there (and a key-free hint text in `Hud._hint_items_touch`).
 - Because of that the toon shader has a constant-value variant for OpenGL (`Toon.use_instance_params`). Anything that sets per-instance
   shader parameters (`set_tint`, `set_glow`, `set_wet`) must go through `Toon`.
 

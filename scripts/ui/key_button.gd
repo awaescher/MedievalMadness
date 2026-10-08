@@ -64,6 +64,9 @@ func _draw() -> void:
 		var w: float = maxf(size.x * progress, 24.0)
 		draw_style_box(fill, Rect2(Vector2.ZERO, Vector2(w, size.y)))
 	var cy: float = size.y * 0.5
+	if TouchMode.on:
+		draw_string(f, Vector2(14.0, cy + 5.0), label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color("#3b2a1a"))        # no keyboard: no key cap
+		return
 	var kw: float = minf(maxf(f.get_string_size(key_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12.0, 20.0), KEY_COL - 4.0)
 	var x: float = 10.0
 	var cap := StyleBoxFlat.new()

@@ -160,6 +160,13 @@ const DATA := {
 		"distance": "Entfernung: {d} m",
 	},
 	"hint": {
+		"t_aim": "Irgendwo ziehen zum Schießen - zwei Finger bewegen die Kamera",
+		"t_relocate": "Katapult mit den Tasten fahren, dann Fertig tippen",
+		"t_wall": "Mauer drehen, dann auf den Boden tippen",
+		"t_marker": "Auf die Karte tippen setzt den Marker",
+		"t_next": "Tippen für die nächste Runde",
+		"t_done": "Fertig",
+		"pause": "Pause",
 		"k_drag": "Ziehen",
 		"k_click": "Klick",
 		"k_rmb": "Rechtsklick",
@@ -383,6 +390,8 @@ const DATA := {
 		"crate": "Du hast die Nachschub-Kiste getroffen!",
 	},
 	"placement": {
+		"hint_t": "Tippe in deine Dorfzone, um ein Katapult zu setzen ({n}/{max}). Mit den Dreh-Tasten drehst du es. Letztes entfernen macht es rückgängig.",
+		"hint_posts_t": "Tippen setzt einen Zaun aus 3 Pfosten ({n}/{max}). Die Dreh-Tasten drehen ihn, neben einem Zaun wird er fortgesetzt, ein Tipp auf einen Zaun stapelt eine weitere Reihe obendrauf. Nicht nahe an gegnerischen Dörfern.",
 		"title": "{name}: Platziere deine Katapulte",
 		"hint": "Klicke in deine Dorfzone, um ein Katapult zu platzieren ({n}/{max}). Q/E drehen. Rechtsklick oder Z entfernt das letzte.",
 		"quick": "Schnellstart (alles automatisch)",

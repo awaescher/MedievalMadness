@@ -598,6 +598,8 @@ var hint_label: Label
 var countdown: Label
 var _last_tick: int = -1
 var hints: KeyHints
+var touch_pad: TouchPad
+var _touch_seen: bool = false
 var _distance_label: Label
 var btn_fast: KeyButton
 var cat_select: CatSelect
@@ -898,11 +900,22 @@ func _build() -> void:
 		elif id == "skip":
 			Turn.skip_aftermath())
 	add_child(hints)
+	touch_pad = TouchPad.new()
+	touch_pad.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	touch_pad.anchor_top = 1.0
+	touch_pad.anchor_bottom = 1.0
+	touch_pad.offset_left = 12
+	touch_pad.offset_bottom = -126
+	touch_pad.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	add_child(touch_pad)
 	_rebuild_texts()
 
 func _rebuild_texts() -> void:
 	if btn_overview == null:
 		return
+	touch_pad.refresh_texts()
+	for kb in [btn_fast, btn_map, btn_cinema, btn_sound]:
+		(kb as KeyButton).custom_minimum_size.y = 42.0 if TouchMode.on else 26.0          # bigger targets for fingers
 	btn_overview.text = I18n.t("hud.overview")
 	btn_fast.set_content(I18n.t("hud.key_fast"), I18n.t("hud.fast_btn"))
 	btn_map.set_content("M", I18n.t("hint.overview"))
@@ -1132,6 +1145,15 @@ func _process(delta: float) -> void:
 		var aiming_human: bool = Turn.phase == Turn.Phase.AIMING and not p.is_cpu()
 		aim_panel.visible = (aiming_human or p.is_human()) and Turn.action_mode() == ""
 		var aftermath: bool = Turn.phase == Turn.Phase.AFTERMATH and not overview_on
+		if TouchMode.on != _touch_seen:
+			_touch_seen = TouchMode.on
+			_rebuild_texts()
+			for kb2 in [btn_fast, btn_map, btn_cinema, btn_sound]:
+				(kb2 as KeyButton).queue_redraw()
+		var pad_mode: String = ""
+		if TouchMode.on and aiming_human and not overview_on:
+			pad_mode = Turn.action_mode() if Turn.action_mode() != "" else "aim"
+		touch_pad.set_mode(pad_mode)
 		var list: Array = _hint_items(aiming_human, aftermath)
 		hints.visible = not list.is_empty()
 		hints.set_items(list)
@@ -1174,6 +1196,8 @@ func _process(delta: float) -> void:
 
 ## What the player can do right now (short, same key-cap style everywhere)
 func _hint_items(aiming_human: bool, aftermath: bool) -> Array:
+	if TouchMode.on:
+		return _hint_items_touch(aiming_human, aftermath)
 	if aftermath:
 		return [[I18n.t("hint.k_click_space"), I18n.t("hint.next_turn"), "skip"]]
 	if overview_on:
@@ -1186,6 +1210,21 @@ func _hint_items(aiming_human: bool, aftermath: bool) -> Array:
 		"wall":
 			return [[I18n.t("hint.k_click"), I18n.t("hint.build")], ["Q/E", I18n.t("hint.turn")], [I18n.t("hint.k_on_wall"), I18n.t("hint.stack")], ["1-9", I18n.t("hint.weapon")]]
 	return [[I18n.t("hint.k_drag"), I18n.t("hint.fire")], ["Q/E", I18n.t("hint.turn")], ["↑↓", I18n.t("hint.elevation")], ["Tab", I18n.t("hint.catapult")], ["R", I18n.t("hint.enemy")], ["X", I18n.t("hint.marker_key")]]
+
+## The same for a touch screen: no key caps, plain sentences (the buttons are the touch pad)
+func _hint_items_touch(aiming_human: bool, aftermath: bool) -> Array:
+	if aftermath:
+		return [["", I18n.t("hint.t_next"), "skip"]]
+	if overview_on:
+		return [["", I18n.t("hint.t_marker")]]
+	if not aiming_human:
+		return []
+	match Turn.action_mode():
+		"relocate":
+			return [["", I18n.t("hint.t_relocate")], ["", I18n.t("hint.driven", {"u": int(round(Turn.move_used))})]]
+		"wall":
+			return [["", I18n.t("hint.t_wall")]]
+	return [["", I18n.t("hint.t_aim")]]
 
 func _cam_yaw() -> float:
 	var cam: Camera3D = get_viewport().get_camera_3d()
