@@ -111,6 +111,7 @@ of every new script together with the script.
   switch off the graphics styles, lighting modes and music and synthesise the sounds on the main thread in slices (`Sfx._synth_slice`).
   Touch screens: `TouchMode.on` (see SPEC) turns key caps into plain texts and shows `TouchPad`, whose buttons inject key events with
   `TouchMode.key`; new keyboard-only controls need a button there (and a key-free hint text in `Hud._hint_items_touch`).
+  A touch screen held upright is covered by `RotateHint` (topmost UI node); the touch pull display in `Aiming._draw` (power number beside the finger, thick line) and the key badges of the weapon tiles follow `TouchMode.on` too. Auto quality also runs in the menu (`Main._auto_quality`).
 - Because of that the toon shader has a constant-value variant for OpenGL (`Toon.use_instance_params`). Anything that sets per-instance
   shader parameters (`set_tint`, `set_glow`, `set_wet`) must go through `Toon`.
 
