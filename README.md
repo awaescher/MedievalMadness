@@ -52,7 +52,7 @@ Needs `godot` (4.4 or newer, standard non-.NET build) on the `PATH`; on macOS `b
 ./export.sh              # Windows / macOS / Linux into build/   (Windows: export.bat)
 ```
 
-Every export increases the patch number in `VERSION` (shown in the menu and sent when joining online).
+The patch number in `VERSION` (shown in the menu and sent when joining online) is raised only by the GitHub build; a local export keeps it.
 
 The export presets live in `export_presets.cfg` (Windows x86_64 single .exe with embedded PCK, macOS universal .zip,
 Linux x64 and arm64 single files, Windows arm64 too). They need the matching Godot **export templates** (Editor -> Manage Export Templates).

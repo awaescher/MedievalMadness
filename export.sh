@@ -4,18 +4,20 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-# every build gets a new patch number (1.10.0 -> 1.10.1 ...), shown in the menu and sent when joining online
+# The patch number is raised only by the GitHub build (MM_BUILD_NUMBER = run number minus BUILD_BASE): 1.10.0 -> 1.10.1 ...
+# A local build keeps the number in VERSION (shown in the menu and sent when joining online).
 IFS=. read -r V_MAJOR V_MINOR V_PATCH <<< "$(tr -d '[:space:]' < VERSION)"
-# CI: MM_BUILD_NUMBER (e.g. GITHUB_RUN_NUMBER) replaces the local patch counter
-if [ -n "${MM_BUILD_NUMBER:-}" ]; then V_PATCH=$((MM_BUILD_NUMBER - 1)); fi
-echo "$V_MAJOR.$V_MINOR.$((V_PATCH + 1))" > VERSION
+if [ -n "${MM_BUILD_NUMBER:-}" ]; then
+  V_PATCH=$MM_BUILD_NUMBER
+  echo "$V_MAJOR.$V_MINOR.$V_PATCH" > VERSION
+fi
 VER="$(cat VERSION)"
 echo "Version $VER"
 # the export presets carry the version too (macOS Finder shows it, also Windows file properties, iOS, Android)
 sed -i.bak -E \
   -e "s/^(application\/(short_)?version=)\"[^\"]*\"/\1\"$VER\"/" \
   -e "s/^(version\/name=)\"[^\"]*\"/\1\"$VER\"/" \
-  -e "s/^(version\/code=)[0-9]+/\1$((V_MAJOR * 10000 + V_MINOR * 100 + V_PATCH + 1))/" \
+  -e "s/^(version\/code=)[0-9]+/\1$((V_MAJOR * 10000 + V_MINOR * 100 + V_PATCH))/" \
   -e "s/^(application\/(file|product)_version=)\"[^\"]*\"/\1\"$VER.0\"/" export_presets.cfg
 rm -f export_presets.cfg.bak
 

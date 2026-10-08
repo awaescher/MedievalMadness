@@ -39,6 +39,7 @@ var _flash_rect: ColorRect
 var _flash: float = 0.0
 var _fps_time: float = 0.0
 var _fps_low_time: float = 0.0
+var _menu_time: float = 0.0           # seconds the menu has been on screen (auto quality waits 5 s)
 var _generating: bool = false
 var _attract: bool = false
 var _last_config: Array = []
@@ -892,11 +893,19 @@ func _camera_controls(delta: float) -> void:
 		pass
 
 func _auto_quality(delta: float) -> void:
-	if not Settings.auto_quality or Game.state != Game.State.BATTLE or _paused:
+	# the menu counts too (its 3D background can be too much for a weak machine): measured once it has been on screen for 5 s
+	var in_menu: bool = Game.state == Game.State.MENU and menu.visible and not loading.visible and not _generating
+	if not in_menu:
+		_menu_time = 0.0
+	if not Settings.auto_quality or (Game.state != Game.State.BATTLE and not in_menu) or _paused:
 		_fps_low_time = 0.0
 		return
+	if in_menu:
+		_menu_time += delta
+		if _menu_time < 5.0:
+			return
 	var fps: float = Engine.get_frames_per_second()
-	if fps > 0.0 and fps < 40.0 and Engine.time_scale >= 0.99:
+	if fps > 0.0 and fps < (30.0 if in_menu else 40.0) and Engine.time_scale >= 0.99:
 		_fps_low_time += delta
 	else:
 		_fps_low_time = maxf(_fps_low_time - delta, 0.0)
@@ -907,6 +916,8 @@ func _auto_quality(delta: float) -> void:
 			Settings.quality = lower
 			Quality.apply(lower, get_viewport(), sky)
 			Events.toast.emit(I18n.t("hud.quality_dropped", {"q": I18n.t("menu.q_" + lower)}))
+			if in_menu and menu.status != null:
+				menu.status.text = I18n.t("hud.quality_dropped", {"q": I18n.t("menu.q_" + lower)})          # the HUD (and its toasts) is hidden here
 
 # ------------------------------------------------------------------ input
 func _input(event: InputEvent) -> void:

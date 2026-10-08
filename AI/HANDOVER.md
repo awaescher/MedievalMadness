@@ -130,7 +130,7 @@ godot --headless --path . -- --autotest=units
 # 3. a whole CPU game (4 bots), useful for crashes / hangs
 godot --path . -- --autotest=cpugame --seed=x --wall=300
 
-# 4. build a binary for all platforms (also raises the patch number in VERSION)
+# 4. build a binary for all platforms (keeps the patch number; only the GitHub build raises it)
 ./export.sh
 
 # 5. refresh Godot's class cache after you ADD a script with `class_name` (or rename one)
@@ -369,7 +369,7 @@ by `save_settings()`. Autotests do not save. "Reset options" (`reset_options`) r
 
 ## 7. Release, CI and versions
 
-- **VERSION** holds `major.minor.patch`. `./export.sh` raises the patch by one on every local build and writes the version into
+- **VERSION** holds `major.minor.patch`. `./export.sh` keeps the patch number locally (only the GitHub build, via `MM_BUILD_NUMBER`, raises it) and writes the version into
   `export_presets.cfg` (macOS bundle version, Windows file properties ...). The version is shown in the main menu and sent when joining online.
 - **CI** (`.github/workflows/build.yml`): on every push to `main` (and on `v*` tags and pull requests) it installs Godot 4.7.2 + templates,
   runs `./export.sh`, packs one ZIP per platform (`MedievalMadness-<version>-Windows.zip` / `-macOS.zip` / `-Linux.zip`), uploads them as an

@@ -21,7 +21,7 @@ specification and the source of truth for rules, numbers and file contracts.
    So write every commit message for players: a short subject that says what changed, optionally a few `- ` bullet lines in the body;
    no code or file names, no "fix typo" noise (merge and "Bump build number" commits are skipped). When the minor version is raised,
    raise `BUILD_BASE`.
-3. **Build a binary** after a change with `./export.sh` (it also raises the patch number in `VERSION`).
+3. **Build a binary** after a change with `./export.sh` (the patch number in `VERSION` is raised only by the GitHub build, not locally).
 4. **Both languages**: every visible text lives in `scripts/lang/en.gd` and `de.gd` with identical keys (`tests/test_i18n.gd` checks it).
 5. **Online play is host-authoritative**: gameplay randomness uses `Game.rng_battle`, never `randf()`; every match option must travel in
    the lobby state and the start message (checklist in the handover).
