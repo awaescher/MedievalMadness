@@ -3,6 +3,14 @@ extends RefCounted
 @warning_ignore_start("unsafe_cast", "unsafe_call_argument", "unsafe_method_access", "unsafe_property_access")
 ## All authoritative constants (spec section 3) plus a few derived helpers.
 
+## The browser build runs without threads and without the optional looks (graphics styles, lighting modes, music)
+static func is_web() -> bool:
+	return OS.has_feature("web")
+
+## No worker threads available (the web export): sound synthesis then runs in small slices on the main thread
+static func single_threaded() -> bool:
+	return OS.has_feature("web") and not OS.has_feature("threads")
+
 const PHYSICS_HZ := 60
 const MAX_SUBSTEPS := 3
 const GRAVITY := -19.62                # stronger than real for snappy comic feel (project gravity 19.62)

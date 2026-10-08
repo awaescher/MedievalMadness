@@ -106,8 +106,9 @@ of every new script together with the script.
 
 - Windows and macOS use **Forward+**. **Linux defaults to the Compatibility (OpenGL) renderer** (`rendering_method.linuxbsd` in
   `project.godot`), because a user saw garbage with Vulkan; Vulkan is optional with `--rendering-method forward_plus`.
-  Phones would use Mobile; **phones are not an official target** (a rough, untested touch layer exists in `ui/aiming.gd`) and **web is
-  impossible** (browsers force Compatibility, which breaks the per-instance colour system, see 6.9).
+  Phones would use Mobile; **phones are not an official target** (a rough, untested touch layer exists in `ui/aiming.gd`). **Web** works as a reduced build:
+  browsers force Compatibility (the per-instance colour fallback of 6.9 handles that), the export has no threads, so `Cfg.is_web()` / `Cfg.single_threaded()`
+  switch off the graphics styles, lighting modes and music and synthesise the sounds on the main thread in slices (`Sfx._synth_slice`).
 - Because of that the toon shader has a constant-value variant for OpenGL (`Toon.use_instance_params`). Anything that sets per-instance
   shader parameters (`set_tint`, `set_glow`, `set_wet`) must go through `Toon`.
 
@@ -418,7 +419,7 @@ This is the history of the last working days, so you understand why things look 
 - Rock colliders do not follow terrain changes (visual does). A prop that fell asleep less than about 0.6 m above ground that then sank may
   hover until something wakes it.
 - The Linux build was not tested on real Linux hardware by the authors of these notes; the Compatibility path is verified only on macOS.
-- The touch layer for phones is untested; phones and web are not supported.
+- The touch layer for phones is untested; phones are not supported. The web build is new: performance in real browsers and the long first sound synthesis are not tuned yet.
 - CI builds but does not run tests.
 - The macOS app is not notarised.
 - Cow-related rules in chaos can still produce many cows when one blast kills many animals (no cap per shot by design, see the owner's wording).

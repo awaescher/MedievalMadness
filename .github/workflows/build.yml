@@ -1,6 +1,7 @@
 name: Build
 
-# Builds Windows, macOS and Linux with ./export.sh. The repository root must be this project folder.
+# Builds Windows, macOS, Linux and the browser build with ./export.sh and publishes the browser build on GitHub Pages (main only).
+# The repository root must be this project folder. One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
 on:
   push:
     branches: ["**"]
@@ -52,7 +53,13 @@ jobs:
           (cd build/linux && zip -q "../../dist/MedievalMadness-$VER-Linux-x64.zip" MedievalMadness)
           (cd build/windows-arm64 && zip -q "../../dist/MedievalMadness-$VER-Windows-arm64.zip" MedievalMadness.exe)
           (cd build/linux-arm64 && zip -q "../../dist/MedievalMadness-$VER-Linux-arm64.zip" MedievalMadness)
+          (cd build/web && zip -q "../../dist/MedievalMadness-$VER-Web.zip" ./*)
           ls -l dist
+
+      - name: Upload the browser build for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
 
       - uses: actions/upload-artifact@v4
         with:
@@ -92,3 +99,18 @@ jobs:
           name: v${{ env.VER }}
           body_path: release_body.md
           files: dist/*.zip
+
+  # the browser build is served from GitHub Pages (a plain static host is enough: the export needs no threads, so no special headers)
+  pages:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

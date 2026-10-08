@@ -31,6 +31,7 @@ var _impact_times: Array[float] = []
 var _loops: Dictionary = {}            # name -> AudioStreamPlayer (persistent loops)
 var _rng := RandomNumberGenerator.new()
 var _pending: Dictionary = {}          # thread results while synthesizing
+var _queue: Array = []                 # work items still to do on the main thread (web build, no threads)
 var enabled: bool = true
 var _t_start: int = 0
 var synth_seconds: float = 0.0
@@ -76,6 +77,10 @@ func begin_synthesis() -> void:
 		for v in SoundRecipes.variants_of(sname):
 			work.append([sname, v])
 	_total = work.size()
+	if Cfg.single_threaded():
+		work.reverse()
+		_queue = work
+		return
 	var n_threads: int = clampi(OS.get_processor_count() - 1, 1, 4)
 	var buckets: Array = []
 	for i in n_threads:
@@ -86,6 +91,19 @@ func begin_synthesis() -> void:
 		var t := Thread.new()
 		t.start(_worker.bind(b))
 		_threads.append(t)
+
+## Web build: makes sounds for about 12 ms per frame so the menu stays alive while the audio is prepared
+func _synth_slice() -> void:
+	var t0: int = Time.get_ticks_usec()
+	while not _queue.is_empty() and Time.get_ticks_usec() - t0 < 12000:
+		var it: Array = _queue.pop_back() as Array
+		var sname: String = str(it[0])
+		var v: int = int(it[1])
+		var stream: AudioStreamWAV = Synth.to_stream(SoundRecipes.make(sname, v), SoundRecipes.is_looped(sname))
+		if not _pending.has(sname):
+			_pending[sname] = {}
+		(_pending[sname] as Dictionary)[v] = stream
+		_done_count += 1
 
 func _worker(items: Array) -> void:
 	for it in items:
@@ -102,6 +120,7 @@ func _worker(items: Array) -> void:
 
 func _process(_delta: float) -> void:
 	if _started and not is_ready:
+		_synth_slice()
 		_mutex.lock()
 		var done: int = _done_count
 		_mutex.unlock()

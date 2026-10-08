@@ -62,6 +62,9 @@ var debug: bool = false
 func _ready() -> void:
 	debug = OS.is_debug_build() or "--debug" in OS.get_cmdline_user_args()
 	load_settings()
+	if Cfg.is_web():
+		gfx_style = "toon"       # the browser build has one plain look: no graphics styles, no lighting modes
+		lighting = "basic"
 
 func load_settings() -> void:
 	var cf := ConfigFile.new()

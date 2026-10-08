@@ -17,7 +17,7 @@ Tone: silly, cartoonish, modern comic look. Humor everywhere (texts, sounds, eff
 ### 0.1 Hard constraints
 - **Engine: Godot 4.4 or newer 4.x stable**, standard (non-.NET) build, **GDScript only**. No C#, no GDExtension, no C++ modules, no addons/plugins, no Asset Library content.
 - **Physics: Jolt Physics** (built into Godot 4.4+). Set explicitly in `project.godot`: `physics/3d/physics_engine="Jolt Physics"`. Do not use the legacy GodotPhysics3D.
-- **Renderer**: Forward+ on Windows and macOS (`rendering/renderer/rendering_method="forward_plus"`), **Compatibility (OpenGL) on Linux** (`rendering_method.linuxbsd="gl_compatibility"`; override `--rendering-method forward_plus`), Mobile on iOS / Android (`rendering_method.mobile`). The toon shader has a constant-value variant for the OpenGL renderer (4096 per-instance slots). Web is not possible.
+- **Renderer**: Forward+ on Windows and macOS (`rendering/renderer/rendering_method="forward_plus"`), **Compatibility (OpenGL) on Linux** (`rendering_method.linuxbsd="gl_compatibility"`; override `--rendering-method forward_plus`), Mobile on iOS / Android (`rendering_method.mobile`). The toon shader has a constant-value variant for the OpenGL renderer (4096 per-instance slots). **Web** (export preset `Web`, no threads, Compatibility renderer, `./export.sh` writes `build/web/`; CI publishes it on GitHub Pages from `main` and attaches a `Web` ZIP to the release) is a reduced build: one plain look (Toon, Basic lighting; the settings dialog hides graphics style, lighting mode, music volume and VSync), no background music, and the sounds are synthesised in 12 ms slices per frame on the main thread (`Cfg.single_threaded()`) instead of worker threads.
 - Graphics are procedural (Godot primitive meshes, `ArrayMesh`/`SurfaceTool` generated geometry, shaders, `Image`-generated textures). **No image, model, font or audio files** (except 12 CC0 ambientCG material scans under `assets/textures/` - colour, normal and roughness at 512 px - which only the Natural graphics style projects triplanar onto buildings, terrain and trees, see `gfx_textures.gd`; credited in the README) in the project. The project is MIT licensed (`LICENSE`); the export presets carry the copyright line "Copyright (c) 2026 Andreas Wäscher" and the bundle id `de.awaescher.medievalmadness`. (`assets/relay_help/*.txt` are plain text copies of the relay spec and template that `export.sh` makes from `relay/`; only the relay help dialog reads them.)
 - All audio is synthesized at startup into `AudioStreamWAV` resources (section 17). No audio files.
 - Fonts: engine default font + `SystemFont` (see 16.1). No bundled fonts.
@@ -1056,7 +1056,7 @@ Limit concurrent sounds to 24 (drop lowest priority or oldest). Do not play more
 - The camera never enters terrain or goes below terrainHeight + 1.
 
 ### 18.3 Accessibility/Settings
-Settings persisted via `ConfigFile` at `user://settings.cfg` (autoload `Settings`): language, volume, quality, shake, timer, weather, events, autoquality, fullscreen, vsync, window size, last used player list, relay URL, online name, and the starting arsenal **only as `custom` + the custom counts** (a chosen preset or a tweak of a preset is never saved; the next start begins with `Standard`).
+Settings persisted via `ConfigFile` at `user://settings.cfg` (autoload `Settings`): language, volume, quality, shake, timer, weather, events, autoquality, fullscreen, vsync, window size, last used player list, relay URL, online name, and the starting arsenal **only as `custom` + the custom counts** (a chosen preset or a tweak of a preset is never saved; the next start begins with `Standard`). In the **web build** `Settings._ready` forces `gfx_style = toon` and `lighting = basic` after loading, so a saved value from another build never applies there.
 
 ---
 
@@ -1184,6 +1184,7 @@ Goal: a player downloads one file per platform, double-clicks it, and plays. No 
 | `Windows` | Windows Desktop, x86_64 | output `build/windows/MedievalMadness.exe`; **embed PCK** on (single .exe); no code signing; icon from `icon.svg` if the toolchain allows, otherwise engine default |
 | `macOS` | macOS, **universal** (arm64 + x86_64) | output `build/macos/MedievalMadness.zip` containing `MedievalMadness.app`; bundle id `de.awaescher.medievalmadness`; ad-hoc/no signing and no notarization (documented in README: right-click → Open); `application/min_macos_version` 12.0 |
 | `Linux` | Linux, x86_64 | output `build/linux/MedievalMadness`; **embed PCK** on (single file); README notes `chmod +x` |
+| `Web` | Web, no threads (`variant/thread_support=false`) | output `build/web/index.html` (+ `.wasm`, `.pck`, `.js`); Compatibility renderer; runs from any static web server, no special headers; reduced build, see section 1 (renderer) |
 
 Export runs headless with the matching export templates installed:
 ```
@@ -1206,10 +1207,10 @@ godot --headless --path . --export-release "Linux"   build/linux/MedievalMadness
 - Test matrix to run at least once per platform available to the implementer: start game → menu → 2-player human vs. Peasant game to completion → quit; verify settings persist after restart.
 
 ### 25.2b GitHub Actions
-`.github/workflows/build.yml` (repository root = the project folder) installs Godot 4.7.2 and its export templates on `ubuntu-latest`, runs `./export.sh` with `MM_BUILD_NUMBER=$GITHUB_RUN_NUMBER - BUILD_BASE` (becomes the patch number) and uploads `build/` as an artifact; every push to `main` and every tag `v*` also creates a GitHub release `v<major.minor.run>` with one ZIP per platform attached (Windows, macOS, Linux and the ARM64 builds of Windows and Linux) (`MedievalMadness-<version>-Windows-x64.zip` / `-Windows-arm64.zip` / `-macOS-universal.zip` / `-Linux-x64.zip` / `-Linux-arm64.zip`, built by a packaging step after `./export.sh`; the CI artifact holds the same ZIPs) (release text = the commit messages between the previous release tag and the build (only what is new since the previous release); the patch is the run number minus `BUILD_BASE`). The macOS build is **ad-hoc signed** by Godot's built-in signer (`codesign/codesign=1`, no certificate needed, works on Linux): without any signature Apple-Silicon Macs report downloaded apps as "damaged". It is not notarized, so Gatekeeper still asks on first launch.
+`.github/workflows/build.yml` (repository root = the project folder) installs Godot 4.7.2 and its export templates on `ubuntu-latest`, runs `./export.sh` with `MM_BUILD_NUMBER=$GITHUB_RUN_NUMBER - BUILD_BASE` (becomes the patch number) and uploads `build/` as an artifact; every push to `main` and every tag `v*` also creates a GitHub release `v<major.minor.run>` with one ZIP per platform attached (Windows, macOS, Linux, the ARM64 builds of Windows and Linux, and the browser build) (`MedievalMadness-<version>-Windows-x64.zip` / `-Windows-arm64.zip` / `-macOS-universal.zip` / `-Linux-x64.zip` / `-Linux-arm64.zip` / `-Web.zip`, built by a packaging step after `./export.sh`; the CI artifact holds the same ZIPs) (release text = the commit messages between the previous release tag and the build (only what is new since the previous release); the patch is the run number minus `BUILD_BASE`). A second job `pages` publishes the browser build (`build/web`) on **GitHub Pages** after every push to `main` (one-time setting: repository Settings -> Pages -> Source "GitHub Actions"; URL `https://<user>.github.io/MedievalMadness/`). The macOS build is **ad-hoc signed** by Godot's built-in signer (`codesign/codesign=1`, no certificate needed, works on Linux): without any signature Apple-Silicon Macs report downloaded apps as "damaged". It is not notarized, so Gatekeeper still asks on first launch.
 
 ### 25.3 Optional (out of scope unless everything else is done)
-Web export, mobile, gamepad, online multiplayer, code signing/notarization, auto-updater, installers.
+Mobile, gamepad, online multiplayer, code signing/notarization, auto-updater, installers.
 
 ## 19. Online play (up to 8 players)
 
@@ -1233,7 +1234,7 @@ Web export, mobile, gamepad, online multiplayer, code signing/notarization, auto
 **Tests**: `--autotest=nethost` / `--autotest=netjoin` (see `relay/README.md`) play a whole match with several headless processes; their `NETLOG` lines must agree.
 
 ## 20. Mobile (iOS / Android)
-Both use the **Mobile renderer** (`renderer/rendering_method.mobile`); the desktop default is Forward+. Landscape only (`display/window/handheld/orientation=6`). Touch: one finger = mouse (aim by dragging, release fires, tap selects), **two fingers** = pinch zoom + drag orbit (`Aiming._touch_input`; a running gesture suppresses the emulated mouse of the first finger). Export presets `iOS` (Xcode project via `IOS=1 ./export.sh`, placeholder team id) and `Android` (needs the Android SDK, see README) exist; Web is not supported because the Compatibility renderer limits shader instance uniforms (tint / glow / wet per mesh) to 4096 instances.
+Both use the **Mobile renderer** (`renderer/rendering_method.mobile`); the desktop default is Forward+. Landscape only (`display/window/handheld/orientation=6`). Touch: one finger = mouse (aim by dragging, release fires, tap selects), **two fingers** = pinch zoom + drag orbit (`Aiming._touch_input`; a running gesture suppresses the emulated mouse of the first finger). Export presets `iOS` (Xcode project via `IOS=1 ./export.sh`, placeholder team id) and `Android` (needs the Android SDK, see README) exist; Web has its own reduced build (see 1, renderer).
 
 ---
 

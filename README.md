@@ -28,6 +28,8 @@ Meshes, shaders and sounds are generated in code at startup. The only image file
 
 ## Run
 
+**In the browser**: <https://awaescher.github.io/MedievalMadness/> (needs a current desktop browser with WebGL 2; reduced build: one plain look, no music; the first start prepares the sounds for a while; the Releases page also has a `Web` ZIP for your own web server).
+
 **Download** (Releases page, one ZIP per platform), unzip, start:
 
 * **Windows**: run `MedievalMadness.exe` (ARM PCs: the `Windows-arm64` ZIP).

@@ -16,8 +16,8 @@ var current: int = -1
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	if DisplayServer.get_name() == "headless" or Settings._is_test_run():
-		return                                   # no music in headless runs and automated tests
+	if DisplayServer.get_name() == "headless" or Settings._is_test_run() or Cfg.is_web():
+		return                                   # no music in headless runs, automated tests and the browser build
 	if AudioServer.get_bus_index(BUS) < 0:
 		AudioServer.add_bus()
 		var idx: int = AudioServer.bus_count - 1

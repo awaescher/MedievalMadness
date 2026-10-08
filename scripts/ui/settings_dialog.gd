@@ -68,23 +68,25 @@ func _build() -> void:
 		Settings.quality = Settings.QUALITY_TIERS[idx]
 		Events.quality_changed.emit(Settings.quality))
 	left.add_child(_row(I18n.t("menu.quality"), ql))
-	var lt := OptionButton.new()
-	for lm in Settings.LIGHTING_MODES:
-		lt.add_item(I18n.t("menu.l_" + lm))
-	lt.select(Settings.LIGHTING_MODES.find(Settings.lighting))
-	lt.item_selected.connect(func(idx: int) -> void:
-		Settings.lighting = Settings.LIGHTING_MODES[idx]
-		Events.quality_changed.emit(Settings.quality))
-	left.add_child(_row(I18n.t("menu.lighting"), lt))
-	left.add_child(_row(I18n.t("menu.gfx_style"), GfxStyle.make_style_button()))
+	if not Cfg.is_web():
+		var lt := OptionButton.new()
+		for lm in Settings.LIGHTING_MODES:
+			lt.add_item(I18n.t("menu.l_" + lm))
+		lt.select(Settings.LIGHTING_MODES.find(Settings.lighting))
+		lt.item_selected.connect(func(idx: int) -> void:
+			Settings.lighting = Settings.LIGHTING_MODES[idx]
+			Events.quality_changed.emit(Settings.quality))
+		left.add_child(_row(I18n.t("menu.lighting"), lt))
+		left.add_child(_row(I18n.t("menu.gfx_style"), GfxStyle.make_style_button()))
 	left.add_child(_check(I18n.t("menu.autoquality"), Settings.auto_quality, func(v: bool) -> void: Settings.auto_quality = v))
 	left.add_child(_note(I18n.t("settings.graphics_note")))
 	# ---- display
 	right.add_child(_section(I18n.t("settings.display")))
 	right.add_child(_check(I18n.t("menu.fullscreen"), Settings.fullscreen, func(v: bool) -> void: Settings.set_fullscreen(v)))
-	right.add_child(_check(I18n.t("menu.vsync"), Settings.vsync, func(v: bool) -> void:
-		Settings.vsync = v
-		Settings.apply_display()))
+	if not Cfg.is_web():
+		right.add_child(_check(I18n.t("menu.vsync"), Settings.vsync, func(v: bool) -> void:
+			Settings.vsync = v
+			Settings.apply_display()))
 	right.add_child(_check(I18n.t("settings.glass"), Settings.glass, func(v: bool) -> void:
 		Settings.glass = v
 		Glass.reset()
@@ -103,15 +105,16 @@ func _build() -> void:
 		Settings.apply_volume())
 	vs.drag_ended.connect(func(_ch: bool) -> void: Sfx.play("ui_click", Vector3.INF, 0.7, 0))
 	right.add_child(_row(I18n.t("menu.volume"), vs))
-	var ms := HSlider.new()
-	ms.min_value = 0.0
-	ms.max_value = 1.0
-	ms.step = 0.05
-	ms.value = Settings.music_volume
-	ms.value_changed.connect(func(x: float) -> void:
-		Settings.music_volume = x
-		Music.apply_volume())
-	right.add_child(_row(I18n.t("settings.music"), ms))
+	if not Cfg.is_web():
+		var ms := HSlider.new()
+		ms.min_value = 0.0
+		ms.max_value = 1.0
+		ms.step = 0.05
+		ms.value = Settings.music_volume
+		ms.value_changed.connect(func(x: float) -> void:
+			Settings.music_volume = x
+			Music.apply_volume())
+		right.add_child(_row(I18n.t("settings.music"), ms))
 	# ---- language
 	right.add_child(_section(I18n.t("menu.language")))
 	var flags := HBoxContainer.new()
