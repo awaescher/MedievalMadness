@@ -93,7 +93,7 @@ func _ready() -> void:
 	if _autotest_lang != "":
 		Settings.language = _autotest_lang
 	I18n.set_lang(Settings.language)
-	get_window().min_size = Vector2i(1024, 600)
+	get_window().min_size = Vector2i.ZERO if Cfg.is_web() else Vector2i(1024, 600)   # a browser tab can be any size (phones)
 	# 3D root + systems
 	world_root = Node3D.new()
 	world_root.name = "World"

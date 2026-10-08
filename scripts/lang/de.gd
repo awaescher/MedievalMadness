@@ -65,6 +65,7 @@ const DATA := {
 		"on": "An",
 		"off": "Aus",
 		"loading_audio": "Kazoos werden gestimmt… {p}%",
+		"small_screen_hint": "Kleiner Bildschirm: am besten auf einem Tablet oder Computer spielen. Das Menü lässt sich mit einem Finger scrollen.",
 		"ready": "Bereit!",
 		"quit": "Beenden",
 		"help_line": "Ziehen zum Zielen, Loslassen zum Feuern. Rechtsklick-Ziehen dreht die Kamera. M = Karte. 1-9, 0, -, G = Munition. Tab = nächstes Katapult.",

@@ -297,14 +297,20 @@ func _build() -> void:
 	_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_content)
 	# dim gradient at the sides for readability
+	# the menu scrolls when the screen is lower than the menu (phones in landscape, small browser windows)
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scroll.offset_left = 30
+	scroll.offset_right = -30
+	scroll.offset_top = 26
+	scroll.offset_bottom = -16
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_content.add_child(scroll)
 	var root := VBoxContainer.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.offset_left = 30
-	root.offset_right = -30
-	root.offset_top = 26
-	root.offset_bottom = -16
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_theme_constant_override("separation", 12)
-	_content.add_child(root)
+	scroll.add_child(root)
 	# top right: language and the settings dialog as three glass buttons (graphics, display, sound: things of this computer)
 	var tools := HBoxContainer.new()
 	tools.add_theme_constant_override("separation", 10)
@@ -338,7 +344,10 @@ func _build() -> void:
 	quit_b.tooltip_text = I18n.t("menu.quit")
 	quit_b.custom_minimum_size = Vector2(60, 42)
 	quit_b.pressed.connect(func() -> void: get_tree().quit())
-	tools.add_child(quit_b)
+	if not Cfg.is_web():
+		tools.add_child(quit_b)       # a browser tab cannot be closed by the game
+	else:
+		quit_b.free()
 	_content.add_child(tools)
 	# title
 	title = UITheme.label(I18n.t("menu.title"), 68, Color("#ffd400"), true, 22)
@@ -348,6 +357,10 @@ func _build() -> void:
 	var sub: Label = UITheme.label(I18n.t("menu.subtitle"), 20, Color("#ffffff"), true, 8)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(sub)
+	if Cfg.is_web() and DisplayServer.is_touchscreen_available() and mini(DisplayServer.window_get_size().x, DisplayServer.window_get_size().y) < 700:
+		var hint: Label = UITheme.label(I18n.t("menu.small_screen_hint"), 16, Color("#ffd400"), true, 6)
+		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		root.add_child(hint)
 	root.add_child(UITheme.vspacer(10))
 	# two columns
 	var cols := HBoxContainer.new()

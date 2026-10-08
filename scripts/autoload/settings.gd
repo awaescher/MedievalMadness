@@ -262,7 +262,7 @@ func apply_display() -> void:
 	var w: Window = get_window()
 	if w == null:
 		return
-	w.min_size = Vector2i(1024, 600)
+	w.min_size = Vector2i.ZERO if Cfg.is_web() else Vector2i(1024, 600)
 	if fullscreen:
 		w.mode = Window.MODE_FULLSCREEN
 	elif w.mode == Window.MODE_FULLSCREEN:

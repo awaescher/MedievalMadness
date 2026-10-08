@@ -65,6 +65,7 @@ const DATA := {
 		"on": "On",
 		"off": "Off",
 		"loading_audio": "Tuning the kazoos… {p}%",
+		"small_screen_hint": "Small screen: the game plays best on a tablet or a computer. Scroll the menu with one finger.",
 		"ready": "Ready!",
 		"quit": "Quit",
 		"help_line": "Drag to aim, release to fire. Right-drag orbits. M = map. 1-9, 0, -, G = ammo. Tab = next catapult.",
