@@ -865,6 +865,7 @@ const DATA := {
 			"Die erste Fackel wird angezündet…",
 		],
 		"title": "Welt wird erzeugt",
+		"sounds": "Sounds werden erzeugt",
 	},
 	"kill": {
 		"launched": [

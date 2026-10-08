@@ -418,6 +418,8 @@ func _show_menu(first: bool, keep_room: bool = false) -> void:
 		else:
 			Net.leave()
 			NetGame.reset()
+	if first and Cfg.single_threaded() and not Sfx.is_ready:
+		await _wait_for_sounds()
 	_attract = true
 	Game.set_state(Game.State.MENU)
 	results.hide_results()
@@ -459,6 +461,25 @@ func _show_menu(first: bool, keep_room: bool = false) -> void:
 	cam_rig.yaw = 0.4
 	cam_rig.snap()
 	menu.visible = true
+
+## Web build (no threads): the sounds are made on the main thread, so show a loading screen with progress before the menu
+## (nothing is interactive meanwhile, so the synthesis may take most of each frame)
+func _wait_for_sounds() -> void:
+	menu.visible = false
+	loading.visible = true
+	loading_title.text = I18n.t("loading.sounds")
+	loading_bar.value = Sfx.synth_fraction()
+	loading_label.text = ""
+	Sfx.slice_ms = 50
+	var on_progress := func(p: float) -> void:
+		loading_bar.value = p
+		loading_label.text = "%d %%" % int(p * 100.0)
+	Sfx.synth_progress.connect(on_progress)
+	if not Sfx.is_ready:
+		await Sfx.synth_ready
+	Sfx.synth_progress.disconnect(on_progress)
+	Sfx.slice_ms = 12
+	loading.visible = false
 
 func _on_progress(p: float, msg_idx: int) -> void:
 	loading_bar.value = p

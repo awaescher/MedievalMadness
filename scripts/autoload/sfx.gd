@@ -31,6 +31,7 @@ var _impact_times: Array[float] = []
 var _loops: Dictionary = {}            # name -> AudioStreamPlayer (persistent loops)
 var _rng := RandomNumberGenerator.new()
 var _pending: Dictionary = {}          # thread results while synthesizing
+var slice_ms: int = 12                 # web build: milliseconds of synthesis per frame (a loading screen may raise it)
 var _queue: Array = []                 # work items still to do on the main thread (web build, no threads)
 var enabled: bool = true
 var _t_start: int = 0
@@ -92,10 +93,10 @@ func begin_synthesis() -> void:
 		t.start(_worker.bind(b))
 		_threads.append(t)
 
-## Web build: makes sounds for about 12 ms per frame so the menu stays alive while the audio is prepared
+## Web build: makes sounds for `slice_ms` per frame (no threads there)
 func _synth_slice() -> void:
 	var t0: int = Time.get_ticks_usec()
-	while not _queue.is_empty() and Time.get_ticks_usec() - t0 < 12000:
+	while not _queue.is_empty() and Time.get_ticks_usec() - t0 < slice_ms * 1000:
 		var it: Array = _queue.pop_back() as Array
 		var sname: String = str(it[0])
 		var v: int = int(it[1])
@@ -149,6 +150,10 @@ func _process(_delta: float) -> void:
 			synth_ready.emit()
 	if is_ready:
 		_update_loops(_delta)
+
+## Share of the sounds that are made (0..1)
+func synth_fraction() -> float:
+	return float(_done_count) / float(maxi(_total, 1))
 
 func has_sound(sname: String) -> bool:
 	return streams.has(sname) and not (streams[sname] as Array).is_empty()

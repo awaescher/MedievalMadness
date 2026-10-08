@@ -865,6 +865,7 @@ const DATA := {
 			"Lighting the very first torch…",
 		],
 		"title": "Generating the world",
+		"sounds": "Creating sounds",
 	},
 	"kill": {
 		"launched": [
