@@ -486,16 +486,28 @@ func _draw() -> void:
 		var r: float = max_px * float(i + 1) / 4.0
 		draw_arc(drag_start, r, 0.0, TAU, 48, Color(1, 1, 1, 0.16 if float(i + 1) / 4.0 > power else 0.4), 2.0, true)
 	var col: Color = Color("#7cf05a").lerp(Color("#ffd400"), clampf(power * 2.0, 0.0, 1.0)).lerp(Color("#ff5b2e"), clampf(power * 2.0 - 1.0, 0.0, 1.0))
+	var touch: bool = TouchMode.on
+	var band: float = 2.0 if touch else 1.0          # a finger hides a thin line: much thicker on a touch screen
 	if pull.length() >= 10.0 * sc:
 		# rubber band from the anchor to the pulled point
-		draw_line(drag_start, cur, Color(0.1, 0.06, 0.02, 0.9), 12.0, true)
-		draw_line(drag_start, cur, col, 7.0, true)
+		draw_line(drag_start, cur, Color(0.1, 0.06, 0.02, 0.9), 12.0 * band, true)
+		draw_line(drag_start, cur, col, 7.0 * band, true)
 	draw_circle(drag_start, 9.0 * sc, Color(0.1, 0.06, 0.02, 0.9))
 	draw_circle(drag_start, 6.0 * sc, Color("#ffffff"))
 	draw_circle(cur, 15.0 * sc, Color(0.1, 0.06, 0.02, 0.95))
 	draw_circle(cur, 11.0 * sc, col)
 	var f: Font = UITheme.font_bold()
 	var t: String = "%d%%" % int(round(power * 100.0))
+	if touch:
+		# the thumb covers what is under it: the number sits beside the finger, on the side of the screen half the thumb is NOT in
+		var fs: int = int(46 * sc)
+		var vp: Vector2 = get_viewport().get_visible_rect().size
+		var tw: float = f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var tx: float = drag_cur.x + 110.0 * sc if drag_cur.x < vp.x * 0.5 else drag_cur.x - 110.0 * sc - tw
+		var tp := Vector2(clampf(tx, 6.0, vp.x - tw - 6.0), clampf(drag_cur.y + fs * 0.35, fs + 4.0, vp.y - 6.0))
+		draw_string_outline(f, tp, t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 9, Color(0.1, 0.06, 0.02))
+		draw_string(f, tp, t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+		return
 	draw_string_outline(f, cur + Vector2(20, -12) * sc, t, HORIZONTAL_ALIGNMENT_LEFT, -1, int(26 * sc), 6, Color(0.1, 0.06, 0.02))
 	draw_string(f, cur + Vector2(20, -12) * sc, t, HORIZONTAL_ALIGNMENT_LEFT, -1, int(26 * sc), Color.WHITE)
 
