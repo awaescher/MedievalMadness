@@ -109,7 +109,6 @@ func _ready() -> void:
 	_load_state()
 	_build()
 	Events.language_changed.connect(_on_lang_changed)
-	Sfx.synth_progress.connect(_on_synth_progress)
 	Net.roster_changed.connect(_on_net_changed)
 	Net.joined.connect(func(_c: String) -> void: _on_net_changed())
 	Sfx.synth_ready.connect(_on_synth_ready)
@@ -245,11 +244,6 @@ func _on_lang_changed() -> void:
 	_build()
 	_refresh_start()
 
-func _on_synth_progress(p: float) -> void:
-	if not _sound_ready and status != null and Time.get_ticks_msec() - Sfx.synth_started_msec() > 1500:        # a quick start shows no text at all
-		status.text = I18n.t("menu.loading_audio", {"p": int(p * 100.0)})
-		status.visible = true
-
 func _on_synth_ready() -> void:
 	_sound_ready = true
 	_refresh_start()
@@ -276,7 +270,6 @@ func _refresh_start() -> void:
 			status.text = ""
 		if _team_count() < 2:
 			status.text = I18n.t("menu.one_team")
-		status.visible = status.text != ""
 
 ## Different colours among the players = number of teams (same colour = same team)
 func _team_count() -> int:
@@ -407,10 +400,10 @@ func _build() -> void:
 		else:
 			online_requested.emit())
 	bottom.add_child(online_btn)
-	# status line only when there is something to say (audio loading, online room, "needs two teams"); no help text
+	# status line (online room, "needs two teams", rules reset): its space is always reserved; no help text
 	status = UITheme.label("", 15, Color.WHITE, false, 6)
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	status.visible = false
+	status.custom_minimum_size = Vector2(0, 24)            # always takes its space: the buttons above never jump
 	root.add_child(status)
 	var cred: Label = UITheme.label(I18n.t("menu.credits") + "   -   v" + Cfg.game_version(), 13, Color(1, 1, 1, 0.8), false, 5)
 	cred.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -701,8 +694,7 @@ func _options_panel() -> Control:
 		Settings.reset_match_options(Net.is_client())
 		Sfx.play("ui_click", Vector3.INF, 0.7, 0)
 		_build()
-		status.text = I18n.t("menu.rules_reset")
-		status.visible = true)
+		status.text = I18n.t("menu.rules_reset"))
 	vb.add_child(reset)
 	return panel
 

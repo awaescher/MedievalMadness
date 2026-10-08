@@ -64,7 +64,6 @@ const DATA := {
 		"autoquality": "Auto-Qualität",
 		"on": "An",
 		"off": "Aus",
-		"loading_audio": "Kazoos werden gestimmt… {p}%",
 		"small_screen_hint": "Kleiner Bildschirm: am besten auf einem Tablet oder Computer spielen. Das Menü lässt sich mit einem Finger scrollen.",
 		"ready": "Bereit!",
 		"quit": "Beenden",
