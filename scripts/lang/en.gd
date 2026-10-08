@@ -159,6 +159,7 @@ const DATA := {
 		"distance": "Distance: {d} m",
 	},
 	"hint": {
+		"rotate": "Please turn your device: the game is played in landscape",
 		"t_aim": "Drag anywhere to fire - two fingers move the camera",
 		"t_relocate": "Drive the catapult with the buttons, then tap Done",
 		"t_wall": "Turn the wall, then tap the ground to build it",

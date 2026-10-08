@@ -159,6 +159,7 @@ const DATA := {
 		"distance": "Entfernung: {d} m",
 	},
 	"hint": {
+		"rotate": "Bitte drehe dein Gerät: das Spiel wird im Querformat gespielt",
 		"t_aim": "Irgendwo ziehen zum Schießen - zwei Finger bewegen die Kamera",
 		"t_relocate": "Katapult mit den Tasten fahren, dann Fertig tippen",
 		"t_wall": "Mauer drehen, dann auf den Boden tippen",

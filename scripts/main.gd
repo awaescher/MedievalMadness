@@ -299,6 +299,7 @@ func _build_loading() -> void:
 	loading_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(loading_label)
 	ui_root.add_child(loading)
+	ui_root.add_child(RotateHint.new())          # last: covers everything while a touch screen is held upright
 
 func _debug_extra() -> String:
 	return "state %d  phase %d  structs %d  settlers %d  fires %d  particles %d  debris %d" % [
