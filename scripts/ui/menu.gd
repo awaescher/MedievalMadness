@@ -584,6 +584,7 @@ func _arsenal_cells(grid: GridContainer) -> void:
 	var edit: Button = UITheme.option_button(I18n.t("menu.ars_edit"), "GoldButton", 100.0)
 	edit.pressed.connect(_open_arsenal)
 	grid.add_child(edit)
+	_host_only(edit)              # online a guest cannot open it (the host decides the loadout)
 	# unlock rules: given by the mode (the tier of a Custom arsenal is chosen in the Edit dialog); always readable right here
 	grid.add_child(UITheme.label(I18n.t("menu.rules"), 18, UITheme.INK, true))
 	_rules_label = UITheme.label(_rules_text(), 17, UITheme.INK)
@@ -695,6 +696,7 @@ func _options_panel() -> Control:
 		Sfx.play("ui_click", Vector3.INF, 0.7, 0)
 		_build()
 		status.text = I18n.t("menu.rules_reset"))
+	_host_only(reset)             # online only the host resets the match rules
 	vb.add_child(reset)
 	return panel
 
