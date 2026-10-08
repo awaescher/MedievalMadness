@@ -281,14 +281,14 @@ func _team_count() -> int:
 # ------------------------------------------------------------------ layout
 func _build() -> void:
 	_host_ctrls.clear()
-	if is_instance_valid(_settings_dlg):
-		move_child.call_deferred(_settings_dlg, get_child_count() - 1)
 	if _content != null:
 		_content.queue_free()
 	_content = Control.new()
 	_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_content)
+	if is_instance_valid(_settings_dlg):
+		move_child(_settings_dlg, get_child_count() - 1)          # an open settings dialog stays in front of the rebuilt menu (language change)
 	# dim gradient at the sides for readability
 	# the menu scrolls when the screen is lower than the menu (phones in landscape, small browser windows)
 	var scroll := ScrollContainer.new()
