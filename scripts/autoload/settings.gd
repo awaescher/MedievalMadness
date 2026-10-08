@@ -7,7 +7,7 @@ const QUALITY_TIERS: Array[String] = ["low", "medium", "high", "ultra"]
 const LIGHTING_MODES: Array[String] = ["basic", "enhanced", "rt"]
 const GFX_STYLES: Array[String] = ["toon", "photo", "comic", "watercolor", "retro", "neon", "noir"]
 
-var language: String = "en"
+var language: String = "de" if OS.get_locale_language() == "de" else "en"          # first start: the language of the system (any German: de-DE, de-AT, de-CH ...), otherwise English
 var volume: float = 0.8
 var quality: String = "medium"
 var relay_url: String = Cfg.DEFAULT_RELAY             # online play: wss://<your worker>.workers.dev (see relay/README.md)
@@ -26,7 +26,7 @@ var fullscreen: bool = false
 var vsync: bool = false
 var cinema: bool = false                # cinematic camera (not saved: every new game starts with it off)
 var music_volume: float = 0.3          # background music (own bus), quieter than the effects by default
-var glass: bool = true                   # frosted-glass look of menus and HUD (off: plain translucent panels)
+var glass: bool = false                  # frosted-glass look of menus and HUD (off: plain translucent panels)
 var cpu_particles: bool = false
 var win_size: Vector2i = Vector2i(1600, 900)
 var players: Array = []      # last used player list: [{name, color, type}]
@@ -193,7 +193,7 @@ func reset_display_options() -> void:
 	shake = true
 	auto_quality = true
 	vsync = false
-	glass = true
+	glass = false
 	music_volume = 0.3
 	fullscreen = false
 	apply_display()
